@@ -1,0 +1,10 @@
+
+cmake_minimum_required(VERSION 3.19.2)
+project(EnvHazGraphics)
+set(CMAKE_CXX_STANDARD 17)
+
+option(BUILD_SHARED_LIBS "Build shared instead of static libraries" ON)
+
+# Add subdirectories
+add_subdirectory(lib)
+add_subdirectory(app)

@@ -1,5 +1,7 @@
 # Prerequisites
 *.d
+build/*
+
 
 # Compiled Object files
 *.slo
