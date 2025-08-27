@@ -1,5 +1,6 @@
-#include <iostream>
 
+#include <EnvHazGraphics.hpp>
+#include <iostream>
 
 
 
@@ -8,8 +9,13 @@
 
 int main()
 {
+    Renderer rend;
+    rend.Initialize();
 
-    std::cout << "test testy test of the greatest tests\n";
+
+
+
+
 
     return 0;
 }

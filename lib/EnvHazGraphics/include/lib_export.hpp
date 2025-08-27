@@ -12,5 +12,3 @@
 #else
 #define eHazGAPI
 #endif
-
-eHazGAPI void Hello();
