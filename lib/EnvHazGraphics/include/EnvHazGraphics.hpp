@@ -1,8 +1,12 @@
 #ifndef EnvHazGraphics
 #define EnvHazGraphics
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <lib_export.hpp>
+#include <string>
 
 
+#include "Window.hpp"
 
 
 
@@ -19,7 +23,7 @@ class eHazGAPI Renderer
     // will be created
 
   public:
-    void Initialize();
+    bool Initialize();
 
 
 
@@ -37,6 +41,10 @@ class eHazGAPI Renderer
 
 
     void Destroy();
+
+
+  private:
+    Window window;
 };
 
 
