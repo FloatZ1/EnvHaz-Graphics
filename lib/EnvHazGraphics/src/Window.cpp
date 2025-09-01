@@ -21,6 +21,7 @@ bool Window::Create(int width, int height, bool fullscreen)
     else
     {
         SDL_Log("IT CREATES LE WINDOW \n\n\n\n\n\n\n");
+        ;
         mSurface = SDL_GetWindowSurface(mWindow);
     }
 

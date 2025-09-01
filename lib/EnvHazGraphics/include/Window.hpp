@@ -24,7 +24,7 @@ class Window
 
 
 
-  private:
+
     int mWidth, mHeight;
 
     SDL_Window *mWindow = nullptr;
