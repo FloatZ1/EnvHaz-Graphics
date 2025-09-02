@@ -7,6 +7,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
 #include <string>
 
 
@@ -16,19 +17,35 @@ class Window
 
 
   public:
-    bool Create(int width, int height, bool fullscreen);
+    bool Create(int width, int height, bool fullscreen, std::string tittle);
+
 
 
 
     void Destroy();
 
+    void Update();
+
+    // Getters
+
+    SDL_Window *GetWindowPtr() const;
+
+    SDL_Surface *GetSurfacePtr() const;
+
+    int GetWidth() const;
+
+    int GetHeight() const;
+
+    SDL_GLContext GetOpenGLContext();
 
 
 
+
+  private:
     int mWidth, mHeight;
 
     SDL_Window *mWindow = nullptr;
-    SDL_Surface *mSurface = nullptr;
+    SDL_GLContext glContext; // its a typedef to a void*
 };
 
 

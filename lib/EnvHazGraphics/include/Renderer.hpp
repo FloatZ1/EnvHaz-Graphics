@@ -9,8 +9,8 @@
 #include "Window.hpp"
 
 
-
-class eHazGAPI Renderer
+// eHazGAPI
+class Renderer
 {
 
     // TODO:
@@ -23,6 +23,10 @@ class eHazGAPI Renderer
     // will be created
 
   public:
+    bool shouldQuit = false;
+
+
+
     bool Initialize();
 
 
@@ -32,11 +36,12 @@ class eHazGAPI Renderer
     void SubmitDynamicMesh();
 
 
+
     void PollInputEvents();
 
     void RenderFrame();
 
-
+    void UpdateRenderer();
 
 
 
@@ -45,6 +50,7 @@ class eHazGAPI Renderer
 
   private:
     Window window;
+    SDL_Event events;
 };
 
 
