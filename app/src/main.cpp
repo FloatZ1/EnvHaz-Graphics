@@ -1,6 +1,6 @@
 
 #include "Renderer.hpp"
-#include <iostream>
+
 
 
 
@@ -9,7 +9,7 @@
 
 int main()
 {
-    Renderer rend;
+    eHazGraphics::Renderer rend;
     rend.Initialize();
 
     while (rend.shouldQuit == false)

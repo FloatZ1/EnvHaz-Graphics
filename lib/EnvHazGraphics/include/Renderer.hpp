@@ -8,7 +8,8 @@
 
 #include "Window.hpp"
 
-
+namespace eHazGraphics
+{
 // eHazGAPI
 class Renderer
 {
@@ -27,7 +28,7 @@ class Renderer
 
 
 
-    bool Initialize();
+    bool Initialize(); // 5%
 
 
 
@@ -55,7 +56,7 @@ class Renderer
 
 
 
-
+} // namespace eHazGraphics
 
 
 

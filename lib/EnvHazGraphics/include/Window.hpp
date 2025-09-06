@@ -10,6 +10,9 @@
 #include <SDL3/SDL_video.h>
 #include <string>
 
+namespace eHazGraphics
+{
+
 
 
 class Window
@@ -48,7 +51,7 @@ class Window
     SDL_GLContext glContext; // its a typedef to a void*
 };
 
-
+} // namespace eHazGraphics
 
 
 #endif

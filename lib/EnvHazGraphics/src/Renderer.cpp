@@ -8,6 +8,12 @@
 #include <iostream>
 
 
+namespace eHazGraphics
+{
+
+
+
+
 bool Renderer::Initialize()
 {
     bool success{true};
@@ -50,10 +56,14 @@ void Renderer::SubmitDynamicMesh()
 {
 }
 
+
+
 void Renderer::PollInputEvents()
 {
     SDL_PollEvent(&events);
 }
+
+
 void Renderer::RenderFrame()
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -71,3 +81,7 @@ void Renderer::UpdateRenderer()
 void Renderer::Destroy()
 {
 }
+
+
+
+} // namespace eHazGraphics

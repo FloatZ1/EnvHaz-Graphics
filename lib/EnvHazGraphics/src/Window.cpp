@@ -3,6 +3,9 @@
 #include <SDL3/SDL_video.h>
 #include <glad/glad.h>
 
+namespace eHazGraphics
+{
+
 
 bool Window::Create(int width, int height, bool fullscreen, std::string tittle)
 {
@@ -71,3 +74,5 @@ int Window::GetHeight() const
 {
     return mHeight;
 }
+
+} // namespace eHazGraphics
