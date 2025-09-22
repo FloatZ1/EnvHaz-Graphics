@@ -13,8 +13,8 @@ namespace eHazGraphics
 {
 
 
-StaticBuffer::StaticBuffer(size_t initialVertexBufferSize, size_t initialIndexBufferSize)
-    : VertexBufferSize(initialVertexBufferSize), IndexBufferSize(initialIndexBufferSize)
+StaticBuffer::StaticBuffer(size_t initialVertexBufferSize, size_t initialIndexBufferSize, int StaticBufferID)
+    : VertexBufferSize(initialVertexBufferSize), IndexBufferSize(initialIndexBufferSize), StaticBufferID(StaticBufferID)
 {
 
     // Generate the needed Buffers
@@ -211,7 +211,7 @@ void StaticBuffer::BindBuffer()
 //----------------STATIC BUFFER IMPLEMENTATION END------------------------------------\\
 
 
-DynamicBuffer::DynamicBuffer(size_t initialBuffersSize)
+DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID) : DynamicBufferID(DynamicBufferID)
 {
 
     slotFullSize[0] = initialBuffersSize;
@@ -500,7 +500,7 @@ BufferRange DynamicBuffer::BeginWritting()
 
             slotOccupiedSize[next] = 0;
 
-            return {next, slotFullSize[next], 0};
+            return {DynamicBufferID, next, slotFullSize[next], 0};
         }
     }
 
@@ -513,7 +513,7 @@ BufferRange DynamicBuffer::BeginWritting()
     fences[oldest] = 0;
     currentSlot = oldest;
     slotOccupiedSize[oldest] = 0;
-    return {currentSlot, slotFullSize[currentSlot], 0};
+    return {DynamicBufferID, currentSlot, slotFullSize[currentSlot], 0};
 }
 
 
@@ -610,7 +610,7 @@ BufferRange DynamicBuffer::InsertNewData(void *data, size_t size)
     memcpy(writeLocation, data, size);
     slotOccupiedSize[fittingSlot] += size;
     currentSlot = fittingSlot;
-    return {fittingSlot, size, slotOccupiedSize[fittingSlot] - size};
+    return {DynamicBufferID, fittingSlot, size, slotOccupiedSize[fittingSlot] - size};
 }
 
 
@@ -688,6 +688,21 @@ void DynamicBuffer::SetDownFence()
     slotsAge[currentSlot] = slotTimeline;
     slotTimeline++;
 }
+
+//-----------------------DYNAMIC BUFFER IMPLEMENTATION END-------------------------------------\\
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

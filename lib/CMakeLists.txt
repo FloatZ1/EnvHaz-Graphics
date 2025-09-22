@@ -5,6 +5,9 @@
 add_library(glad STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glad/src/glad.c
 )
+
+
+
  set_target_properties(glad PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(glad PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glad/include
@@ -16,7 +19,7 @@ add_subdirectory(dependencies/glm/glm)
 
 
 
-# Find OpenGL and SDL3
+# Find OpenGL and SDL3                                   
 find_package(OpenGL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL3 REQUIRED sdl3)
@@ -32,7 +35,8 @@ add_library(EnvHazGraphics ${LIB_SOURCES})
 target_include_directories(EnvHazGraphics PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/EnvHazGraphics/include"
     ${SDL3_INCLUDE_DIRS}
-  "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glm"  
+  "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glm"
+  "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/stbi/include/"
 )
 target_compile_definitions(EnvHazGraphics PUBLIC
     RESOURCES_PATH="${CMAKE_SOURCE_DIR}/assets/"
