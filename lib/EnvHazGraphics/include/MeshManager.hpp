@@ -7,6 +7,7 @@
 
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
+#include "ShaderManager.hpp"
 #include <cstddef>
 #include <iterator>
 #include <string>
@@ -19,20 +20,20 @@ namespace eHazGraphics
 class Mesh
 {
   private:
+    // add variables for used textures and transforms.
     MeshData data;
-    ShaderProgID shaderID;
+    ShaderComboID shaderID;
 
     bool GPUresident = false;
 
   public:
     Mesh(MeshData data) : data(data) {};
 
-    Mesh(MeshData data, ShaderProgID shaderID) : data(data), shaderID(shaderID) {};
+    Mesh(MeshData data, ShaderComboID shaderID) : data(data), shaderID(shaderID) {};
 
-    int GetShaderID() const
+    ShaderComboID GetShaderID() const
     {
-        if (shaderID == -1)
-            return SHADER_ERROR_NO_SHADER_ATTACHED;
+
         return shaderID;
     }
 
@@ -70,10 +71,6 @@ class MeshManager
   private:
     std::unordered_map<MeshID, Mesh> meshes;
     std::unordered_map<std::string, MeshID> meshPaths;
-
-    void adsjad()
-    {
-    }
 };
 
 

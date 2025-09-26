@@ -10,13 +10,12 @@
 #include "glad/glad.h"
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_log.h>
-#include <climits>
+
 #include <cstddef>
-#include <functional>
-#include <memory>
+
 #include <string>
 #include <unordered_map>
-#include <vector>
+
 namespace eHazGraphics
 {
 

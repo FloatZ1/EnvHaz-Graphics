@@ -2,10 +2,12 @@
 #define EnvHazGraphics
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <cstddef>
 #include <lib_export.hpp>
 #include <string>
 
 
+#include "BitFlags.hpp"
 #include "Window.hpp"
 
 namespace eHazGraphics
@@ -14,27 +16,21 @@ namespace eHazGraphics
 class Renderer
 {
 
-    // TODO:
-    // Add the buffers for the dynamic and static mesh batching plus 2
-    // more incase there is instancing for either
-    //
-    // next up is to make a window class which creates and destroys
-    // the window and also handles Input events
-    // for the purposes of this library we will asume only one window
-    // will be created
+
 
   public:
     bool shouldQuit = false;
 
 
 
-    bool Initialize(); // 5%
+    bool Initialize();
 
 
 
-    void SubmitStaticMesh();
+    void SubmitStaticMesh(); // require a an object/container from which to unwrap everything
 
-    void SubmitDynamicMesh();
+    void SubmitDynamicData(const void *data, size_t dataSize,
+                           TypeFlags dataType); // same, require a container later/ from a octree node or smth
 
 
 

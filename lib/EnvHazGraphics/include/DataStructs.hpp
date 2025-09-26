@@ -2,6 +2,7 @@
 #define DATA_STRUCTS_HPP
 
 
+
 #include "Utils/HashedStrings.hpp"
 #include "stbi_image.h"
 #include <SDL3/SDL_log.h>
@@ -12,13 +13,27 @@
 #include <utility>
 #include <vector>
 
-typedef int MeshID;
-typedef int ShaderProgID;
+namespace eHazGraphics
+{
 
+
+struct BufferRange
+{
+    int OwningBuffer;
+    int slot; // if slot is -1 we assume its in the static buffer;
+    size_t size;
+    size_t offset;
+};
+
+
+typedef int MeshID;
+using VertexIndexInfoPair = std::pair<BufferRange, BufferRange>;
 
 
 struct ShaderComboID
 {
+    ShaderComboID() = default;
+
     eHazGraphics_Utils::HashedString vertex;
     eHazGraphics_Utils::HashedString fragment;
     ShaderComboID(eHazGraphics_Utils::HashedString vs, eHazGraphics_Utils::HashedString fs)
@@ -171,7 +186,7 @@ struct InstanceData
 
 
 
-
+}; // namespace eHazGraphics
 
 
 

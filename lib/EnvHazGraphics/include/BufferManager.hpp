@@ -21,13 +21,7 @@ namespace eHazGraphics
 
 
 
-struct BufferRange
-{
-    int OwningBuffer;
-    int slot; // if slot is -1 we assume its in the static buffer;
-    size_t size;
-    size_t offset;
-};
+
 
 class StaticBuffer
 {
@@ -39,9 +33,10 @@ class StaticBuffer
     void ResizeBuffer();
 
 
-
-    void InsertIntoBuffer(const Vertex *vertexData, size_t vertexDataSize, const GLuint *indexData,
-                          size_t indexDataSize);
+    // inserts data into the vertex and index buffer and returns the buffer ranges for them in the order of
+    // <VertexRange, IndexRange>
+    VertexIndexInfoPair InsertIntoBuffer(const Vertex *vertexData, size_t vertexDataSize, const GLuint *indexData,
+                                         size_t indexDataSize);
 
 
     void ClearBuffer();
@@ -67,6 +62,7 @@ class StaticBuffer
     size_t VertexSizeOccupied = 0;
     size_t IndexSizeOccupied = 0;
     int numOfOccupiedVerts = 0;
+    int numOfOccupiedIndecies = 0;
     // Sets the vertex attributes to the currently bound VAO
     void setVertexAttribPointers();
 };
@@ -197,7 +193,7 @@ class BufferManager
     DynamicBuffer TextureHandleBuffer;
     DynamicBuffer ParticleData;
     StaticBuffer StaticMeshInformation;
-
+    StaticBuffer TerrainBuffer;
 
 
 

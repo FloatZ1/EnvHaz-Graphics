@@ -6,6 +6,7 @@
 
 #include <cstring>
 #include <iterator>
+#include <utility>
 #include <vector>
 
 
@@ -140,8 +141,8 @@ void StaticBuffer::ResizeBuffer()
     // to the proper binding to remove extra binds.
 }
 
-void StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, size_t vertexDataSize, const GLuint *indexData,
-                                    size_t indexDataSize)
+VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, size_t vertexDataSize,
+                                                   const GLuint *indexData, size_t indexDataSize)
 {
 
     // bind->set->bind->set
@@ -190,6 +191,24 @@ void StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, size_t vertexDataS
                     processedIndecies.data());
 
     IndexSizeOccupied += processedIndecies.size() * sizeof(GLuint);
+    numOfOccupiedIndecies = IndexSizeOccupied / sizeof(typeof(IndexSizeOccupied));
+
+
+
+    BufferRange vertexRange;
+    BufferRange indexRange;
+
+    vertexRange.OwningBuffer = StaticBufferID;
+    vertexRange.offset = numOfOccupiedVerts;
+    vertexRange.size = vertexDataSize;
+    vertexRange.slot = VertexBufferID;
+
+    indexRange.OwningBuffer = StaticBufferID;
+    indexRange.offset = numOfOccupiedIndecies;
+    indexRange.size = indexDataSize;
+    indexRange.slot = IndexBufferID;
+
+    return std::pair<BufferRange, BufferRange>(vertexRange, indexRange);
 }
 
 void StaticBuffer::ClearBuffer()
