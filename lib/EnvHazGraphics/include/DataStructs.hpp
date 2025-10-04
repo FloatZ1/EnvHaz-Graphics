@@ -6,15 +6,24 @@
 #include "Utils/HashedStrings.hpp"
 #include "stbi_image.h"
 #include <SDL3/SDL_log.h>
-#include <filesystem>
+
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <string>
 #include <utility>
 #include <vector>
 
+
+
+
 namespace eHazGraphics
 {
+
+#define MBsize(size) ((size) * 1024 * 1024)
+
+
+
+
 
 
 struct BufferRange
@@ -22,7 +31,9 @@ struct BufferRange
     int OwningBuffer;
     int slot; // if slot is -1 we assume its in the static buffer;
     size_t size;
+
     size_t offset;
+    unsigned int count;
 };
 
 
@@ -64,6 +75,13 @@ struct ShaderComboID
     {
         return vertex == other.vertex && fragment == other.fragment;
     }
+
+    bool operator<(const ShaderComboID &other) const
+    {
+        if (vertex != other.vertex)
+            return vertex < other.vertex;
+        return fragment < other.fragment; // compare fragment hash if vertex hash is equal
+    }
 };
 
 
@@ -85,30 +103,52 @@ class MeshData
   public:
     std::vector<Vertex> vertices;
 
-    std::vector<int> indecies;
+    std::vector<GLuint> indecies;
 };
 
 class Texture2D
 {
-
+  public:
     GLuint64 TextureHandle;
     GLuint texture;
     int width, height, nrChannel;
     unsigned char *data;
 
   public:
-    Texture2D(std::string texturePath, GLenum storageFormat, GLenum imageFormat)
+    Texture2D(std::string texturePath, GLenum storageFormat = 0, GLenum imageFormat = 0)
     {
 
 
+
         data = stbi_load(texturePath.c_str(), &width, &height, &nrChannel, 0);
+        if (storageFormat == 0 && imageFormat == 0)
+        {
+            switch (nrChannel)
+            {
+            case 1:
+                imageFormat = GL_RED;
+                storageFormat = GL_R8; // 8 bits for single channel
+                break;
+            case 3:
+                imageFormat = GL_RGB;
+                storageFormat = GL_RGB8; // 8 bits per channel
+                break;
+            case 4:
+                imageFormat = GL_RGBA;
+                storageFormat = GL_RGBA8; // 8 bits per channel
+                break;
+            }
+        }
 
 
         glCreateTextures(GL_TEXTURE_2D, 1, &texture);
 
         glTextureStorage2D(texture, 1, storageFormat, width, height);
         glTextureSubImage2D(texture, 0, 0, 0, width, height, imageFormat, GL_UNSIGNED_BYTE, (const void *)&data[0]);
-
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glGenerateTextureMipmap(texture);
 
         TextureHandle = glGetTextureHandleARB(texture);
@@ -116,6 +156,7 @@ class Texture2D
         {
             SDL_Log("Could not load the texturePath: ");
         }
+        stbi_image_free(data);
     }
 
 
@@ -160,31 +201,66 @@ class Texture2D
 
     ~Texture2D()
     {
-        stbi_image_free(data);
+
         RemoveResidency();
         glDeleteTextures(1, &texture);
     }
 };
 
+struct PBRMaterial
+{
+    // Based on the Hedgehog Engine 2 PBR format
+    // https://hedgedocs.com/index.php/Hedgehog_Engine_2_-_Physically_Based_Rendering_(PBR)
 
 
-typedef struct
+    GLuint64 albedo;
+
+    // GLuint64 specular;
+    // GLuint64 smoothness;
+    // GLuint64 Metalic;
+    // GLuint64 AmbientOcclusion;
+
+    GLuint64 prm; // Packed R=Spec, G=Smoothness, B=Metallic, A=AO
+
+    GLuint64 NormalMap;
+    GLuint64 Emission;
+
+    // Determines the strength of emision;
+    float Luminance = 0.0f;
+
+    float _padding[2]{0.0f, 0.0f};
+};
+
+struct DrawElementsIndirectCommand
 {
     uint count;
     uint instanceCount;
     uint firstIndex;
     int baseVertex;
     uint baseInstance;
-} DrawElementsIndirectCommand;
+
+
+    bool operator==(const DrawElementsIndirectCommand &other) const
+    {
+        return count == other.count && instanceCount == other.instanceCount && firstIndex == other.firstIndex &&
+               baseVertex == other.baseVertex && baseInstance == other.baseInstance;
+    }
+};
 
 
 struct InstanceData
 {
     glm::mat4 modelMat;
-    unsigned int materialID;
+    uint32_t materialID;
+    uint32_t _pad[3]{0, 0, 0};
 };
 
-
+struct DrawRange
+{
+    size_t startIndex;
+    size_t count;
+    ShaderComboID shader;
+};
 
 }; // namespace eHazGraphics
 

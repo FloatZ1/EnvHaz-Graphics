@@ -3,6 +3,8 @@
 
 
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
 #include <cstddef>
@@ -29,8 +31,10 @@ class SDLFileReadBuffer
     {
         void *p_data = SDL_LoadFile(filepath.c_str(), &fileSize);
         if (p_data == nullptr)
+        {
+            printf("SDL_LOAD_ERROR: %s", SDL_GetError());
             throw std::runtime_error("SDLFileReadBuffer had a nullptr reference.\n");
-
+        }
         data.reset(p_data);
         source = std::string((char *)data.get(), fileSize);
     }

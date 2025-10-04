@@ -3,6 +3,7 @@
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "glad/glad.h"
+#include <memory>
 
 
 
@@ -57,6 +58,7 @@ void StandartShaderProgramme::FlipFlags(BitFlag<ShaderManagerFlags> flags)
 
 void StandartShaderProgramme::UseProgramme()
 {
+
     glUseProgram(progID);
 }
 
@@ -84,17 +86,17 @@ ShaderComboID ShaderManager::CreateShaderProgramme(const std::string &vertexShad
 
 
 
-    auto vIterator = LoadedShaders.try_emplace(vs, Shader(vertexShaderPath)).first;
+    auto vIterator = LoadedShaders.try_emplace(vs, std::make_unique<Shader>(vertexShaderPath)).first;
 
 
 
-    auto fIterator = LoadedShaders.try_emplace(fs, Shader(fragmentShaderPath)).first;
+    auto fIterator = LoadedShaders.try_emplace(fs, std::make_unique<Shader>(fragmentShaderPath)).first;
 
 
 
     if (LoadedProgrammes.find(cmp) == LoadedProgrammes.end())
     {
-        LoadedProgrammes[cmp] = StandartShaderProgramme(vIterator->second, fIterator->second);
+        LoadedProgrammes.emplace(cmp, StandartShaderProgramme(*vIterator->second, *fIterator->second));
         return cmp;
     }
 
@@ -102,13 +104,77 @@ ShaderComboID ShaderManager::CreateShaderProgramme(const std::string &vertexShad
     return cmp;
 }
 
+void ShaderManager::SetOpenGLFlags(const StandartShaderProgramme &shaderProgramme)
+{
+    BitFlag<ShaderManagerFlags> flags = shaderProgramme.GetFlags();
+
+    if (flags.HasFlag(ShaderManagerFlags::DISABLE_DEPTH_TEST))
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::ENABLE_BLEND))
+    {
+        glEnable(GL_BLEND);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::DISABLE_CULL_FACE))
+    {
+        glDisable(GL_CULL_FACE);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::ENABLE_WIREFRAME))
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::DISABLE_DEPTH_WRITE))
+    {
+        glDepthMask(GL_FALSE);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::BLEND_ALPHA))
+    {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::BLEND_ADDITIVE))
+    {
+        glBlendFunc(GL_ONE, GL_ONE);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::DEPTH_LESS_EQUAL))
+    {
+        glDepthFunc(GL_LEQUAL);
+    }
+
+    if (flags.HasFlag(ShaderManagerFlags::ENABLE_STENCIL_TEST))
+    {
+        glEnable(GL_STENCIL_TEST);
+    }
+}
 void ShaderManager::UseProgramme(const ShaderComboID &ShaderProgrammeID)
 {
-
-    glUseProgram(LoadedProgrammes[ShaderProgrammeID].GetGLShaderID());
+    auto it = LoadedProgrammes.find(ShaderProgrammeID);
+    if (it != LoadedProgrammes.end())
+    {
+        SetOpenGLFlags(it->second);
+        glUseProgram(it->second.GetGLShaderID());
+    }
+    else
+    {
+        SDL_Log("Shader programme not found!");
+        // Optionally handle missing shader
+    }
 }
 
+void ShaderManager::Initialize()
+{
+}
 
+void ShaderManager::Destroy()
+{
+}
 
 
 

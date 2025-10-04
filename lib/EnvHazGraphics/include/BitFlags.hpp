@@ -18,19 +18,42 @@ enum class TypeFlags : uint32_t
     BUFFER_PARTICLE_DATA = 1 << 3,
     BUFFER_TEXTURE_DATA = 1 << 4,
     BUFFER_INSTANCE_DATA = 1 << 7,
+    BUFFER_STATIC_TERRAIN_DATA = 1 << 11,
+    BUFFER_STATIC_MESH_DATA = 1 << 12,
+    BUFFER_DRAW_CALL_DATA = 1 << 13,
+    BUFFER_CAMERA_DATA = 1 << 14,
+    BUFFER_LIGHT_DATA = 1 << 15,
+
     SHADER_TYPE_VERTEX_SHADER = 1 << 5,
     SHADER_TYPE_FRAGMENT_SHADER = 1 << 6,
     SHADER_TYPE_TESSALATION_SHADER = 1 << 8,
     SHADER_TYPE_GEOMETRY_SHADER = 1 << 9,
-    SHADER_ERROR_NO_SHADER_ATTACHED = 1 << 10
+    SHADER_ERROR_NO_SHADER_ATTACHED = 1 << 10 // newest is 15
 };
 
 
 enum class ShaderManagerFlags : uint32_t
 {
-    DISABLE_DEPTH_TEST = 1 << 0,
-    NO_FLAGS = 1 << 1
-    // stuff to execute opengl functions like to turn off depth testing or smth
+    NONE = 0, // no special flags
+
+    DISABLE_DEPTH_TEST = 1 << 0,  // glDisable(GL_DEPTH_TEST)
+    ENABLE_BLEND = 1 << 1,        // glEnable(GL_BLEND)
+    DISABLE_CULL_FACE = 1 << 2,   // glDisable(GL_CULL_FACE)
+    ENABLE_WIREFRAME = 1 << 3,    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    DISABLE_DEPTH_WRITE = 1 << 4, // glDepthMask(GL_FALSE)
+
+    // Blending modes
+    BLEND_ALPHA = 1 << 5,    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    BLEND_ADDITIVE = 1 << 6, // glBlendFunc(GL_ONE, GL_ONE)
+
+    // Depth comparison tweaks
+    DEPTH_LESS_EQUAL = 1 << 7, // glDepthFunc(GL_LEQUAL)
+
+    // Stencil testing
+    ENABLE_STENCIL_TEST = 1 << 8, // glEnable(GL_STENCIL_TEST)
+
+    // Future flags (reserved for later use)
+    RESERVED_1 = 1 << 9
 };
 
 

@@ -13,6 +13,7 @@
 
 #include <cstddef>
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -30,7 +31,7 @@ class Shader
   public:
     Shader(std::string shaderPath) : shaderSource(shaderPath)
     {
-        data = SDLFileReadBuffer(shaderSource);
+        data = SDLFileReadBuffer(shaderPath);
         type = shaderTypeFromExtension(shaderPath);
     }
 
@@ -78,11 +79,20 @@ class Shader
     GLenum shaderTypeFromExtension(const std::string &path)
     {
 
+        if (path.ends_with(".vert"))
+            return GL_VERTEX_SHADER;
+        if (path.ends_with(".frag"))
+            return GL_FRAGMENT_SHADER;
+        if (path.ends_with(".geom"))
+            return GL_GEOMETRY_SHADER;
+        if (path.ends_with(".comp"))
+            return GL_COMPUTE_SHADER;
         if (path.ends_with(".vs"))
             return GL_VERTEX_SHADER;
         if (path.ends_with(".fs"))
             return GL_FRAGMENT_SHADER;
         if (path.ends_with(".gs"))
+
             return GL_GEOMETRY_SHADER;
         if (path.ends_with(".cs"))
             return GL_COMPUTE_SHADER;
@@ -184,13 +194,12 @@ class ShaderManager
 
   private:
     // Sets the OpenGL flags needed for the shader to work correctly, like for example enable/disable blending etc.
-    // TODO: Implement
-    void SetdOpenGLFlags(const StandartShaderProgramme &shaderProgramme);
-
+    void SetOpenGLFlags(const StandartShaderProgramme &shaderProgramme);
+    // mostly done
 
 
     // convert the paths to HashedString and match them with their shaders
-    std::unordered_map<eHazGraphics_Utils::HashedString, Shader> LoadedShaders;
+    std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Shader>> LoadedShaders;
     // brain ache, if performance is really tight in the future, hash the two hashesh toghether to create a single value
     // for lookup
     std::unordered_map<ShaderComboID, StandartShaderProgramme, ShaderComboID::ShaderComboHasher> LoadedProgrammes;

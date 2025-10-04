@@ -1,17 +1,35 @@
 #include "BufferManager.hpp"
+#include "BitFlags.hpp"
 #include "DataStructs.hpp"
+#include "glad/glad.h"
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_pixels.h>
 #include <algorithm>
 #include <cassert>
+
 #include <cstddef>
 
 #include <cstring>
 #include <iterator>
+#include <memory>
 #include <utility>
 #include <vector>
 
 
 namespace eHazGraphics
 {
+
+StaticBuffer::StaticBuffer()
+{
+    // initialize members if needed
+}
+
+DynamicBuffer::DynamicBuffer()
+{
+    // initialize members if needed
+}
+
+
 
 
 StaticBuffer::StaticBuffer(size_t initialVertexBufferSize, size_t initialIndexBufferSize, int StaticBufferID)
@@ -38,6 +56,12 @@ StaticBuffer::StaticBuffer(size_t initialVertexBufferSize, size_t initialIndexBu
     setVertexAttribPointers();
 
     // enable the attributes
+}
+
+void StaticBuffer::Destroy()
+{
+    glDeleteBuffers(1, &VertexBufferID);
+    glDeleteBuffers(1, &IndexBufferID);
 }
 
 
@@ -183,7 +207,8 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, siz
     for (int i = 0; i < (indexDataSize / sizeof(GLuint)); i++)
     {
 
-        processedIndecies[i] = (*(indexData + i) + vertexOffset);
+        processedIndecies[i] = *(indexData + i); //(*(indexData + i) + vertexOffset); //remove the index pre-processing
+                                                 // since we use the command struct for that
     }
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
@@ -192,20 +217,23 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, siz
 
     IndexSizeOccupied += processedIndecies.size() * sizeof(GLuint);
     numOfOccupiedIndecies = IndexSizeOccupied / sizeof(typeof(IndexSizeOccupied));
-
+    GLint IndexOffset = (IndexSizeOccupied - indexDataSize) / sizeof(GLuint);
 
 
     BufferRange vertexRange;
     BufferRange indexRange;
 
     vertexRange.OwningBuffer = StaticBufferID;
-    vertexRange.offset = numOfOccupiedVerts;
+    vertexRange.offset = vertexOffset;
     vertexRange.size = vertexDataSize;
     vertexRange.slot = VertexBufferID;
+    vertexRange.count = vertexDataSize / sizeof(GLuint);
+
 
     indexRange.OwningBuffer = StaticBufferID;
-    indexRange.offset = numOfOccupiedIndecies;
+    indexRange.offset = IndexOffset;
     indexRange.size = indexDataSize;
+    indexRange.count = indexDataSize / sizeof(GLuint);
     indexRange.slot = IndexBufferID;
 
     return std::pair<BufferRange, BufferRange>(vertexRange, indexRange);
@@ -230,7 +258,50 @@ void StaticBuffer::BindBuffer()
 //----------------STATIC BUFFER IMPLEMENTATION END------------------------------------\\
 
 
-DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID) : DynamicBufferID(DynamicBufferID)
+
+void BufferManager::BindDynamicBuffer(TypeFlags type)
+{
+    DynamicBuffer *buffer = nullptr;
+
+    switch (type)
+    {
+    case TypeFlags::BUFFER_DRAW_CALL_DATA:
+        buffer = &DrawCommandBuffer;
+        break;
+    case TypeFlags::BUFFER_INSTANCE_DATA:
+        buffer = &InstanceData;
+        break;
+    case TypeFlags::BUFFER_ANIMATION_DATA:
+        buffer = &AnimationMatrices;
+        break;
+    case TypeFlags::BUFFER_PARTICLE_DATA:
+        buffer = &ParticleData;
+        break;
+    case TypeFlags::BUFFER_TEXTURE_DATA:
+        buffer = &TextureHandleBuffer;
+        break;
+    case TypeFlags::BUFFER_CAMERA_DATA:
+        buffer = &cameraMatrices;
+        break;
+    case TypeFlags::BUFFER_LIGHT_DATA:
+        buffer = &LightsBuffer;
+        break;
+    default:
+        SDL_Log("BindDynamicBuffer: Unknown buffer type %d\n", type);
+        return;
+    }
+
+    // Manager decides which slot to use
+    buffer->SetSlot(buffer->GetCurrentSlot());
+}
+
+
+
+
+
+
+DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID, GLenum target)
+    : DynamicBufferID(DynamicBufferID), Target(target)
 {
 
     slotFullSize[0] = initialBuffersSize;
@@ -255,7 +326,11 @@ DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID) : D
 
 
 
+void DynamicBuffer::Destroy()
+{
 
+    glDeleteBuffers(3, &BufferSlots[0]);
+}
 
 
 
@@ -263,7 +338,8 @@ DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID) : D
 void DynamicBuffer::SetSlot(int slot)
 {
     currentSlot = slot;
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, BufferSlots[slot]);
+
+    glBindBufferBase(Target, binding, BufferSlots[slot]);
 }
 void DynamicBuffer::SetBinding(int bindingNum)
 {
@@ -542,7 +618,7 @@ BufferRange DynamicBuffer::BeginWritting()
 
 
 
-BufferRange DynamicBuffer::InsertNewData(void *data, size_t size)
+BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
 {
     int fittingSlot = -1;
     int slotsToCheck[3]{-1, -1, -1};
@@ -629,7 +705,15 @@ BufferRange DynamicBuffer::InsertNewData(void *data, size_t size)
     memcpy(writeLocation, data, size);
     slotOccupiedSize[fittingSlot] += size;
     currentSlot = fittingSlot;
-    return {DynamicBufferID, fittingSlot, size, slotOccupiedSize[fittingSlot] - size};
+
+    BufferRange RT;
+    RT.OwningBuffer = DynamicBufferID;
+    RT.slot = fittingSlot;
+    RT.size = size;
+    RT.offset = slotOccupiedSize[fittingSlot] - size;
+    RT.count = 1;
+
+    return RT;
 }
 
 
@@ -642,10 +726,13 @@ BufferRange DynamicBuffer::InsertNewData(void *data, size_t size)
 
 
 
-void DynamicBuffer::UpdateOldData(BufferRange range, void *data, size_t size)
+void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t size)
 {
     void *writeLocation = static_cast<void *>((char *)slots[range.slot] + range.offset);
+    SDL_Log("Range size: %zu , size = %zu \n , buffer:%u slot: %u", range.size, size, range.OwningBuffer, range.slot);
     assert(range.size == size);
+    SDL_Log("Updating buffer: slot=%u, offset=%zu, size=%zu, buffer=%u", range.slot, range.offset, size,
+            range.OwningBuffer);
     memcpy(writeLocation, data, range.size);
 }
 
@@ -712,12 +799,208 @@ void DynamicBuffer::SetDownFence()
 
 
 
+void BufferManager::Initialize()
+{
+    int d_size = 10;
+    int s_size = 16;
+
+
+    InstanceData = DynamicBuffer(MBsize(d_size), 0);
+    DrawCommandBuffer = DynamicBuffer(MBsize(d_size), 1, GL_DRAW_INDIRECT_BUFFER);
+    AnimationMatrices = DynamicBuffer(MBsize(d_size), 2);
+    TextureHandleBuffer = DynamicBuffer(MBsize(d_size), 3);
+    ParticleData = DynamicBuffer(MBsize(d_size), 4);
+    StaticMeshInformation = StaticBuffer(MBsize(s_size), MBsize(s_size), 5);
+    TerrainBuffer = StaticBuffer(MBsize(s_size), MBsize(s_size), 6);
+    cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 7);
+    LightsBuffer = DynamicBuffer(MBsize(d_size), 8);
+
+
+    StaticbufferIDs.push_back(std::make_unique<StaticBuffer>(StaticMeshInformation));
+    StaticbufferIDs.push_back(std::make_unique<StaticBuffer>(TerrainBuffer));
+
+
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(InstanceData));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(AnimationMatrices));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(TextureHandleBuffer));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(ParticleData));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(DrawCommandBuffer));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(cameraMatrices));
+    DynamicBufferIDs.push_back(std::make_unique<DynamicBuffer>(LightsBuffer));
+
+    InstanceData.SetBinding(0);
+    DrawCommandBuffer.SetBinding(1);
+    AnimationMatrices.SetBinding(2);
+    TextureHandleBuffer.SetBinding(3);
+    ParticleData.SetBinding(4);
+    cameraMatrices.SetBinding(5);
+    LightsBuffer.SetBinding(6);
+}
+void BufferManager::BeginWritting()
+{
+    for (auto &buffer : DynamicBufferIDs)
+    {
+        buffer->BeginWritting();
+    }
+}
+VertexIndexInfoPair BufferManager::InsertNewStaticData(const Vertex *vertexData, size_t vertexDataSize,
+                                                       const GLuint *indexData, size_t indexDataSize,
+                                                       TypeFlags type = TypeFlags::BUFFER_STATIC_MESH_DATA)
+{
+    // for now only use the StaticMeshInformation, later implement seperation
+
+    if (type == TypeFlags::BUFFER_STATIC_MESH_DATA)
+    {
+        return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize, indexData, indexDataSize);
+    }
+
+    if (type == TypeFlags::BUFFER_STATIC_TERRAIN_DATA)
+    { // NOTE: this is like this because i dont know how to design the RenderFrame() to account for the different draw
+      // indirect commands which are mixed of course i could seperate them, but this should work for now.
+      // return TerrainBuffer.InsertIntoBuffer(vertexData, vertexDataSize, indexData, indexDataSize);
+
+        return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize, indexData, indexDataSize);
+    }
 
 
 
+    return VertexIndexInfoPair();
+}
+BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size, TypeFlags type)
+{
+
+    if (type == TypeFlags::BUFFER_INSTANCE_DATA)
+    {
+        return InstanceData.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_MATRIX_DATA)
+    {
+        // guess we dont need it if we have instance data lmao
+    }
+    if (type == TypeFlags::BUFFER_ANIMATION_DATA)
+    {
+        return AnimationMatrices.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_PARTICLE_DATA)
+    {
+        return ParticleData.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_TEXTURE_DATA)
+    {
+        return TextureHandleBuffer.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_DRAW_CALL_DATA)
+    {
+        return DrawCommandBuffer.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_CAMERA_DATA)
+    {
+        return cameraMatrices.InsertNewData(data, size);
+    }
+    if (type == TypeFlags::BUFFER_LIGHT_DATA)
+    {
+        return LightsBuffer.InsertNewData(data, size);
+    }
+
+    SDL_Log("DYNAMIC BUFFER INSERTION ERROR: COULD NOT FIND THE DESIRED TYPE!\n");
+    return BufferRange();
+}
+void BufferManager::UpdateData(const BufferRange &range, const void *data, const size_t size)
+{
+
+    // this is a stupid ass hack what was i on when i wrote this...
+    if (StaticbufferIDs.size() < range.OwningBuffer)
+    {
+
+        // nothing since it is a static buffer duhh. Ignore the code below.
+        /*  for(auto& buff : StaticbufferIDs){
+
+               if(buff.GetStaticBufferID() == range.OwningBuffer){
+
+               }
+
+           }*/
+    }
+    else
+    {
+
+        for (auto &buffer : DynamicBufferIDs)
+        {
+            if (buffer->GetDynamicBufferID() == range.OwningBuffer)
+            {
+                buffer->UpdateOldData(range, data, size);
+            }
+        }
+    }
+}
+void BufferManager::EndWritting()
+{
+    for (auto &buffer : DynamicBufferIDs)
+    {
+        buffer->EndWritting();
+    }
+}
+void BufferManager::Destroy()
+{
+    for (auto &buffer : DynamicBufferIDs)
+    {
+        buffer->Destroy();
+    }
+}
 
 
 
+void BufferManager::ClearBuffer(TypeFlags whichBuffer)
+{
+
+
+    if (whichBuffer == TypeFlags::BUFFER_STATIC_MESH_DATA)
+    {
+        StaticMeshInformation.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_STATIC_TERRAIN_DATA)
+    {
+        // TerrainBuffer.ClearBuffer();
+        StaticMeshInformation.ClearBuffer(); // check the note in the insert function.
+    }
+    if (whichBuffer == TypeFlags::BUFFER_INSTANCE_DATA)
+    {
+        InstanceData.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_MATRIX_DATA)
+    {
+        // guess we dont need it if we have instance data lmao
+    }
+    if (whichBuffer == TypeFlags::BUFFER_ANIMATION_DATA)
+    {
+        AnimationMatrices.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_PARTICLE_DATA)
+    {
+        ParticleData.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_TEXTURE_DATA)
+    {
+        TextureHandleBuffer.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_DRAW_CALL_DATA)
+    {
+        DrawCommandBuffer.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_CAMERA_DATA)
+    {
+        cameraMatrices.ClearBuffer();
+    }
+    if (whichBuffer == TypeFlags::BUFFER_LIGHT_DATA)
+    {
+        LightsBuffer.ClearBuffer();
+    }
+}
+
+
+BufferManager::BufferManager()
+{
+}
 
 
 

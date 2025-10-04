@@ -4,10 +4,18 @@
 #include <SDL3/SDL_main.h>
 #include <cstddef>
 #include <lib_export.hpp>
+#include <memory>
 #include <string>
+#include <vector>
 
 
 #include "BitFlags.hpp"
+#include "BufferManager.hpp"
+#include "DataStructs.hpp"
+#include "MaterialManager.hpp"
+#include "MeshManager.hpp"
+#include "RenderQueue.hpp"
+#include "ShaderManager.hpp"
 #include "Window.hpp"
 
 namespace eHazGraphics
@@ -19,6 +27,21 @@ class Renderer
 
 
   public:
+    static std::unique_ptr<Window> p_window;
+
+    static std::unique_ptr<ShaderManager> p_shaderManager;
+
+    static std::unique_ptr<MaterialManager> p_materialManager;
+    static std::unique_ptr<MeshManager> p_meshManager;
+    static std::unique_ptr<RenderQueue> p_renderQueue;
+    static std::unique_ptr<BufferManager> p_bufferManager;
+
+    const SDL_Event &GetEvent() const
+    {
+        return events;
+    }
+
+
     bool shouldQuit = false;
 
 
@@ -27,18 +50,26 @@ class Renderer
 
 
 
-    void SubmitStaticMesh(); // require a an object/container from which to unwrap everything
+    void SubmitStaticMesh(std::vector<MeshID> meshes, BufferRange &instanceData,
+                          TypeFlags dataType); // require a an object/container from which to unwrap everything
 
-    void SubmitDynamicData(const void *data, size_t dataSize,
-                           TypeFlags dataType); // same, require a container later/ from a octree node or smth
+    BufferRange SubmitDynamicData(const void *data, size_t dataSize,
+                                  TypeFlags dataType); // same, require a container later/ from a octree node or smth
 
-
+    void UpdateDynamicData(const BufferRange &location, const void *data, const size_t size);
 
     void PollInputEvents();
 
-    void RenderFrame();
+    void RenderFrame(std::vector<DrawRange> DrawOrder);
 
     void UpdateRenderer();
+
+
+    // future
+
+
+
+
 
 
 
@@ -46,8 +77,14 @@ class Renderer
 
 
   private:
-    Window window;
     SDL_Event events;
+    /* Window window;
+
+     ShaderManager shaderManager;
+     MaterialManager materialManager;
+     MeshManager meshManager;
+     RenderQueue renderQueue; */
+    // BufferManager bufferManager;
 };
 
 
