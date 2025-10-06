@@ -11,6 +11,7 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_log.h>
 
+#include <algorithm>
 #include <cstddef>
 
 #include <memory>
@@ -156,6 +157,9 @@ class StandartShaderProgramme
 
     ~StandartShaderProgramme()
     {
+
+        SDL_Log("SHADER PROGRAMME DESTRUCTOR CALLED");
+
         glDeleteProgram(progID);
     }
 
@@ -194,7 +198,7 @@ class ShaderManager
 
   private:
     // Sets the OpenGL flags needed for the shader to work correctly, like for example enable/disable blending etc.
-    void SetOpenGLFlags(const StandartShaderProgramme &shaderProgramme);
+    void SetOpenGLFlags(const std::shared_ptr<StandartShaderProgramme> shaderProgramme);
     // mostly done
 
 
@@ -202,7 +206,8 @@ class ShaderManager
     std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Shader>> LoadedShaders;
     // brain ache, if performance is really tight in the future, hash the two hashesh toghether to create a single value
     // for lookup
-    std::unordered_map<ShaderComboID, StandartShaderProgramme, ShaderComboID::ShaderComboHasher> LoadedProgrammes;
+    std::unordered_map<ShaderComboID, std::shared_ptr<StandartShaderProgramme>, ShaderComboID::ShaderComboHasher>
+        LoadedProgrammes;
 };
 
 

@@ -8,6 +8,7 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_stdinc.h>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 struct SDLDeleter
@@ -37,6 +38,7 @@ class SDLFileReadBuffer
         }
         data.reset(p_data);
         source = std::string((char *)data.get(), fileSize);
+        std::cout << "=======================SHADER========================:\n" << source << "\n";
     }
 
 

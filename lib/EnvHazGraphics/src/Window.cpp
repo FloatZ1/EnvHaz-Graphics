@@ -3,47 +3,79 @@
 #include <SDL3/SDL_video.h>
 #include <glad/glad.h>
 
+
+
+
+
+
+
+
+
+
+
+
+
 namespace eHazGraphics
 {
 
 
-bool Window::Create(int width, int height, bool fullscreen, std::string tittle)
-{
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool Window::Create(int width, int height, bool fullscreen, std::string title)
+{
     mHeight = height;
     mWidth = width;
 
-    // SDL window creation
-    bool success = true;
-    mWindow = SDL_CreateWindow(tittle.c_str(), width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    if (!mWindow)
+    // ---- NEW: set GL attributes BEFORE creating window/context ----
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+    // ----------------------------------------------------------------
 
+    bool success = true;
+    mWindow = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    if (!mWindow)
     {
         SDL_Log("Window could not be created! SDL error: %s\n", SDL_GetError());
         success = false;
     }
     else
     {
-        SDL_Log("IT CREATES LE WINDOW \n\n\n\n\n\n\n");
-
-
-
         glContext = SDL_GL_CreateContext(mWindow);
 
         if (!glContext)
         {
-
             SDL_Log("ERROR: COULD NOT CREATE OpenGL CONTEXT.");
             success = false;
         }
-
-        SDL_GL_MakeCurrent(mWindow, glContext);
+        else
+        {
+            SDL_GL_MakeCurrent(mWindow, glContext);
+            SDL_Log("OpenGL context created successfully");
+        }
     }
-    // creates the sureface as well, nvm we don need it
+
+
+
 
 
     return success;
 }
+
 
 
 

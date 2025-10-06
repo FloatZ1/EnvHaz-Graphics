@@ -58,7 +58,8 @@ class StaticBuffer
 
     ~StaticBuffer()
     {
-        Destroy();
+        // for some reasong the destructor is called right after the object is initialized, so for now its commented out
+        //  Destroy();
     }
 
   private:
@@ -96,9 +97,9 @@ class DynamicBuffer
 
     void SetBinding(int bindingNum);
 
-    void ReCreateBuffer();
 
-    void ReCreateBuffer(size_t minimumSize);
+
+    void ReCreateBuffer(size_t minimumSize = 1024UL);
 
 
     void ClearBuffer()
@@ -135,7 +136,7 @@ class DynamicBuffer
 
     ~DynamicBuffer()
     {
-        Destroy();
+        // Destroy();
     }
 
   private:
@@ -272,8 +273,8 @@ class BufferManager
     unsigned int numofStaticBuffers = 2;
 
 
-    std::vector<std::unique_ptr<StaticBuffer>> StaticbufferIDs;
-    std::vector<std::unique_ptr<DynamicBuffer>> DynamicBufferIDs;
+    std::vector<StaticBuffer *> StaticbufferIDs;
+    std::vector<DynamicBuffer *> DynamicBufferIDs;
 
 
     // std::unordered_map<MeshID, >

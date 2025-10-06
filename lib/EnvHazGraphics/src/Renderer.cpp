@@ -15,6 +15,111 @@
 #include <memory>
 #include <vector>
 
+#define EHAZ_DEBUG
+
+
+
+
+
+#ifdef EHAZ_DEBUG
+
+void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                              const GLchar *message, const void *userParam)
+{
+    const char *src = "";
+    switch (source)
+    {
+    case GL_DEBUG_SOURCE_API:
+        src = "API";
+        break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        src = "Window System";
+        break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        src = "Shader Compiler";
+        break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+        src = "Third Party";
+        break;
+    case GL_DEBUG_SOURCE_APPLICATION:
+        src = "Application";
+        break;
+    case GL_DEBUG_SOURCE_OTHER:
+        src = "Other";
+        break;
+    }
+
+    const char *typ = "";
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:
+        typ = "Error";
+        break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        typ = "Deprecated";
+        break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        typ = "Undefined";
+        break;
+    case GL_DEBUG_TYPE_PORTABILITY:
+        typ = "Portability";
+        break;
+    case GL_DEBUG_TYPE_PERFORMANCE:
+        typ = "Performance";
+        break;
+    case GL_DEBUG_TYPE_MARKER:
+        typ = "Marker";
+        break;
+    case GL_DEBUG_TYPE_PUSH_GROUP:
+        typ = "Push Group";
+        break;
+    case GL_DEBUG_TYPE_POP_GROUP:
+        typ = "Pop Group";
+        break;
+    case GL_DEBUG_TYPE_OTHER:
+        typ = "Other";
+        break;
+    }
+
+    const char *sev = "";
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:
+        sev = "HIGH";
+        break;
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        sev = "MEDIUM";
+        break;
+    case GL_DEBUG_SEVERITY_LOW:
+        sev = "LOW";
+        break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+        sev = "NOTIFICATION";
+        break;
+    }
+
+    SDL_Log("GL CALLBACK: %s type = %s, severity = %s, message = %s", src, typ, sev, message);
+}
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 namespace eHazGraphics
 {
@@ -73,7 +178,26 @@ bool Renderer::Initialize()
         }
     }
 
+#ifdef EHAZ_DEBUG
 
+    // Check if debug output is available (requires OpenGL 4.3+ or ARB_debug_output)
+    int flags;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // synchronous callback
+        glDebugMessageCallback(GLDebugCallback, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+
+        SDL_Log("OpenGL debug output enabled!");
+    }
+    else
+    {
+        SDL_Log("OpenGL debug context not available!");
+    }
+
+#endif
     /*   shaderManager = ShaderManager();
        materialManager = MaterialManager();
        // meshManager = MeshManager();

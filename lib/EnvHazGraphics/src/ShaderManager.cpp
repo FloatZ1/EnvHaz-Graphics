@@ -96,7 +96,8 @@ ShaderComboID ShaderManager::CreateShaderProgramme(const std::string &vertexShad
 
     if (LoadedProgrammes.find(cmp) == LoadedProgrammes.end())
     {
-        LoadedProgrammes.emplace(cmp, StandartShaderProgramme(*vIterator->second, *fIterator->second));
+        LoadedProgrammes.emplace(cmp,
+                                 std::make_unique<StandartShaderProgramme>(*vIterator->second, *fIterator->second));
         return cmp;
     }
 
@@ -104,9 +105,9 @@ ShaderComboID ShaderManager::CreateShaderProgramme(const std::string &vertexShad
     return cmp;
 }
 
-void ShaderManager::SetOpenGLFlags(const StandartShaderProgramme &shaderProgramme)
+void ShaderManager::SetOpenGLFlags(const std::shared_ptr<StandartShaderProgramme> shaderProgramme)
 {
-    BitFlag<ShaderManagerFlags> flags = shaderProgramme.GetFlags();
+    BitFlag<ShaderManagerFlags> flags = shaderProgramme->GetFlags();
 
     if (flags.HasFlag(ShaderManagerFlags::DISABLE_DEPTH_TEST))
     {
@@ -159,7 +160,7 @@ void ShaderManager::UseProgramme(const ShaderComboID &ShaderProgrammeID)
     if (it != LoadedProgrammes.end())
     {
         SetOpenGLFlags(it->second);
-        glUseProgram(it->second.GetGLShaderID());
+        glUseProgram(it->second->GetGLShaderID());
     }
     else
     {

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 
+#include <cstdio>
 #include <vector>
 
 
@@ -129,6 +130,10 @@ int main()
 
         rend.RenderFrame(ranges);
         rend.p_bufferManager->EndWritting();
+
+
+
+        printf("END OF LOOP");
     }
 
 
