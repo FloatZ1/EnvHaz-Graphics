@@ -31,6 +31,13 @@ class Window
 
     // Getters
 
+    void SetDimensions(int width, int height)
+    {
+        mWidth = width;
+        mHeight = height;
+    }
+
+
     SDL_Window *GetWindowPtr() const;
 
     SDL_Surface *GetSurfacePtr() const;

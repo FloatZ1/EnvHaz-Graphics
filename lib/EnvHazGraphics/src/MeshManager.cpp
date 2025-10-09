@@ -49,7 +49,8 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node, const aiScene *scene)
     {
         aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
         maxID += 1;
-        meshes.emplace(maxID, processMesh(mesh, scene));
+        // meshes[maxID] = processMesh(mesh, scene);
+        meshes.try_emplace(maxID, processMesh(mesh, scene));
         meshIDs.push_back(maxID);
     }
 
@@ -95,6 +96,10 @@ Mesh MeshManager::processMesh(aiMesh *mesh, const aiScene *scene)
         }
         else
             vertex.UV = glm::vec2(0.0f, 0.0f);
+
+
+
+        vertices.push_back(vertex);
     }
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++)

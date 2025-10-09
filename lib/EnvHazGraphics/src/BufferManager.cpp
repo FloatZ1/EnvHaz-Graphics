@@ -17,6 +17,9 @@
 #include <vector>
 
 
+#define EHAZ_DEBUG
+
+
 namespace eHazGraphics
 {
 
@@ -174,6 +177,11 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, siz
                                                    const GLuint *indexData, size_t indexDataSize)
 {
 
+    // vertexDataSize *= sizeof(Vertex);
+    // indexDataSize *= sizeof(GLuint);
+
+
+
     // bind->set->bind->set
     bool fits = false;
     while (!fits)
@@ -191,7 +199,7 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, siz
     assert(vertexDataSize + VertexSizeOccupied <= VertexBufferSize &&
            indexDataSize + IndexSizeOccupied <= IndexBufferSize);
 
-
+#ifdef EHAZ_DEBUG
     if (glIsBuffer(VertexBufferID))
     {
         SDL_Log("STATIC VERTEX BUFFER EXISTS");
@@ -204,13 +212,22 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData, siz
 
 
 
+
+
+
+#endif
+
+
+
     glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
     glBufferSubData(GL_ARRAY_BUFFER, VertexSizeOccupied, vertexDataSize, vertexData);
+
+
     VertexSizeOccupied += vertexDataSize;
     numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
 
 
-
+    std::cout << vertexDataSize << " <-vertexDataSize \n";
 
 
     // process the indecies since they need to be appended by the count of vertices in store
@@ -261,23 +278,25 @@ void StaticBuffer::ClearBuffer()
     VertexSizeOccupied = 0;
     IndexSizeOccupied = 0;
     numOfOccupiedVerts = 0;
+    numOfOccupiedIndecies = 0;
 }
 
 void StaticBuffer::BindBuffer()
 {
+#ifdef EHAZ_DEBUG
     if (glIsBuffer(VertexBufferID))
     {
-        SDL_Log("STATIC VERTEX BUFFER EXISTS");
+        // SDL_Log("STATIC VERTEX BUFFER EXISTS");
     }
     if (glIsBuffer(IndexBufferID))
     {
-        SDL_Log("INDEX BUFFER EXISTS");
+        // SDL_Log("INDEX BUFFER EXISTS");
     }
     if (glIsBuffer(VertexArrayID))
     {
-        SDL_Log("VERTEX ARRAY BUFFER EXISTS");
+        // SDL_Log("VERTEX ARRAY BUFFER EXISTS");
     }
-
+#endif
     glBindVertexArray(VertexArrayID);
     // glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
     // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
@@ -358,7 +377,7 @@ DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID, GLe
 
     MapAllBufferSlots();
 
-
+#ifdef EHAZ_DEBUG
     GLint result = 0;
     glGetNamedBufferParameteriv(BufferSlots[0], GL_BUFFER_SIZE, &result);
     SDL_Log("Buffer %u size = %d", BufferSlots[0], result);
@@ -371,6 +390,7 @@ DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID, GLe
     GLint result2 = 0;
     glGetNamedBufferParameteriv(BufferSlots[2], GL_BUFFER_SIZE, &result2);
     SDL_Log("Buffer %u size = %d", BufferSlots[2], result2);
+#endif
 }
 
 
@@ -435,7 +455,9 @@ void DynamicBuffer::SetSlot(int slot)
 
     if (!glIsBuffer(BufferSlots[slot]))
     {
+#ifndef EHAZ_DEBUG
         SDL_Log("SetSlot(): BufferSlots[%d]=%u is not a valid buffer", slot, BufferSlots[slot]);
+#endif
         return;
     }
 
@@ -461,12 +483,14 @@ void DynamicBuffer::SetSlot(int slot)
         break;
     }
 
+#ifdef EHAZ_DEBUG
     GLenum err = glGetError();
     if (err != GL_NO_ERROR)
     {
         SDL_Log("SetSlot(): bind failed for target=0x%X slot=%d buffer=%u err=0x%X", Target, slot, BufferSlots[slot],
                 err);
     }
+#endif
 }
 
 
@@ -843,7 +867,7 @@ void DynamicBuffer::MapAllBufferSlots()
 }
 
 
-BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
+/*BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlags type)
 {
     for (unsigned int i = 0; i < 3; i++)
     {
@@ -851,9 +875,11 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
         {
             if (slots[i] != nullptr)
             {
-                unsigned char *location = reinterpret_cast<unsigned char *>(slots[i]) + slotOccupiedSize[i];
-                SDL_memcpy(location, data, size);
+                //      unsigned char *location = reinterpret_cast<unsigned char *>(slots[i]) + slotOccupiedSize[i];
+                std::byte *location = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
+                std::memcpy(location, data, size);
 
+                std::cout << location << "  pointer location;\n";
                 BufferRange RT;
                 RT.OwningBuffer = DynamicBufferID;
                 RT.slot = i;
@@ -869,7 +895,7 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
                 SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
                 ReCreateBuffer(size);
                 if (slots[i]) // retry once
-                    return InsertNewData(data, size);
+                    return InsertNewData(data, size, type);
                 continue;
             }
         }
@@ -883,8 +909,114 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
     // If we get here, no slot worked → force resize and retry
     SDL_Log("InsertNewData: no fitting slot found, forcing resize");
     ReCreateBuffer(size);
-    return InsertNewData(data, size);
+    return InsertNewData(data, size, type);
+} */
+
+
+
+BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlags type)
+{
+    // for (unsigned int i = 0; i < 3; i++)
+    //{
+    unsigned int i = currentSlot;
+    if (slotFullSize[i] >= size + slotOccupiedSize[i]) // allow exact fit
+    {
+        if (slots[i] != nullptr)
+        {
+            // compute byte-based insertion location
+            std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
+            int count = 1;
+            switch (type)
+            {
+            case TypeFlags::BUFFER_INSTANCE_DATA: {
+                auto *typedPtr = reinterpret_cast<InstanceData *>(base);
+                count = size / sizeof(InstanceData);
+
+                std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_CAMERA_DATA: {
+                auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                count = size / sizeof(glm::mat4);
+                std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_ANIMATION_DATA: {
+                auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                count = size / sizeof(glm::mat4);
+                std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_DRAW_CALL_DATA: {
+                auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
+                count = size / sizeof(DrawElementsIndirectCommand);
+                std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_TEXTURE_DATA: {
+                auto *typedPtr = reinterpret_cast<GLuint64 *>(base); // bindless handle
+                count = size / sizeof(GLuint64);
+                std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_LIGHT_DATA: {
+                // TODO: implement LightData properly
+                std::memcpy(base, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_PARTICLE_DATA: {
+                // TODO: implement ParticleData properly
+                std::memcpy(base, data, size);
+                break;
+            }
+            default: {
+                SDL_Log("InsertNewData: unknown buffer type %d", static_cast<int>(type));
+                std::memcpy(base, data, size); // fallback: raw copy
+                break;
+            }
+            }
+
+            // prepare return range
+            BufferRange RT;
+            RT.OwningBuffer = DynamicBufferID;
+            RT.slot = i;
+            RT.offset = slotOccupiedSize[i];
+            RT.size = size;
+            RT.count = count; // forgot what this was for so its just the count of items
+            RT.dataType = type;
+
+
+            slotOccupiedSize[i] += size; // advance by bytes
+
+            return RT;
+        }
+        else
+        {
+            SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
+            ReCreateBuffer(size);
+            if (slots[i]) // retry once
+                return InsertNewData(data, size, type);
+            // continue;
+        }
+    }
+    else
+    {
+        SDL_Log("InsertNewData: slot %u too small, marking resize", i);
+        shouldResize[currentSlot] = true;
+    }
+    //   }
+
+    // If we get here, no slot worked → force resize and retry
+    SDL_Log("InsertNewData: no fitting slot found, forcing resize");
+    ReCreateBuffer(size);
+    return InsertNewData(data, size, type);
 }
+
+
+
+
+
+
 
 // ---------------------- PATCH END -----------------------
 
@@ -901,17 +1033,24 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size)
 
 void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t size)
 {
-    if (BufferSlots[range.slot] == 0 || !glIsBuffer(BufferSlots[range.slot]))
+
+
+    TypeFlags type = range.dataType;
+
+
+
+
+    if (BufferSlots[currentSlot] == 0 || !glIsBuffer(BufferSlots[currentSlot]))
     {
         SDL_Log("ERROR: trying to use invalid buffer ID %u at slot %d ; called from DynamicBuffer::UpdateOldData()",
-                BufferSlots[range.slot], range.slot);
+                BufferSlots[range.OwningBuffer], range.slot);
         assert(false);
     }
-    if (!slots[range.slot])
+    if (!slots[currentSlot])
     {
         SDL_Log("ERROR: slots[%d] pointer is null even though buffer id %u exists ;  called from "
                 "DynamicBuffer::UpdateOldData()",
-                range.slot, BufferSlots[range.slot]);
+                range.slot, BufferSlots[currentSlot]);
         assert(false);
     }
 
@@ -919,12 +1058,42 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
 
 
 
-    void *writeLocation = static_cast<void *>((char *)slots[range.slot] + range.offset);
-    SDL_Log("Range size: %zu , size = %zu \n , buffer:%u slot: %u", range.size, size, range.OwningBuffer, range.slot);
-    assert(range.size == size);
-    SDL_Log("Updating buffer: slot=%u, offset=%zu, size=%zu, buffer=%u", range.slot, range.offset, size,
-            range.OwningBuffer);
-    memcpy(writeLocation, data, range.size);
+    /*  void *writeLocation = static_cast<void *>((char *)slots[range.slot] + range.offset);
+      SDL_Log("Range size: %zu , size = %zu \n , buffer:%u slot: %u", range.size, size, range.OwningBuffer, range.slot);
+      assert(range.size == size);
+      SDL_Log("Updating buffer: slot=%u, offset=%zu, size=%zu, buffer=%u", range.slot, range.offset, size,
+              range.OwningBuffer);
+      memcpy(writeLocation, data, range.size);*/
+
+
+    std::byte *base = static_cast<std::byte *>(slots[currentSlot]) + range.offset;
+
+    switch (type)
+    {
+    case TypeFlags::BUFFER_INSTANCE_DATA: {
+        auto *typedPtr = reinterpret_cast<InstanceData *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    case TypeFlags::BUFFER_CAMERA_DATA: {
+        auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    case TypeFlags::BUFFER_DRAW_CALL_DATA: {
+        auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    case TypeFlags::BUFFER_TEXTURE_DATA: {
+        auto *typedPtr = reinterpret_cast<GLuint64 *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    default:
+        std::memcpy(base, data, size); // fallback
+        break;
+    }
 }
 
 
@@ -1056,7 +1225,7 @@ BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size, T
 
     if (type == TypeFlags::BUFFER_INSTANCE_DATA)
     {
-        return InstanceData.InsertNewData(data, size);
+        return InstanceData.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_MATRIX_DATA)
     {
@@ -1064,27 +1233,27 @@ BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size, T
     }
     if (type == TypeFlags::BUFFER_ANIMATION_DATA)
     {
-        return AnimationMatrices.InsertNewData(data, size);
+        return AnimationMatrices.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_PARTICLE_DATA)
     {
-        return ParticleData.InsertNewData(data, size);
+        return ParticleData.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_TEXTURE_DATA)
     {
-        return TextureHandleBuffer.InsertNewData(data, size);
+        return TextureHandleBuffer.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_DRAW_CALL_DATA)
     {
-        return DrawCommandBuffer.InsertNewData(data, size);
+        return DrawCommandBuffer.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_CAMERA_DATA)
     {
-        return cameraMatrices.InsertNewData(data, size);
+        return cameraMatrices.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_LIGHT_DATA)
     {
-        return LightsBuffer.InsertNewData(data, size);
+        return LightsBuffer.InsertNewData(data, size, type);
     }
 
     SDL_Log("DYNAMIC BUFFER INSERTION ERROR: COULD NOT FIND THE DESIRED TYPE!\n");

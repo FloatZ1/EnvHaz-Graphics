@@ -3,9 +3,11 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <SDL3/SDL_log.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 // Defines several possible options for camera movement. Used as abstraction to stay away from window-system specific
 // input methods
@@ -76,6 +78,9 @@ class Camera
     // defined ENUM (to abstract it from windowing systems)
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
     {
+
+
+        std::cout << "\n" << direction << " <-DIRECTION \n";
         float velocity = MovementSpeed * deltaTime;
         if (direction == FORWARD)
             Position += Front * velocity;
@@ -85,6 +90,9 @@ class Camera
             Position -= Right * velocity;
         if (direction == RIGHT)
             Position += Right * velocity;
+
+
+        std::cout << "CameraPos: " << Position.x << ", " << Position.y << ", " << Position.z << "\n";
     }
 
     // processes input received from a mouse input system. Expects the offset value in both the x and y direction.

@@ -64,11 +64,11 @@ class Mesh
 
     std::pair<const Vertex *, const size_t> GetVertexData() const
     {
-        return std::pair<const Vertex *, const size_t>{data.vertices.data(), data.vertices.size()};
+        return std::pair<const Vertex *, const size_t>{data.vertices.data(), data.vertices.size() * sizeof(Vertex)};
     }
     std::pair<const GLuint *, const size_t> GetIndexData() const
     {
-        return std::pair<const GLuint *, const size_t>{data.indecies.data(), data.indecies.size()};
+        return std::pair<const GLuint *, const size_t>{data.indecies.data(), data.indecies.size() * sizeof(GLuint)};
     }
 
     bool isResident() const

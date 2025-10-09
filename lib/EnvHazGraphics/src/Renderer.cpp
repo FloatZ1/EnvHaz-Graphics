@@ -15,11 +15,11 @@
 #include <memory>
 #include <vector>
 
+
+
+
+
 #define EHAZ_DEBUG
-
-
-
-
 
 #ifdef EHAZ_DEBUG
 
@@ -163,7 +163,7 @@ bool Renderer::Initialize()
 
 
 
-    if (p_window->Create(200, 200, false, "yummers"))
+    if (p_window->Create(1920, 1080, false, "yummers"))
     {
         SDL_Log("Window created successfully.\n");
         if (gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
@@ -198,6 +198,58 @@ bool Renderer::Initialize()
     }
 
 #endif
+
+
+    bool hasSSBO = false;
+    bool hasCompute = false;
+
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+
+    for (GLint i = 0; i < numExtensions; i++)
+    {
+        const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
+        if (strcmp(ext, "GL_ARB_shader_storage_buffer_object") == 0)
+        {
+            hasSSBO = true;
+        }
+        if (strcmp(ext, "GL_ARB_compute_shader") == 0)
+        {
+            hasCompute = true;
+        }
+    }
+
+    if (hasSSBO)
+    {
+        SDL_Log("SSBOs supported via GL_ARB_shader_storage_buffer_object");
+    }
+    else
+    {
+        SDL_Log("SSBOs NOT supported on this driver!");
+    }
+
+    if (hasCompute)
+    {
+        SDL_Log("Compute shaders supported via GL_ARB_compute_shader");
+    }
+    else
+    {
+        SDL_Log("Compute shaders NOT supported on this driver!");
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     /*   shaderManager = ShaderManager();
        materialManager = MaterialManager();
        // meshManager = MeshManager();
@@ -279,7 +331,7 @@ BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize, TypeF
     BufferRange rt;
 
     rt = p_bufferManager->InsertNewDynamicData(data, dataSize, dataType);
-
+    rt.dataType = dataType;
     return rt;
     // only for new data
 }
@@ -294,13 +346,20 @@ void Renderer::PollInputEvents()
 
 void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
 {
-    glClear(GL_COLOR_BUFFER_BIT);
+    p_bufferManager->EndWritting();
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
+    glEnable(GL_DEPTH_TEST);
+    // glDisable(GL_CULL_FACE);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // Bind the static mesh buffer
     p_bufferManager->BindStaticBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
 
     // Bind the dynamic draw command buffer
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
 
     if (!p_shaderManager || !p_window)
     {
@@ -318,7 +377,9 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
         glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset, range.count, 0);
     }
 
+
     SDL_GL_SwapWindow(p_window->GetWindowPtr());
+    p_bufferManager->BeginWritting();
 }
 
 void Renderer::UpdateRenderer()

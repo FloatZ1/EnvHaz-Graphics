@@ -2,6 +2,7 @@
 #include "DataStructs.hpp"
 #include "Renderer.hpp"
 #include "camera.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
@@ -24,13 +25,21 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 #include <SDL3/SDL.h>
 
-void processInput(SDL_Window *window, bool &quit, Camera &camera)
+
+
+void processInput(Window *c_window, bool &quit, Camera &camera)
 {
+    SDL_Window *window = c_window->GetWindowPtr();
     // Delta time calculation using performance counters
     static uint64_t lastCounter = SDL_GetPerformanceCounter();
     uint64_t currentCounter = SDL_GetPerformanceCounter();
     double deltaTime = double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
     lastCounter = currentCounter;
+
+    // Static mouse state
+    static bool firstMouse = true;
+    static float lastX = 0.0f;
+    static float lastY = 0.0f;
 
     SDL_Event event;
     while (SDL_PollEvent(&event))
@@ -45,6 +54,44 @@ void processInput(SDL_Window *window, bool &quit, Camera &camera)
             if (event.key.which == SDLK_ESCAPE)
                 quit = true;
             break;
+
+        // --- Added mouse movement support for camera ---
+        case SDL_EVENT_MOUSE_MOTION: {
+            float xpos = static_cast<float>(event.motion.x);
+            float ypos = static_cast<float>(event.motion.y);
+
+            if (firstMouse)
+            {
+                lastX = xpos;
+                lastY = ypos;
+                firstMouse = false;
+            }
+
+            float xoffset = xpos - lastX;
+            float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+            lastX = xpos;
+            lastY = ypos;
+
+            camera.ProcessMouseMovement(xoffset, yoffset);
+            break;
+        }
+
+        // --- Added mouse scroll support for zoom ---
+        case SDL_EVENT_MOUSE_WHEEL: {
+            float yoffset = static_cast<float>(event.wheel.y);
+            camera.ProcessMouseScroll(yoffset);
+            break;
+        }
+
+        // --- Added window resize support (framebuffer_size_callback equivalent) ---
+        case SDL_EVENT_WINDOW_RESIZED: {
+            int width = event.window.data1;
+            int height = event.window.data2;
+            c_window->SetDimensions(width, height);
+            glViewport(0, 0, width, height);
+            break;
+        }
 
         default:
             break;
@@ -62,12 +109,15 @@ void processInput(SDL_Window *window, bool &quit, Camera &camera)
     if (state[SDL_SCANCODE_D])
         camera.ProcessKeyboard(RIGHT, static_cast<float>(deltaTime));
 }
-
+struct camData
+{
+    glm::mat4 view = glm::mat4(1.0f);
+    glm::mat4 projection = glm::mat4(1.0f);
+};
 
 
 int main()
 {
-
 
 
     eHazGraphics::Renderer rend;
@@ -75,6 +125,10 @@ int main()
 
 
     rend.p_bufferManager->BeginWritting();
+
+
+
+
 
     ShaderComboID shader =
         rend.p_shaderManager->CreateShaderProgramme(RESOURCES_PATH "shader.vert", RESOURCES_PATH "shader.frag");
@@ -87,8 +141,9 @@ int main()
     Model cube = rend.p_meshManager->LoadModel(path);
     ShaderComboID temp;
 
-
-    InstanceData data = {glm::mat4(1.0f), 0};
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -15.0f));
+    InstanceData data = {model, 1};
 
     rend.p_meshManager->SetModelShader(cube, shader);
 
@@ -99,41 +154,58 @@ int main()
     auto ranges = rend.p_renderQueue->SubmitRenderCommands();
 
 
-    glm::mat4 viewTest(1.0f);
-    glm::mat4 projtest(1.0f);
 
-    std::vector<glm::mat4> deta{viewTest, projtest};
+    // glm::mat4 test(1.0f);
+    // test[2][2] = 69.0f;
 
-    BufferRange camDt =
-        rend.SubmitDynamicData(deta.data(), deta.size() * sizeof(glm::mat4), TypeFlags::BUFFER_CAMERA_DATA);
+
+
+    glm::mat4 projection1 = glm::perspective(
+        glm::radians(camera.Zoom), (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
+
+
+    camData deta{camera.GetViewMatrix(), projection1};
+
+    BufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta), TypeFlags::BUFFER_CAMERA_DATA);
 
     // rend.p_bufferManager->EndWritting();
+
+
+    int frameNum = 0;
+
+
+
 
     while (rend.shouldQuit == false)
     {
         // rend.p_renderQueue->ClearDynamicCommands();
 
 
-        rend.p_bufferManager->BeginWritting();
+        // rend.p_bufferManager->BeginWritting();
         rend.UpdateRenderer();
 
-        processInput(rend.p_window->GetWindowPtr(), rend.shouldQuit, camera);
+        processInput(rend.p_window.get(), rend.shouldQuit, camera);
 
         glm::mat4 projection =
             glm::perspective(glm::radians(camera.Zoom),
                              (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
 
-        std::vector<glm::mat4> cameraSend{camera.GetViewMatrix(), projection};
+        // std::vector<glm::mat4> cameraSend{camera.GetViewMatrix(), projection};
 
-        rend.UpdateDynamicData(camDt, cameraSend.data(), cameraSend.size() * sizeof(glm::mat4));
+        camData camcamdata = {camera.GetViewMatrix(), projection};
 
 
+        // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
+        rend.UpdateDynamicData(instanceData, &data, sizeof(data));
+        rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
+        ranges = Renderer::p_renderQueue->SubmitRenderCommands();
+        // rend.p_bufferManager->EndWritting();
         rend.RenderFrame(ranges);
-        rend.p_bufferManager->EndWritting();
 
 
 
-        printf("END OF LOOP");
+
+        printf("END OF FRAME: %u ==============================\n", frameNum);
     }
 
 

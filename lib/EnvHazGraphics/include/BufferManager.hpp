@@ -113,7 +113,7 @@ class DynamicBuffer
     BufferRange BeginWritting();
 
 
-    BufferRange InsertNewData(const void *data, size_t size);
+    BufferRange InsertNewData(const void *data, size_t size, TypeFlags type);
 
     void UpdateOldData(BufferRange range, const void *data, size_t size);
 
