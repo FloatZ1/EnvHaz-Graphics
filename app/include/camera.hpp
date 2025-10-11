@@ -16,7 +16,9 @@ enum Camera_Movement
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT
+    RIGHT,
+    UP,
+    DOWN
 };
 
 // Default camera values
@@ -90,7 +92,14 @@ class Camera
             Position -= Right * velocity;
         if (direction == RIGHT)
             Position += Right * velocity;
-
+        if (direction == UP)
+        {
+            Position.y += velocity;
+        }
+        if (direction == DOWN)
+        {
+            Position.y -= velocity;
+        }
 
         std::cout << "CameraPos: " << Position.x << ", " << Position.y << ", " << Position.z << "\n";
     }

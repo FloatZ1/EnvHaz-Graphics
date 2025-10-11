@@ -1,4 +1,5 @@
 
+#include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Renderer.hpp"
 #include "camera.hpp"
@@ -8,6 +9,7 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_oldnames.h>
 
+#include <SDL3/SDL_scancode.h>
 #include <cstdint>
 
 #include <cstdio>
@@ -108,6 +110,10 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
         camera.ProcessKeyboard(LEFT, static_cast<float>(deltaTime));
     if (state[SDL_SCANCODE_D])
         camera.ProcessKeyboard(RIGHT, static_cast<float>(deltaTime));
+    if (state[SDL_SCANCODE_SPACE])
+        camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
+    if (state[SDL_SCANCODE_LSHIFT])
+        camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
 }
 struct camData
 {
@@ -182,7 +188,7 @@ int main()
 
 
         // rend.p_bufferManager->BeginWritting();
-        rend.UpdateRenderer();
+
 
         processInput(rend.p_window.get(), rend.shouldQuit, camera);
 
@@ -197,13 +203,15 @@ int main()
 
         // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
         rend.UpdateDynamicData(instanceData, &data, sizeof(data));
+        // rend.SubmitDynamicData(&camcamdata, sizeof(camcamdata), TypeFlags::BUFFER_CAMERA_DATA);
         rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
         ranges = Renderer::p_renderQueue->SubmitRenderCommands();
         // rend.p_bufferManager->EndWritting();
         rend.RenderFrame(ranges);
+        // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
 
-
-
+        rend.UpdateRenderer();
+        frameNum++;
 
         printf("END OF FRAME: %u ==============================\n", frameNum);
     }

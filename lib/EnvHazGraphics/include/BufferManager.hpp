@@ -122,7 +122,10 @@ class DynamicBuffer
     {
         return DynamicBufferID;
     }
-
+    int GetNextSlot() const
+    {
+        return nextSlot;
+    }
 
     uint GetCurrentSlot()
     {
@@ -149,6 +152,7 @@ class DynamicBuffer
     void *slots[3]{nullptr, nullptr, nullptr};
     int binding = 0;
     int currentSlot = 0;
+    int nextSlot = 0;
     // add 3 fence variables + a function to initiate it
     GLsync fences[3]{0, 0, 0};
     bool shouldResize[3]{false, false, false};
@@ -262,7 +266,7 @@ class BufferManager
 
     StaticBuffer StaticMeshInformation;
     StaticBuffer TerrainBuffer;
-
+    StaticBuffer StaticMatrices;
     // Every time a buffer is added update the following functions:
     // Initialize(), InsertNew*Data() , ClearBuffer() and BitFlags
 
@@ -270,7 +274,7 @@ class BufferManager
 
     // CHANGE THESE EVERYTIME YOU ADD A BUFFER!!!!!!!!!
     unsigned int numOfDynamicBuffers = 7;
-    unsigned int numofStaticBuffers = 2;
+    unsigned int numofStaticBuffers = 3;
 
 
     std::vector<StaticBuffer *> StaticbufferIDs;

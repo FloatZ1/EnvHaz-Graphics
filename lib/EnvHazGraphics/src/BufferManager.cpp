@@ -340,7 +340,7 @@ void BufferManager::BindDynamicBuffer(TypeFlags type)
     }
 
     // Manager decides which slot to use
-    buffer->SetSlot(buffer->GetCurrentSlot());
+    buffer->SetSlot(buffer->GetNextSlot());
 }
 
 
@@ -636,7 +636,7 @@ void DynamicBuffer::SetBinding(int bindingNum)
 
 
 
-BufferRange DynamicBuffer::BeginWritting()
+/*BufferRange DynamicBuffer::BeginWritting()
 {
 
 
@@ -665,6 +665,45 @@ BufferRange DynamicBuffer::BeginWritting()
     currentSlot = oldest;
     slotOccupiedSize[oldest] = 0;
     return {DynamicBufferID, currentSlot, slotFullSize[currentSlot], 0};
+}*/
+
+
+
+BufferRange DynamicBuffer::BeginWritting()
+{
+    // Try to find a free slot without stalling
+
+
+
+
+    for (int i = 0; i < 3; i++)
+    {
+        int candidate = (currentSlot + i + 1) % 3;
+        if (waitForSlotFence(candidate))
+        {
+            nextSlot = candidate;
+            // set as next slot
+            // slotOccupiedSize[nextSlot] = 0; // reset only because we start writing fresh
+            return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
+        }
+    }
+
+    // If none were free, force wait on the oldest slot (rare case)
+    auto max = std::max_element(slotsAge, slotsAge + 3);
+    int oldest = std::distance(slotsAge, max);
+
+    GLenum waitRes = glClientWaitSync(fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9)); // 1s max
+    if (waitRes == GL_TIMEOUT_EXPIRED)
+        SDL_Log("Warning: GPU still not finished with buffer slot %d, forced wait", oldest);
+
+    glDeleteSync(fences[oldest]);
+    fences[oldest] = 0;
+    slotsAge[oldest] = 0;
+
+    nextSlot = oldest;
+    // slotOccupiedSize[nextSlot] = 0;
+
+    return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
 }
 
 
@@ -918,7 +957,7 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
 {
     // for (unsigned int i = 0; i < 3; i++)
     //{
-    unsigned int i = currentSlot;
+    unsigned int i = nextSlot;
     if (slotFullSize[i] >= size + slotOccupiedSize[i]) // allow exact fit
     {
         if (slots[i] != nullptr)
@@ -1002,7 +1041,7 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
     else
     {
         SDL_Log("InsertNewData: slot %u too small, marking resize", i);
-        shouldResize[currentSlot] = true;
+        shouldResize[i] = true;
     }
     //   }
 
@@ -1066,7 +1105,7 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
       memcpy(writeLocation, data, range.size);*/
 
 
-    std::byte *base = static_cast<std::byte *>(slots[currentSlot]) + range.offset;
+    std::byte *base = static_cast<std::byte *>(slots[nextSlot]) + range.offset;
 
     switch (type)
     {
@@ -1098,36 +1137,43 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
 
 
 
+
 void DynamicBuffer::EndWritting()
 {
+    glBindBuffer(Target, BufferSlots[nextSlot]);
 
+    // Place a fence to track GPU completion for this slot
     SetDownFence();
+
+    // Increase timeline so we can track slot ages
+    slotsAge[nextSlot] = ++slotTimeline;
+
+    // Commit swap: nextSlot becomes the current slot used for rendering
+    currentSlot = nextSlot;
 }
+
 
 // privates:
 
+
 bool DynamicBuffer::waitForSlotFence(int slot)
 {
-
     if (fences[slot] == 0)
         return true;
 
+    // Flush commands to GPU before waiting
+    GLenum res = glClientWaitSync(fences[slot], GL_SYNC_FLUSH_COMMANDS_BIT, 0);
 
-    GLenum res = glClientWaitSync(fences[slot], 0, 0);
-
-    if (res == GL_CONDITION_SATISFIED || res == GL_ALREADY_SIGNALED)
+    if (res == GL_ALREADY_SIGNALED || res == GL_CONDITION_SATISFIED)
     {
         glDeleteSync(fences[slot]);
         fences[slot] = 0;
-
         return true;
     }
 
-
-
-
-    return false;
+    return false; // slot still busy
 }
+
 
 
 
@@ -1166,8 +1212,9 @@ void BufferManager::Initialize()
     ParticleData = DynamicBuffer(MBsize(d_size), 4);
     StaticMeshInformation = StaticBuffer(MBsize(s_size), MBsize(s_size), 5);
     TerrainBuffer = StaticBuffer(MBsize(s_size), MBsize(s_size), 6);
-    cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 7);
-    LightsBuffer = DynamicBuffer(MBsize(d_size), 8);
+    StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
+    cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 8);
+    LightsBuffer = DynamicBuffer(MBsize(d_size), 9);
 
 
     StaticbufferIDs.push_back(&StaticMeshInformation);
@@ -1263,29 +1310,20 @@ void BufferManager::UpdateData(const BufferRange &range, const void *data, const
 {
 
     // this is a stupid ass hack what was i on when i wrote this...
-    if (StaticbufferIDs.size() < range.OwningBuffer)
+    // 21:45 10/11/2025 CLEARY ON SOME CRACK ASS COCAINE , WHO THE FUCK WRITES AN CONDITION LIKE THAT JESUS CHRIST NO
+    // WONDER IT WAS RENDERING ONLY EVERYTHIRD FRAME GOD.
+
+
+    for (auto &buffer : DynamicBufferIDs)
     {
-
-        // nothing since it is a static buffer duhh. Ignore the code below.
-        /*  for(auto& buff : StaticbufferIDs){
-
-               if(buff.GetStaticBufferID() == range.OwningBuffer){
-
-               }
-
-           }*/
-    }
-    else
-    {
-
-        for (auto &buffer : DynamicBufferIDs)
+        if (buffer->GetDynamicBufferID() == range.OwningBuffer)
         {
-            if (buffer->GetDynamicBufferID() == range.OwningBuffer)
-            {
-                buffer->UpdateOldData(range, data, size);
-            }
+            buffer->UpdateOldData(range, data, size);
+            return;
         }
     }
+
+    SDL_Log("ERROR: UpdateData(); - dynamic buffer ID not found: %u", range.OwningBuffer);
 }
 void BufferManager::EndWritting()
 {
