@@ -65,7 +65,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
             break;
 
         // --- Added mouse movement support for camera ---
-        case SDL_EVENT_MOUSE_MOTION: {
+        /*case SDL_EVENT_MOUSE_MOTION: {
             float xpos = static_cast<float>(event.motion.x);
             float ypos = static_cast<float>(event.motion.y);
 
@@ -84,7 +84,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
 
             camera.ProcessMouseMovement(xoffset, yoffset);
             break;
-        }
+        }*/
 
         // --- Added mouse scroll support for zoom ---
         case SDL_EVENT_MOUSE_WHEEL: {
@@ -166,7 +166,7 @@ int main()
     Model cube = rend.p_meshManager->LoadModel(path);
     ShaderComboID temp;
 
-    Renderer::p_meshManager->SetModelInstanceCount(cube, 2);
+    Renderer::p_meshManager->SetModelInstanceCount(cube, 5);
 
 
 
@@ -187,19 +187,30 @@ int main()
 
 
     glm::mat4 model2(1.0f);
-
-    // Model cube2 = rend.p_meshManager->LoadModel(path);
-
     model2 = glm::translate(model2, glm::vec3(0.0f, 5.0f, -15.0f));
-
     InstanceData data2 = {model2, materialID};
-
-    // rend.p_meshManager->SetModelShader(cube2, shader);
-
     BufferRange instanceData2 = rend.SubmitDynamicData(&data2, sizeof(data2), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    // rend.SubmitStaticMesh(cube2.GetMeshIDs(), instanceData2, TypeFlags::BUFFER_STATIC_MESH_DATA);
 
+
+    glm::mat4 model3(1.0f);
+    model3 = glm::translate(model3, glm::vec3(5.0f, 0.0f, -15.0f));
+    InstanceData data3 = {model3, materialID};
+    BufferRange instanceData3 = rend.SubmitDynamicData(&data3, sizeof(data3), TypeFlags::BUFFER_INSTANCE_DATA);
+
+
+
+    glm::mat4 model4(1.0f);
+    model4 = glm::translate(model4, glm::vec3(-5.0f, 0.0f, -15.0f));
+    InstanceData data4 = {model4, materialID};
+    BufferRange instanceData4 = rend.SubmitDynamicData(&data4, sizeof(data4), TypeFlags::BUFFER_INSTANCE_DATA);
+
+
+
+    glm::mat4 model5(1.0f);
+    model5 = glm::translate(model5, glm::vec3(0.0f, -5.0f, -15.0f));
+    InstanceData data5 = {model5, materialID};
+    BufferRange instanceData5 = rend.SubmitDynamicData(&data5, sizeof(data5), TypeFlags::BUFFER_INSTANCE_DATA);
 
 
 
@@ -251,11 +262,16 @@ int main()
 
         // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
         rend.UpdateDynamicData(instanceData, &data, sizeof(data));
-
         rend.UpdateDynamicData(instanceData2, &data2, sizeof(data2));
+        rend.UpdateDynamicData(instanceData3, &data3, sizeof(data3));
+        rend.UpdateDynamicData(instanceData4, &data4, sizeof(data4));
+        rend.UpdateDynamicData(instanceData5, &data5, sizeof(data5));
 
-        // rend.SubmitDynamicData(&camcamdata, sizeof(camcamdata), TypeFlags::BUFFER_CAMERA_DATA);
         rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
+
+
+
+
         ranges = Renderer::p_renderQueue->SubmitRenderCommands();
         // rend.p_bufferManager->EndWritting();
         rend.RenderFrame(ranges);
