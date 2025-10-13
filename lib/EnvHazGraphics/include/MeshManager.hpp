@@ -96,12 +96,21 @@ class Model
     {
         return materialID;
     }
+    const unsigned int GetInstanceCount() const
+    {
+        return instanceCount;
+    }
 
+    void SetInstanceCount(unsigned int count)
+    {
+        instanceCount = count;
+    }
 
 
   private:
     std::vector<MeshID> meshes;
     unsigned int materialID = 0;
+    unsigned int instanceCount = 1;
 };
 
 
@@ -140,6 +149,20 @@ class MeshManager
             }
         }
     }
+
+
+    void SetModelInstanceCount(Model &model, unsigned int count)
+    {
+
+        for (auto &mesh : model.GetMeshIDs())
+        {
+
+            meshes[mesh].SetInstanceCount(count);
+        }
+
+        model.SetInstanceCount(count);
+    }
+
 
 
     const Mesh &GetMesh(MeshID id)

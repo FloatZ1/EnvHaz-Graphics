@@ -3,13 +3,13 @@
 #extension GL_ARB_bindless_texture : require
 
 in vec2 TexCoords;
-in uint MatID;
+flat in uint MatID;
 
 struct Material {
-    uvec2 albedo; // 64-bit texture handle
-    uvec2 prm;
-    uvec2 normalMap;
-    uvec2 emission;
+    sampler2D albedo; // 64-bit texture handle
+    sampler2D prm;
+    sampler2D normalMap;
+    sampler2D emission;
 
     float luminance;
 };
@@ -22,9 +22,9 @@ out vec4 FragColor;
 
 void main() {
     // Reconstruct bindless sampler2D from handle
-    sampler2D albedoTex = sampler2D(materials[MatID].albedo);
+    sampler2D albedoTex = materials[MatID].albedo;
 
     vec4 albedoColor = texture(albedoTex, TexCoords);
 
-    FragColor = vec4(1.0, 1.0, 1.0, 1.0); //albedoColor;
+    FragColor = albedoColor;
 }

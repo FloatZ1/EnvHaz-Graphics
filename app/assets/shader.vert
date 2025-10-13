@@ -23,7 +23,7 @@ struct InstanceData {
     uint materialID;
 };
 
-out uint MatID;
+flat out uint MatID;
 
 layout(binding = 0, std430) readonly buffer ssbo0 {
     InstanceData data[];
@@ -31,7 +31,7 @@ layout(binding = 0, std430) readonly buffer ssbo0 {
 
 void main()
 {
-    MatID = data[gl_InstanceID].materialID;
+    MatID = data[gl_DrawID + gl_InstanceID].materialID;
     TexCoords = aTexCoords;
-    gl_Position = camMats.projection * camMats.view * data[gl_InstanceID].model * vec4(aPos, 1.0);
+    gl_Position = camMats.projection * camMats.view * data[gl_DrawID + gl_InstanceID].model * vec4(aPos, 1.0);
 }

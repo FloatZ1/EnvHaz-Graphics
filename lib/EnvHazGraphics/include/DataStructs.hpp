@@ -117,7 +117,7 @@ class Texture2D
     int width, height, nrChannel;
     unsigned char *data;
 
-  public:
+
     Texture2D(std::string texturePath, GLenum storageFormat = 0, GLenum imageFormat = 0)
     {
 

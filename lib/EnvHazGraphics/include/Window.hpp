@@ -31,6 +31,17 @@ class Window
 
     // Getters
 
+
+    void ToggleMouseCursor()
+    {
+        lockCursor = !lockCursor;
+    }
+
+    bool isCursorLocked() const
+    {
+        return lockCursor;
+    }
+
     void SetDimensions(int width, int height)
     {
         mWidth = width;
@@ -53,7 +64,7 @@ class Window
 
   private:
     int mWidth, mHeight;
-
+    bool lockCursor = false;
     SDL_Window *mWindow = nullptr;
     SDL_GLContext glContext; // its a typedef to a void*
 };

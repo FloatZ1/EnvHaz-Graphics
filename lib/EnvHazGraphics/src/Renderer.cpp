@@ -304,7 +304,7 @@ bool Renderer::Initialize()
 void Renderer::SubmitStaticMesh(std::vector<MeshID> meshes, BufferRange &instanceData, TypeFlags dataType)
 {
 
-    p_bufferManager->ClearBuffer(dataType);
+    // p_bufferManager->ClearBuffer(dataType);
 
 
     for (auto &mesh : meshes)
@@ -387,6 +387,8 @@ void Renderer::UpdateRenderer()
     PollInputEvents();
     if (events.type == SDL_EVENT_QUIT)
         shouldQuit = true;
+
+    p_window->Update();
 }
 
 void Renderer::Destroy()

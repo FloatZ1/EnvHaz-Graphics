@@ -4,6 +4,7 @@
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -16,7 +17,7 @@ class MaterialManager
   public:
     void Initialize(); // OPTIONAL: IMPLEMENT , this is incase its needed in the future
 
-    int LoadTexture(const std::string &path);
+    unsigned int LoadTexture(const std::string &path);
 
 
 
@@ -33,6 +34,7 @@ class MaterialManager
                                                                               // optimize dunno.
     std::optional<PBRMaterial> GetMaterial(const std::string &materialName);
 
+    void ClearMaterials();
 
     void DeleteMaterial(
         unsigned int MaterialID); // probably shouldnt have this here since again... alignement is a b*%#
@@ -40,7 +42,7 @@ class MaterialManager
     void Destroy(); // OPTIONAL: IMPLEMENT , again nothing much to destroy that doesnt handle itself
   private:
     std::vector<PBRMaterial> LoadedPBRMaterials;
-    std::vector<Texture2D> LoadedTextures;
+    std::vector<std::unique_ptr<Texture2D>> LoadedTextures;
     std::vector<unsigned int> freeIndecies;
     std::unordered_map<eHazGraphics_Utils::HashedString, unsigned int> TexturePaths;
 

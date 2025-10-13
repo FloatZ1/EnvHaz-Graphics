@@ -1,5 +1,6 @@
 #include "Window.hpp"
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
 #include <glad/glad.h>
 
@@ -77,10 +78,15 @@ bool Window::Create(int width, int height, bool fullscreen, std::string title)
 }
 
 
-
+bool previousCursorStat = false;
 
 void Window::Update()
 {
+    if (lockCursor != previousCursorStat)
+    {
+        SDL_SetWindowRelativeMouseMode(mWindow, lockCursor);
+        previousCursorStat = lockCursor;
+    }
 }
 
 

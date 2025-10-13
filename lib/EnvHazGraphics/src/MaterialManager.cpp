@@ -4,6 +4,7 @@
 #include "Utils/HashedStrings.hpp"
 #include <SDL3/SDL_log.h>
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -12,19 +13,32 @@
 namespace eHazGraphics
 {
 
-int MaterialManager::LoadTexture(const std::string &path)
+
+void MaterialManager::ClearMaterials()
 {
-    LoadedTextures.push_back(Texture2D(path));
-    return LoadedTextures.size() - 1;
+    LoadedPBRMaterials.clear();
+    LoadedTextures.clear();
+    freeIndecies.clear();
+    TexturePaths.clear();
+    MaterialNames.clear();
+}
+
+
+unsigned int MaterialManager::LoadTexture(const std::string &path)
+{
+    LoadedTextures.push_back(std::make_unique<Texture2D>(path));
+    unsigned int id = LoadedTextures.size() - 1;
+    LoadedTextures[id]->MakeResident();
+    return id;
 }
 unsigned int MaterialManager::CreatePBRMaterial(unsigned int albedoID, unsigned int prmID, unsigned int NormalMapID,
                                                 unsigned int EmissionID)
 {
     PBRMaterial newMat;
-    newMat.albedo = LoadedTextures[albedoID].GetTextureHandle();
-    newMat.prm = LoadedTextures[prmID].GetTextureHandle();
-    newMat.NormalMap = LoadedTextures[NormalMapID].GetTextureHandle();
-    newMat.Emission = LoadedTextures[EmissionID].GetTextureHandle();
+    newMat.albedo = LoadedTextures[albedoID]->GetTextureHandle();
+    newMat.prm = LoadedTextures[prmID]->GetTextureHandle();
+    newMat.NormalMap = LoadedTextures[NormalMapID]->GetTextureHandle();
+    newMat.Emission = LoadedTextures[EmissionID]->GetTextureHandle();
     newMat.Luminance = 0.5f;
     if (freeIndecies.size() == 0)
     {

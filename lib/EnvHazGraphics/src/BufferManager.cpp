@@ -1079,7 +1079,7 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
 
 
 
-    if (BufferSlots[currentSlot] == 0 || !glIsBuffer(BufferSlots[currentSlot]))
+    if (BufferSlots[nextSlot] == 0 || !glIsBuffer(BufferSlots[nextSlot]))
     {
         SDL_Log("ERROR: trying to use invalid buffer ID %u at slot %d ; called from DynamicBuffer::UpdateOldData()",
                 BufferSlots[range.OwningBuffer], range.slot);
@@ -1089,7 +1089,7 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
     {
         SDL_Log("ERROR: slots[%d] pointer is null even though buffer id %u exists ;  called from "
                 "DynamicBuffer::UpdateOldData()",
-                range.slot, BufferSlots[currentSlot]);
+                range.slot, BufferSlots[nextSlot]);
         assert(false);
     }
 

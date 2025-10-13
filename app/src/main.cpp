@@ -7,12 +7,14 @@
 #include "glm/fwd.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_oldnames.h>
 
 #include <SDL3/SDL_scancode.h>
 #include <cstdint>
 
-#include <cstdio>
+
 #include <vector>
 
 
@@ -55,6 +57,11 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
         case SDL_EVENT_KEY_DOWN:
             if (event.key.which == SDLK_ESCAPE)
                 quit = true;
+            break;
+
+        case SDL_EVENT_KEY_UP:
+
+
             break;
 
         // --- Added mouse movement support for camera ---
@@ -114,6 +121,8 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
         camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
     if (state[SDL_SCANCODE_LSHIFT])
         camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
+    if (state[SDL_SCANCODE_R])
+        c_window->ToggleMouseCursor();
 }
 struct camData
 {
@@ -134,6 +143,16 @@ int main()
 
 
 
+    int AlbedoTexture = Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
+
+    unsigned int materialID =
+        Renderer::p_materialManager->CreatePBRMaterial(AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture);
+
+    auto mat = rend.p_materialManager->SubmitMaterials();
+    BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
+        mat.first.data(), mat.first.size() * sizeof(PBRMaterial), TypeFlags::BUFFER_TEXTURE_DATA);
+
+
 
 
     ShaderComboID shader =
@@ -147,15 +166,44 @@ int main()
     Model cube = rend.p_meshManager->LoadModel(path);
     ShaderComboID temp;
 
+    Renderer::p_meshManager->SetModelInstanceCount(cube, 2);
+
+
+
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, 0.0f, -15.0f));
-    InstanceData data = {model, 1};
+    InstanceData data = {model, materialID};
 
     rend.p_meshManager->SetModelShader(cube, shader);
 
     BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
 
     rend.SubmitStaticMesh(cube.GetMeshIDs(), instanceData, TypeFlags::BUFFER_STATIC_MESH_DATA);
+
+
+
+
+
+
+
+    glm::mat4 model2(1.0f);
+
+    // Model cube2 = rend.p_meshManager->LoadModel(path);
+
+    model2 = glm::translate(model2, glm::vec3(0.0f, 5.0f, -15.0f));
+
+    InstanceData data2 = {model2, materialID};
+
+    // rend.p_meshManager->SetModelShader(cube2, shader);
+
+    BufferRange instanceData2 = rend.SubmitDynamicData(&data2, sizeof(data2), TypeFlags::BUFFER_INSTANCE_DATA);
+
+    // rend.SubmitStaticMesh(cube2.GetMeshIDs(), instanceData2, TypeFlags::BUFFER_STATIC_MESH_DATA);
+
+
+
+
+
 
     auto ranges = rend.p_renderQueue->SubmitRenderCommands();
 
@@ -203,17 +251,20 @@ int main()
 
         // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
         rend.UpdateDynamicData(instanceData, &data, sizeof(data));
+
+        rend.UpdateDynamicData(instanceData2, &data2, sizeof(data2));
+
         // rend.SubmitDynamicData(&camcamdata, sizeof(camcamdata), TypeFlags::BUFFER_CAMERA_DATA);
         rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
         ranges = Renderer::p_renderQueue->SubmitRenderCommands();
         // rend.p_bufferManager->EndWritting();
         rend.RenderFrame(ranges);
         // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
-
+        rend.UpdateDynamicData(materials, mat.first.data(), mat.first.size() * sizeof(PBRMaterial));
         rend.UpdateRenderer();
         frameNum++;
 
-        printf("END OF FRAME: %u ==============================\n", frameNum);
+        // printf("END OF FRAME: %u ==============================\n", frameNum);
     }
 
 
