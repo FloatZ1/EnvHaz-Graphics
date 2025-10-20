@@ -50,8 +50,8 @@ class Renderer
 
 
 
-    void SubmitStaticMesh(std::vector<MeshID> meshes, BufferRange &instanceData,
-                          TypeFlags dataType); // require a an object/container from which to unwrap everything
+    void SubmitStaticModel(Model &model,
+                           TypeFlags dataType); // require a an object/container from which to unwrap everything
 
     BufferRange SubmitDynamicData(const void *data, size_t dataSize,
                                   TypeFlags dataType); // same, require a container later/ from a octree node or smth

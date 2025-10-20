@@ -92,6 +92,17 @@ void StaticBuffer::setVertexAttribPointers()
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, Normal));
 
     glEnableVertexAttribArray(2);
+
+    // Skeleton stuff
+
+
+    glVertexAttribPointer(3, 4, GL_INT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, boneIDs));
+    glEnableVertexAttribArray(3);
+
+
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, boneWeights));
+
+    glEnableVertexAttribArray(4);
 }
 
 
@@ -334,13 +345,17 @@ void BufferManager::BindDynamicBuffer(TypeFlags type)
     case TypeFlags::BUFFER_LIGHT_DATA:
         buffer = &LightsBuffer;
         break;
+    case TypeFlags::BUFFER_STATIC_MATRIX_DATA:
+        buffer = &StaticMatrices;
+
+        break;
     default:
         SDL_Log("BindDynamicBuffer: Unknown buffer type %d\n", type);
         return;
     }
 
     // Manager decides which slot to use
-    buffer->SetSlot(buffer->GetNextSlot());
+    buffer->SetSlot(buffer->GetCurrentSlot());
 }
 
 
@@ -348,10 +363,10 @@ void BufferManager::BindDynamicBuffer(TypeFlags type)
 
 
 
-DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID, GLenum target)
-    : DynamicBufferID(DynamicBufferID), Target(target)
+DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID, GLenum target, bool trippleBuffer)
+    : DynamicBufferID(DynamicBufferID), Target(target), trippleBuffer(trippleBuffer)
 {
-
+    // TODO: make it so that if we have trippleBuffer be true, only create 1 buffer
     slotFullSize[0] = initialBuffersSize;
     slotFullSize[1] = initialBuffersSize;
     slotFullSize[2] = initialBuffersSize;
@@ -422,36 +437,13 @@ void DynamicBuffer::Destroy()
 
 
 
-/*void DynamicBuffer::SetSlot(int slot)
-{
-    currentSlot = slot;
 
-    if (!glIsBuffer(BufferSlots[slot]))
-    {
-        SDL_Log("SetSlot(): BufferSlots[%d]=%u is not a valid buffer", slot, BufferSlots[slot]);
-        return;
-    }
-
-    GLint maxBindings = 0;
-    glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &maxBindings);
-    if (binding < 0 || binding >= maxBindings)
-    {
-        SDL_Log("SetSlot(): binding index %d out of range (max=%d)", binding, maxBindings);
-        return;
-    }
-
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, BufferSlots[slot]);
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR)
-    {
-        SDL_Log("SetSlot(): glBindBufferBase failed, err=0x%X", err);
-    }
-} */
 
 
 void DynamicBuffer::SetSlot(int slot)
 {
-    currentSlot = slot;
+    if (trippleBuffer)
+        currentSlot = slot;
 
     if (!glIsBuffer(BufferSlots[slot]))
     {
@@ -511,161 +503,6 @@ void DynamicBuffer::SetBinding(int bindingNum)
 
 
 
-/*void DynamicBuffer::ReCreateBuffer()
-{
-    bool any = false;
-    for (auto check : shouldResize)
-    {
-        if (check == true)
-        {
-            any = true;
-            break;
-        }
-    }
-
-
-    if (any)
-    {
-        GLuint newBuffers[3] = {0, 0, 0};
-
-
-
-
-
-
-        if (shouldResize[0])
-            glCreateBuffers(1, &newBuffers[0]);
-        if (shouldResize[1])
-            glCreateBuffers(1, &newBuffers[1]);
-        if (shouldResize[2])
-            glCreateBuffers(1, &newBuffers[2]);
-
-
-
-        for (int i = 0; i < 3; i++)
-        {
-            if (shouldResize[i])
-                slotFullSize[i] = std::max(slotFullSize[i] * 2, 1024UL);
-        }
-
-        if (shouldResize[0])
-            glNamedBufferStorage(newBuffers[0], slotFullSize[0], nullptr,
-                                 GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_WRITE_BIT |
-                                     GL_DYNAMIC_STORAGE_BIT);
-        if (shouldResize[1])
-            glNamedBufferStorage(newBuffers[1], slotFullSize[1], nullptr,
-                                 GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_WRITE_BIT |
-                                     GL_DYNAMIC_STORAGE_BIT);
-        if (shouldResize[2])
-            glNamedBufferStorage(newBuffers[2], slotFullSize[2], nullptr,
-                                 GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_WRITE_BIT |
-                                     GL_DYNAMIC_STORAGE_BIT);
-
-        for (int i = 0; i < 3; i++)
-        {
-            if (shouldResize[i])
-                glCopyNamedBufferSubData(BufferSlots[i], newBuffers[i], 0, 0, slotOccupiedSize[i]);
-        }
-
-
-        if (shouldResize[0])
-        {
-            if (!waitForSlotFence(0))
-            {
-                glClientWaitSync(fences[0], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9));
-            }
-            glUnmapNamedBuffer(BufferSlots[0]);
-            glDeleteBuffers(1, &BufferSlots[0]);
-        }
-
-        if (shouldResize[1])
-        {
-            if (!waitForSlotFence(1))
-            {
-                glClientWaitSync(fences[1], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9));
-            }
-            glUnmapNamedBuffer(BufferSlots[1]);
-            glDeleteBuffers(1, &BufferSlots[1]);
-        }
-
-        if (shouldResize[2])
-        {
-
-            if (!waitForSlotFence(2))
-            {
-                glClientWaitSync(fences[2], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9));
-            }
-
-
-
-            glUnmapNamedBuffer(BufferSlots[2]);
-
-            glDeleteBuffers(1, &BufferSlots[2]);
-        }
-        for (int i = 0; i < 3; i++)
-        {
-            if (shouldResize[i])
-                BufferSlots[i] = newBuffers[i];
-        }
-        MapAllBufferSlots();
-        for (int i = 0; i < 3; i++)
-        {
-            shouldResize[i] = false;
-        }
-    }
-} */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*BufferRange DynamicBuffer::BeginWritting()
-{
-
-
-
-    ReCreateBuffer();
-    for (int i = 0; i < 3; i++)
-    {
-        int next = (currentSlot + i + 1) % 3;
-        if (waitForSlotFence(next))
-        {
-            currentSlot = next;
-
-            slotOccupiedSize[next] = 0;
-
-            return {DynamicBufferID, next, slotFullSize[next], 0};
-        }
-    }
-
-
-    auto max = (std::max_element(slotsAge, (slotsAge + (sizeof(slotsAge) / sizeof(slotsAge[0])))));
-    int oldest = std::distance(slotsAge, max);
-    glClientWaitSync(fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9));
-    glDeleteSync(fences[oldest]);
-    slotsAge[oldest] = 0;
-    fences[oldest] = 0;
-    currentSlot = oldest;
-    slotOccupiedSize[oldest] = 0;
-    return {DynamicBufferID, currentSlot, slotFullSize[currentSlot], 0};
-}*/
 
 
 
@@ -674,35 +511,42 @@ BufferRange DynamicBuffer::BeginWritting()
     // Try to find a free slot without stalling
 
 
-
-
-    for (int i = 0; i < 3; i++)
+    if (trippleBuffer)
     {
-        int candidate = (currentSlot + i + 1) % 3;
-        if (waitForSlotFence(candidate))
+
+        for (int i = 0; i < 3; i++)
         {
-            nextSlot = candidate;
-            // set as next slot
-            // slotOccupiedSize[nextSlot] = 0; // reset only because we start writing fresh
-            return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
+            int candidate = (currentSlot + i + 1) % 3;
+            if (waitForSlotFence(candidate))
+            {
+                nextSlot = candidate;
+                // set as next slot
+                // slotOccupiedSize[nextSlot] = 0; // reset only because we start writing fresh
+                return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
+            }
         }
+
+        // If none were free, force wait on the oldest slot (rare case)
+        auto max = std::max_element(slotsAge, slotsAge + 3);
+        int oldest = std::distance(slotsAge, max);
+
+        GLenum waitRes = glClientWaitSync(fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9)); // 1s max
+        if (waitRes == GL_TIMEOUT_EXPIRED)
+            SDL_Log("Warning: GPU still not finished with buffer slot %d, forced wait", oldest);
+
+        glDeleteSync(fences[oldest]);
+        fences[oldest] = 0;
+        slotsAge[oldest] = 0;
+
+        nextSlot = oldest;
+        // slotOccupiedSize[nextSlot] = 0;
     }
+    else
+    {
 
-    // If none were free, force wait on the oldest slot (rare case)
-    auto max = std::max_element(slotsAge, slotsAge + 3);
-    int oldest = std::distance(slotsAge, max);
-
-    GLenum waitRes = glClientWaitSync(fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9)); // 1s max
-    if (waitRes == GL_TIMEOUT_EXPIRED)
-        SDL_Log("Warning: GPU still not finished with buffer slot %d, forced wait", oldest);
-
-    glDeleteSync(fences[oldest]);
-    fences[oldest] = 0;
-    slotsAge[oldest] = 0;
-
-    nextSlot = oldest;
-    // slotOccupiedSize[nextSlot] = 0;
-
+        nextSlot = 0;
+        currentSlot = 0;
+    }
     return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
 }
 
@@ -710,93 +554,6 @@ BufferRange DynamicBuffer::BeginWritting()
 
 
 
-// =================== PATCHED FUNCTIONS ===================
-
-
-// ---------------------- PATCH START -----------------------
-
-/*void DynamicBuffer::ReCreateBuffer(size_t minimumSize)
-{
-
-    for (unsigned int i = 0; i < 3; i++)
-    {
-        // check if buffer "i" is set to be resized
-        if (shouldResize[i] == false)
-            continue;
-        else
-        {
-
-            GLuint newBuffer = 0;
-
-
-            // if yes then check first if it has a fence object down
-            if (waitForSlotFence(i))
-            {
-                // create the new buffer and allocate it
-                size_t newSize = std::max(2 * slotFullSize[i], minimumSize);
-                glCreateBuffers(1, &newBuffer);
-                glNamedBufferStorage(newBuffer, newSize, nullptr,
-                                     GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_MAP_WRITE_BIT |
-                                         GL_DYNAMIC_STORAGE_BIT);
-
-                // check if the allocation was successfull
-                GLint result = 0;
-                glGetNamedBufferParameteriv(newBuffer, GL_BUFFER_SIZE, &result);
-                SDL_Log("Buffer %u size = %d needed size: %zu", newBuffer, result, newSize);
-
-
-                // if the result is that the new buffer has a size of 0 then we re-do this
-                if (result == 0)
-                {
-                }
-                else
-                { // else we unmap the buffer first, then we copy the old data to the new buffer, then map the new
-                  // buffer and check for errors
-
-                    if (glIsBuffer(BufferSlots[i]))
-                    {
-                        glUnmapNamedBuffer(BufferSlots[i]);
-                        slots[i] = nullptr;
-                        glCopyNamedBufferSubData(BufferSlots[i], newBuffer, 0, 0, slotOccupiedSize[i]);
-                    }
-                    else
-                    {
-                        SDL_Log("ERROR: ReCreateBuffer(): BufferSlots[i] is not a buffer");
-                    }
-
-
-
-
-
-                    slots[i] = glMapNamedBufferRange(newBuffer, 0, slotFullSize[i],
-                                                     GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-                    GLenum err = glGetError();
-                    if (!slots[i] || err != GL_NO_ERROR)
-                    {
-                        SDL_Log("ReCreateBuffer()): glMapNamedBufferRange failed for BufferSlots[%d]=%u err=0x%X", i,
-                                BufferSlots[i], err);
-                        slots[i] = nullptr;
-                    }
-                    else
-                    {
-                        // success; caller can write into slots[i]
-
-
-                        glDeleteBuffers(1, &BufferSlots[i]);
-
-                        BufferSlots[i] = newBuffer;
-                        slotFullSize[i] = newSize;
-                        shouldResize[i] = false;
-                    }
-                }
-            }
-            else
-            {
-                continue;
-            } // wait for fence {
-        }
-    } // for loop
-}*/
 
 
 
@@ -906,50 +663,6 @@ void DynamicBuffer::MapAllBufferSlots()
 }
 
 
-/*BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlags type)
-{
-    for (unsigned int i = 0; i < 3; i++)
-    {
-        if (slotFullSize[i] >= size + slotOccupiedSize[i]) // allow exact fit
-        {
-            if (slots[i] != nullptr)
-            {
-                //      unsigned char *location = reinterpret_cast<unsigned char *>(slots[i]) + slotOccupiedSize[i];
-                std::byte *location = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
-                std::memcpy(location, data, size);
-
-                std::cout << location << "  pointer location;\n";
-                BufferRange RT;
-                RT.OwningBuffer = DynamicBufferID;
-                RT.slot = i;
-                RT.offset = slotOccupiedSize[i];
-                RT.size = size;
-                RT.count = 1; // size; // or let caller decide what "count" means
-                slotOccupiedSize[i] += size;
-
-                return RT;
-            }
-            else
-            {
-                SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
-                ReCreateBuffer(size);
-                if (slots[i]) // retry once
-                    return InsertNewData(data, size, type);
-                continue;
-            }
-        }
-        else
-        {
-            SDL_Log("InsertNewData: slot %u too small, marking resize", i);
-            shouldResize[i] = true;
-        }
-    }
-
-    // If we get here, no slot worked → force resize and retry
-    SDL_Log("InsertNewData: no fitting slot found, forcing resize");
-    ReCreateBuffer(size);
-    return InsertNewData(data, size, type);
-} */
 
 
 
@@ -960,9 +673,105 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
     unsigned int i = nextSlot;
     if (slotFullSize[i] >= size + slotOccupiedSize[i]) // allow exact fit
     {
-        if (slots[i] != nullptr)
+
+        if (trippleBuffer)
         {
-            // compute byte-based insertion location
+
+            if (slots[i] != nullptr)
+            {
+                // compute byte-based insertion location
+                std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
+                int count = 1;
+                switch (type)
+                {
+                case TypeFlags::BUFFER_INSTANCE_DATA: {
+                    auto *typedPtr = reinterpret_cast<InstanceData *>(base);
+                    count = size / sizeof(InstanceData);
+
+                    std::memcpy(typedPtr, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_CAMERA_DATA: {
+                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                    count = size / sizeof(glm::mat4);
+                    std::memcpy(typedPtr, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_ANIMATION_DATA: {
+                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                    count = size / sizeof(glm::mat4);
+                    std::memcpy(typedPtr, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_DRAW_CALL_DATA: {
+                    auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
+                    count = size / sizeof(DrawElementsIndirectCommand);
+                    std::memcpy(typedPtr, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_TEXTURE_DATA: {
+                    auto *typedPtr = reinterpret_cast<GLuint64 *>(base); // bindless handle
+                    count = size / sizeof(GLuint64);
+                    std::memcpy(typedPtr, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_LIGHT_DATA: {
+                    // TODO: implement LightData properly
+                    std::memcpy(base, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_PARTICLE_DATA: {
+                    // TODO: implement ParticleData properly
+                    std::memcpy(base, data, size);
+                    break;
+                }
+                case TypeFlags::BUFFER_STATIC_MATRIX_DATA: {
+
+                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                    count = size / sizeof(glm::mat4);
+                    std::memcpy(typedPtr, data, size);
+
+
+
+                    break;
+                }
+
+                default: {
+                    SDL_Log("InsertNewData: unknown buffer type %d", static_cast<int>(type));
+                    std::memcpy(base, data, size); // fallback: raw copy
+                    break;
+                }
+                }
+
+                // prepare return range
+                BufferRange RT;
+                RT.OwningBuffer = DynamicBufferID;
+                RT.slot = i;
+                RT.offset = slotOccupiedSize[i];
+                RT.size = size;
+                RT.count = count; // forgot what this was for so its just the count of items
+                RT.dataType = type;
+
+
+                slotOccupiedSize[i] += size; // advance by bytes
+
+                return RT;
+            }
+            else
+            {
+                SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
+                ReCreateBuffer(size);
+                if (slots[i]) // retry once
+                    return InsertNewData(data, size, type);
+                // continue;
+            }
+        }
+        else
+        {
+
+
+
+
             std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
             int count = 1;
             switch (type)
@@ -971,51 +780,64 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
                 auto *typedPtr = reinterpret_cast<InstanceData *>(base);
                 count = size / sizeof(InstanceData);
 
-                std::memcpy(typedPtr, data, size);
+                // std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_CAMERA_DATA: {
                 auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
                 count = size / sizeof(glm::mat4);
-                std::memcpy(typedPtr, data, size);
+                // std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_ANIMATION_DATA: {
                 auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
                 count = size / sizeof(glm::mat4);
-                std::memcpy(typedPtr, data, size);
+                //  std::memcpy(typedPtr, data, size);
+                break;
+            }
+            case TypeFlags::BUFFER_STATIC_MATRIX_DATA: {
+                auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                count = size / sizeof(glm::mat4);
+                //  std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_DRAW_CALL_DATA: {
                 auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
                 count = size / sizeof(DrawElementsIndirectCommand);
-                std::memcpy(typedPtr, data, size);
+                // std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_TEXTURE_DATA: {
                 auto *typedPtr = reinterpret_cast<GLuint64 *>(base); // bindless handle
                 count = size / sizeof(GLuint64);
-                std::memcpy(typedPtr, data, size);
+                // std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_LIGHT_DATA: {
                 // TODO: implement LightData properly
-                std::memcpy(base, data, size);
+                // std::memcpy(base, data, size);
                 break;
             }
             case TypeFlags::BUFFER_PARTICLE_DATA: {
                 // TODO: implement ParticleData properly
-                std::memcpy(base, data, size);
+                // std::memcpy(base, data, size);
                 break;
             }
             default: {
                 SDL_Log("InsertNewData: unknown buffer type %d", static_cast<int>(type));
-                std::memcpy(base, data, size); // fallback: raw copy
+                //  std::memcpy(base, data, size); // fallback: raw copy
                 break;
             }
             }
 
-            // prepare return range
+
+
+            glNamedBufferSubData(BufferSlots[nextSlot], slotOccupiedSize[i], size, data);
+
+
+
+
+
             BufferRange RT;
             RT.OwningBuffer = DynamicBufferID;
             RT.slot = i;
@@ -1028,14 +850,6 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
             slotOccupiedSize[i] += size; // advance by bytes
 
             return RT;
-        }
-        else
-        {
-            SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
-            ReCreateBuffer(size);
-            if (slots[i]) // retry once
-                return InsertNewData(data, size, type);
-            // continue;
         }
     }
     else
@@ -1097,60 +911,93 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
 
 
 
-    /*  void *writeLocation = static_cast<void *>((char *)slots[range.slot] + range.offset);
-      SDL_Log("Range size: %zu , size = %zu \n , buffer:%u slot: %u", range.size, size, range.OwningBuffer, range.slot);
-      assert(range.size == size);
-      SDL_Log("Updating buffer: slot=%u, offset=%zu, size=%zu, buffer=%u", range.slot, range.offset, size,
-              range.OwningBuffer);
-      memcpy(writeLocation, data, range.size);*/
 
 
-    std::byte *base = static_cast<std::byte *>(slots[nextSlot]) + range.offset;
-
-    switch (type)
+    if (trippleBuffer)
     {
-    case TypeFlags::BUFFER_INSTANCE_DATA: {
-        auto *typedPtr = reinterpret_cast<InstanceData *>(base);
-        std::memcpy(typedPtr, data, size);
-        break;
+        std::byte *base = static_cast<std::byte *>(slots[nextSlot]) + range.offset;
+
+        switch (type)
+        {
+        case TypeFlags::BUFFER_INSTANCE_DATA: {
+            auto *typedPtr = reinterpret_cast<InstanceData *>(base);
+            std::memcpy(typedPtr, data, size);
+            break;
+        }
+        case TypeFlags::BUFFER_CAMERA_DATA: {
+            auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+            std::memcpy(typedPtr, data, size);
+            break;
+        }
+        case TypeFlags::BUFFER_DRAW_CALL_DATA: {
+            auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
+            std::memcpy(typedPtr, data, size);
+            break;
+        }
+        case TypeFlags::BUFFER_TEXTURE_DATA: {
+            auto *typedPtr = reinterpret_cast<GLuint64 *>(base);
+            std::memcpy(typedPtr, data, size);
+            break;
+        }
+        default:
+            std::memcpy(base, data, size); // fallback
+            break;
+        }
     }
-    case TypeFlags::BUFFER_CAMERA_DATA: {
-        auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-        std::memcpy(typedPtr, data, size);
-        break;
-    }
-    case TypeFlags::BUFFER_DRAW_CALL_DATA: {
-        auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
-        std::memcpy(typedPtr, data, size);
-        break;
-    }
-    case TypeFlags::BUFFER_TEXTURE_DATA: {
-        auto *typedPtr = reinterpret_cast<GLuint64 *>(base);
-        std::memcpy(typedPtr, data, size);
-        break;
-    }
-    default:
-        std::memcpy(base, data, size); // fallback
-        break;
+    else
+    {
+
+        glNamedBufferSubData(BufferSlots[nextSlot], range.offset, size, data);
     }
 }
 
 
 
 
-void DynamicBuffer::EndWritting()
+/*void DynamicBuffer::EndWritting()
 {
     glBindBuffer(Target, BufferSlots[nextSlot]);
 
     // Place a fence to track GPU completion for this slot
-    SetDownFence();
 
-    // Increase timeline so we can track slot ages
-    slotsAge[nextSlot] = ++slotTimeline;
+    if (trippleBuffer)
+    {
+        SetDownFence();
 
-    // Commit swap: nextSlot becomes the current slot used for rendering
-    currentSlot = nextSlot;
+        // Increase timeline so we can track slot ages
+        slotsAge[nextSlot] = ++slotTimeline;
+
+        // Commit swap: nextSlot becomes the current slot used for rendering
+        currentSlot = nextSlot;
+    }
+}*/
+
+void DynamicBuffer::EndWritting()
+{
+    // Bind the slot that will be used for rendering
+    glBindBuffer(Target, BufferSlots[nextSlot]);
+
+    if (trippleBuffer)
+    {
+        // Place fence for the slot we just wrote (nextSlot)
+        // We set fence for nextSlot explicitly so waitForSlotFence checks the right sync object.
+        SetDownFence(nextSlot);
+
+        // Commit swap: nextSlot becomes current slot used for rendering
+        currentSlot = nextSlot;
+
+        // Note: slot age already set by SetDownFence
+    }
+    else
+    {
+        // non-triple-buffer path: treat as single-slot immediate bind
+        currentSlot = nextSlot;
+    }
 }
+
+
+
+
 
 
 // privates:
@@ -1184,7 +1031,7 @@ bool DynamicBuffer::waitForSlotFence(int slot)
 
 
 
-void DynamicBuffer::SetDownFence()
+/*void DynamicBuffer::SetDownFence()
 {
     if (fences[currentSlot])
     {
@@ -1193,7 +1040,30 @@ void DynamicBuffer::SetDownFence()
     fences[currentSlot] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     slotsAge[currentSlot] = slotTimeline;
     slotTimeline++;
+
+}*/
+
+
+// in class declaration: void SetDownFence(int slot);
+void DynamicBuffer::SetDownFence(int slot)
+{
+    if (slot < 0 || slot >= 3)
+        return;
+
+    if (fences[slot])
+    {
+        glDeleteSync(fences[slot]);
+    }
+    fences[slot] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+    // update age for the slot we just fenced
+    slotsAge[slot] = ++slotTimeline;
 }
+
+
+
+
+
 
 //-----------------------DYNAMIC BUFFER IMPLEMENTATION END-------------------------------------\\
 
@@ -1212,10 +1082,10 @@ void BufferManager::Initialize()
     ParticleData = DynamicBuffer(MBsize(d_size), 4);
     StaticMeshInformation = StaticBuffer(MBsize(s_size), MBsize(s_size), 5);
     TerrainBuffer = StaticBuffer(MBsize(s_size), MBsize(s_size), 6);
-    StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
+    // StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
     cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 8);
     LightsBuffer = DynamicBuffer(MBsize(d_size), 9);
-
+    StaticMatrices = DynamicBuffer(MBsize(d_size), 10, GL_SHADER_STORAGE_BUFFER, false);
 
     StaticbufferIDs.push_back(&StaticMeshInformation);
     StaticbufferIDs.push_back(&TerrainBuffer);
@@ -1228,6 +1098,7 @@ void BufferManager::Initialize()
     DynamicBufferIDs.push_back(&DrawCommandBuffer);
     DynamicBufferIDs.push_back(&cameraMatrices);
     DynamicBufferIDs.push_back(&LightsBuffer);
+    DynamicBufferIDs.push_back(&StaticMatrices);
 
     InstanceData.SetBinding(0);
     DrawCommandBuffer.SetBinding(1);
@@ -1236,6 +1107,7 @@ void BufferManager::Initialize()
     ParticleData.SetBinding(4);
     cameraMatrices.SetBinding(5);
     LightsBuffer.SetBinding(6);
+    StaticMatrices.SetBinding(7);
 }
 void BufferManager::BeginWritting()
 {
@@ -1265,6 +1137,7 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(const Vertex *vertexData,
 
 
 
+
     return VertexIndexInfoPair();
 }
 BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size, TypeFlags type)
@@ -1274,9 +1147,9 @@ BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size, T
     {
         return InstanceData.InsertNewData(data, size, type);
     }
-    if (type == TypeFlags::BUFFER_MATRIX_DATA)
+    if (type == TypeFlags::BUFFER_STATIC_MATRIX_DATA)
     {
-        // guess we dont need it if we have instance data lmao
+        return StaticMatrices.InsertNewData(data, size, type);
     }
     if (type == TypeFlags::BUFFER_ANIMATION_DATA)
     {
@@ -1388,6 +1261,12 @@ void BufferManager::ClearBuffer(TypeFlags whichBuffer)
         LightsBuffer.ClearBuffer();
     }
 }
+
+
+void BufferManager::UpdateManager()
+{
+}
+
 
 
 BufferManager::BufferManager()

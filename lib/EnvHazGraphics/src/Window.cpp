@@ -2,6 +2,7 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
+#include <cstdlib>
 #include <glad/glad.h>
 
 
@@ -82,9 +83,16 @@ bool previousCursorStat = false;
 
 void Window::Update()
 {
-    if (lockCursor != previousCursorStat)
+    // if (lockCursor != previousCursorStat)
     {
+
+
         SDL_SetWindowRelativeMouseMode(mWindow, lockCursor);
+        // SDL_WarpMouseInWindow(mWindow, std::abs(mWidth / 2), std::abs(mHeight / 2));
+
+
+
+
         previousCursorStat = lockCursor;
     }
 }

@@ -1,5 +1,7 @@
 #include "MeshManager.hpp"
 #include "DataStructs.hpp"
+#include "Utils/HashedStrings.hpp"
+#include "Utils/Math_Utils.hpp"
 #include "glad/glad.h"
 #include <assimp/mesh.h>
 #include <assimp/scene.h>
@@ -10,7 +12,25 @@
 namespace eHazGraphics
 {
 
+aiMatrix4x4 GetNodeToRootMat4(aiNode *node)
+{
 
+    aiMatrix4x4 globalTransform = node->mTransformation;
+
+
+    aiNode *currentNode = node->mParent;
+    while (currentNode)
+    {
+
+
+        globalTransform = currentNode->mTransformation * globalTransform;
+        currentNode = currentNode->mParent;
+    }
+
+
+
+    return globalTransform;
+}
 
 
 
@@ -19,7 +39,15 @@ Model MeshManager::LoadModel(std::string &path)
     std::vector<MeshID> temps;
 
 
-    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+    eHazGraphics_Utils::HashedString hashedPath = eHazGraphics_Utils::computeHash(path);
+
+    if (loadedModels.contains(hashedPath))
+    {
+        return loadedModels[hashedPath];
+    }
+
+    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
+                                                       /*aiProcess_PreTransformVertices |*/ aiProcess_OptimizeMeshes);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -39,6 +67,8 @@ Model MeshManager::LoadModel(std::string &path)
     }
 
     importer.FreeScene();
+
+    loadedModels.emplace(hashedPath, model);
     return model;
 }
 
@@ -50,7 +80,19 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node, const aiScene *scene)
         aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
         maxID += 1;
         // meshes[maxID] = processMesh(mesh, scene);
+
+
         meshes.try_emplace(maxID, processMesh(mesh, scene));
+
+        // TODO: DECIDE HOW TO DO THIS, currently meshTransforms is only used in Renderer.cpp at the InsertStaticMesh
+        // part
+
+
+        glm::mat4 relativeMat = eHazGraphics_Utils::convertAssimpMatrixToGLM(GetNodeToRootMat4(node));
+
+        meshTransforms.emplace(maxID, relativeMat);
+        meshes[maxID].setRelativeMatrix(relativeMat);
+
         meshIDs.push_back(maxID);
     }
 
@@ -96,6 +138,17 @@ Mesh MeshManager::processMesh(aiMesh *mesh, const aiScene *scene)
         }
         else
             vertex.UV = glm::vec2(0.0f, 0.0f);
+
+
+        if (mesh->HasBones())
+        {
+            // TODO: IMPLEMENT BONE GET
+        }
+        else
+        {
+            vertex.boneIDs = glm::ivec4(0, 0, 0, 0);
+            vertex.boneWeights = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+        }
 
 
 

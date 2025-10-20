@@ -7,7 +7,20 @@ file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS
 )
 
 add_executable(MyApp ${APP_SOURCES})
+
 target_include_directories(MyApp PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
+
 target_link_libraries(MyApp PRIVATE EnvHazGraphics)
+
+# ------------------------------
+# Add a custom run target that uses NVIDIA GPU
+# ------------------------------
+add_custom_target(run
+    COMMAND env __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia $<TARGET_FILE:MyApp>
+    DEPENDS MyApp
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running MyApp on NVIDIA GPU..."
+)
+

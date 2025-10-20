@@ -21,6 +21,7 @@ layout(binding = 5, std430) readonly buffer ssbo5 {
 struct InstanceData {
     mat4 model;
     uint materialID;
+    uint modelMatID;
 };
 
 flat out uint MatID;
@@ -29,9 +30,15 @@ layout(binding = 0, std430) readonly buffer ssbo0 {
     InstanceData data[];
 };
 
+layout(binding = 7, std430) readonly buffer ssbo7 {
+    mat4 modelMat[];
+};
+
 void main()
 {
-    MatID = data[gl_DrawID + gl_InstanceID].materialID;
+    int curID = gl_DrawID + gl_InstanceID;
+    MatID = data[curID].materialID;
     TexCoords = aTexCoords;
-    gl_Position = camMats.projection * camMats.view * data[gl_DrawID + gl_InstanceID].model * vec4(aPos, 1.0);
+
+    gl_Position = camMats.projection * camMats.view * data[curID].model * modelMat[data[curID].modelMatID] * vec4(aPos, 1.0);
 }
