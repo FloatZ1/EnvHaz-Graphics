@@ -358,7 +358,7 @@ void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType)
 
 
 
-        // TODO: INTEGRATE THE INSTANCE DATA, get the data and create it;
+        // TODO: Get the instance data from the model and create the necessary render commands
 
 
 

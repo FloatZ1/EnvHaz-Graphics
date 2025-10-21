@@ -162,7 +162,7 @@ int main()
 
 
 
-    std::string path = RESOURCES_PATH "building_01.glb";
+    std::string path = RESOURCES_PATH "boombox.glb";
     // std::string path = RESOURCES_PATH "cube.obj";
     Model cube = rend.p_meshManager->LoadModel(path);
     ShaderComboID temp;
