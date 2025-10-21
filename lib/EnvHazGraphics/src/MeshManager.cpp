@@ -1,4 +1,5 @@
 #include "MeshManager.hpp"
+#include "BufferManager.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "Utils/Math_Utils.hpp"
@@ -93,6 +94,12 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node, const aiScene *scene)
         meshTransforms.emplace(maxID, relativeMat);
         meshes[maxID].setRelativeMatrix(relativeMat);
 
+        AddTransformRange(maxID, bufferManager->InsertNewDynamicData(&relativeMat, sizeof(relativeMat),
+                                                                     TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+
+
+
+
         meshIDs.push_back(maxID);
     }
 
@@ -169,8 +176,9 @@ Mesh MeshManager::processMesh(aiMesh *mesh, const aiScene *scene)
 }
 
 
-void MeshManager::Initialize()
+void MeshManager::Initialize(BufferManager *bufferManager)
 {
+    this->bufferManager = bufferManager;
 }
 
 void MeshManager::Destroy()

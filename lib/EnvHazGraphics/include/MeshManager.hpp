@@ -156,7 +156,7 @@ class Model
 class MeshManager
 {
   public:
-    void Initialize(); // TODO: IMPLEMENT
+    void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
     Model LoadModel(std::string &path);
 
     void EraseMesh(MeshID mesh)
@@ -235,7 +235,7 @@ class MeshManager
     {
 
 
-        meshTransformRanges[mesh] = range;
+        meshTransformRanges.try_emplace(mesh, range);
     }
 
     const BufferRange GetTransformBufferRange(const MeshID &mesh)
@@ -252,7 +252,7 @@ class MeshManager
     }
 
 
-    void UpdateSubmittedMeshes(BufferManager *r)
+    void UpdateSubmittedMeshes()
     {
         for (unsigned int i = 0; i < submittedModels.size(); i++)
         {
@@ -266,15 +266,15 @@ class MeshManager
 
 
 
-                r->UpdateData(InstanceRanges[i], &Instances[i], sizeof(InstanceData));
+                bufferManager->UpdateData(InstanceRanges[i], &Instances[i], sizeof(InstanceData));
             }
         }
     }
 
 
-    void Update(BufferManager *bufferManager)
+    void Update()
     {
-        UpdateSubmittedMeshes(bufferManager);
+        UpdateSubmittedMeshes();
     }
 
 
@@ -304,7 +304,7 @@ class MeshManager
     std::unordered_map<MeshID, glm::mat4> meshTransforms;
     std::unordered_map<MeshID, BufferRange> meshTransformRanges;
     std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
-
+    BufferManager *bufferManager;
     Assimp::Importer importer;
 };
 

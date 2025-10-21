@@ -305,7 +305,7 @@ bool Renderer::Initialize()
 
     p_renderQueue->Initialize();
     p_shaderManager->Initialize();
-    p_meshManager->Initialize();
+    p_meshManager->Initialize(p_bufferManager.get());
     p_materialManager->Initialize();
     p_bufferManager->Initialize();
 
@@ -438,6 +438,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
 
     if (!p_shaderManager || !p_window)
     {
@@ -468,7 +469,7 @@ void Renderer::UpdateRenderer()
 
     p_window->Update();
     //  p_bufferManager->UpdateManager();
-    p_meshManager->Update(p_bufferManager.get());
+    p_meshManager->Update();
 }
 
 void Renderer::Destroy()

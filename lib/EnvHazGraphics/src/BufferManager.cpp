@@ -444,6 +444,8 @@ void DynamicBuffer::SetSlot(int slot)
 {
     if (trippleBuffer)
         currentSlot = slot;
+    else
+        currentSlot = 0;
 
     if (!glIsBuffer(BufferSlots[slot]))
     {
@@ -460,14 +462,15 @@ void DynamicBuffer::SetSlot(int slot)
     case GL_ATOMIC_COUNTER_BUFFER:
     case GL_TRANSFORM_FEEDBACK_BUFFER:
         // Indexed binding targets
-        glBindBufferBase(Target, binding, BufferSlots[slot]);
-        break;
+
+        glBindBufferBase(Target, binding, BufferSlots[currentSlot]);
+
 
     case GL_DRAW_INDIRECT_BUFFER:
     case GL_ARRAY_BUFFER:
     case GL_ELEMENT_ARRAY_BUFFER:
         // Non-indexed binding targets
-        glBindBuffer(Target, BufferSlots[slot]);
+        glBindBuffer(Target, BufferSlots[currentSlot]);
         break;
 
     default:
@@ -479,8 +482,8 @@ void DynamicBuffer::SetSlot(int slot)
     GLenum err = glGetError();
     if (err != GL_NO_ERROR)
     {
-        SDL_Log("SetSlot(): bind failed for target=0x%X slot=%d buffer=%u err=0x%X", Target, slot, BufferSlots[slot],
-                err);
+        SDL_Log("SetSlot(): bind failed for target=0x%X slot=%d buffer=%u err=0x%X", Target, currentSlot,
+                BufferSlots[currentSlot], err);
     }
 #endif
 }
@@ -605,6 +608,7 @@ void DynamicBuffer::ReCreateBuffer(size_t minimumSize)
         }
 
         // Map new buffer
+
         slots[i] = glMapNamedBufferRange(newBuffer, 0, newSize,
                                          GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
         GLenum err = glGetError();
@@ -674,104 +678,12 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
     if (slotFullSize[i] >= size + slotOccupiedSize[i]) // allow exact fit
     {
 
-        if (trippleBuffer)
+
+
+
+        if (slots[i] != nullptr)
         {
-
-            if (slots[i] != nullptr)
-            {
-                // compute byte-based insertion location
-                std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
-                int count = 1;
-                switch (type)
-                {
-                case TypeFlags::BUFFER_INSTANCE_DATA: {
-                    auto *typedPtr = reinterpret_cast<InstanceData *>(base);
-                    count = size / sizeof(InstanceData);
-
-                    std::memcpy(typedPtr, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_CAMERA_DATA: {
-                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-                    count = size / sizeof(glm::mat4);
-                    std::memcpy(typedPtr, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_ANIMATION_DATA: {
-                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-                    count = size / sizeof(glm::mat4);
-                    std::memcpy(typedPtr, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_DRAW_CALL_DATA: {
-                    auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
-                    count = size / sizeof(DrawElementsIndirectCommand);
-                    std::memcpy(typedPtr, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_TEXTURE_DATA: {
-                    auto *typedPtr = reinterpret_cast<GLuint64 *>(base); // bindless handle
-                    count = size / sizeof(GLuint64);
-                    std::memcpy(typedPtr, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_LIGHT_DATA: {
-                    // TODO: implement LightData properly
-                    std::memcpy(base, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_PARTICLE_DATA: {
-                    // TODO: implement ParticleData properly
-                    std::memcpy(base, data, size);
-                    break;
-                }
-                case TypeFlags::BUFFER_STATIC_MATRIX_DATA: {
-
-                    auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-                    count = size / sizeof(glm::mat4);
-                    std::memcpy(typedPtr, data, size);
-
-
-
-                    break;
-                }
-
-                default: {
-                    SDL_Log("InsertNewData: unknown buffer type %d", static_cast<int>(type));
-                    std::memcpy(base, data, size); // fallback: raw copy
-                    break;
-                }
-                }
-
-                // prepare return range
-                BufferRange RT;
-                RT.OwningBuffer = DynamicBufferID;
-                RT.slot = i;
-                RT.offset = slotOccupiedSize[i];
-                RT.size = size;
-                RT.count = count; // forgot what this was for so its just the count of items
-                RT.dataType = type;
-
-
-                slotOccupiedSize[i] += size; // advance by bytes
-
-                return RT;
-            }
-            else
-            {
-                SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
-                ReCreateBuffer(size);
-                if (slots[i]) // retry once
-                    return InsertNewData(data, size, type);
-                // continue;
-            }
-        }
-        else
-        {
-
-
-
-
+            // compute byte-based insertion location
             std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
             int count = 1;
             switch (type)
@@ -780,64 +692,62 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
                 auto *typedPtr = reinterpret_cast<InstanceData *>(base);
                 count = size / sizeof(InstanceData);
 
-                // std::memcpy(typedPtr, data, size);
+                std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_CAMERA_DATA: {
                 auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
                 count = size / sizeof(glm::mat4);
-                // std::memcpy(typedPtr, data, size);
+                std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_ANIMATION_DATA: {
                 auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
                 count = size / sizeof(glm::mat4);
-                //  std::memcpy(typedPtr, data, size);
-                break;
-            }
-            case TypeFlags::BUFFER_STATIC_MATRIX_DATA: {
-                auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-                count = size / sizeof(glm::mat4);
-                //  std::memcpy(typedPtr, data, size);
+                std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_DRAW_CALL_DATA: {
                 auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
                 count = size / sizeof(DrawElementsIndirectCommand);
-                // std::memcpy(typedPtr, data, size);
+                std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_TEXTURE_DATA: {
                 auto *typedPtr = reinterpret_cast<GLuint64 *>(base); // bindless handle
                 count = size / sizeof(GLuint64);
-                // std::memcpy(typedPtr, data, size);
+                std::memcpy(typedPtr, data, size);
                 break;
             }
             case TypeFlags::BUFFER_LIGHT_DATA: {
                 // TODO: implement LightData properly
-                // std::memcpy(base, data, size);
+                std::memcpy(base, data, size);
                 break;
             }
             case TypeFlags::BUFFER_PARTICLE_DATA: {
                 // TODO: implement ParticleData properly
-                // std::memcpy(base, data, size);
+                std::memcpy(base, data, size);
                 break;
             }
+            case TypeFlags::BUFFER_STATIC_MATRIX_DATA: {
+
+                auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+                count = size / sizeof(glm::mat4);
+                std::memcpy(typedPtr, data, size);
+
+
+
+                break;
+            }
+
             default: {
                 SDL_Log("InsertNewData: unknown buffer type %d", static_cast<int>(type));
-                //  std::memcpy(base, data, size); // fallback: raw copy
+                std::memcpy(base, data, size); // fallback: raw copy
                 break;
             }
             }
 
-
-
-            glNamedBufferSubData(BufferSlots[nextSlot], slotOccupiedSize[i], size, data);
-
-
-
-
-
+            // prepare return range
             BufferRange RT;
             RT.OwningBuffer = DynamicBufferID;
             RT.slot = i;
@@ -850,6 +760,14 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size, TypeFlag
             slotOccupiedSize[i] += size; // advance by bytes
 
             return RT;
+        }
+        else
+        {
+            SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting recovery", i, DynamicBufferID);
+            ReCreateBuffer(size);
+            if (slots[i]) // retry once
+                return InsertNewData(data, size, type);
+            // continue;
         }
     }
     else
@@ -913,41 +831,33 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
 
 
 
-    if (trippleBuffer)
-    {
-        std::byte *base = static_cast<std::byte *>(slots[nextSlot]) + range.offset;
+    std::byte *base = static_cast<std::byte *>(slots[nextSlot]) + range.offset;
 
-        switch (type)
-        {
-        case TypeFlags::BUFFER_INSTANCE_DATA: {
-            auto *typedPtr = reinterpret_cast<InstanceData *>(base);
-            std::memcpy(typedPtr, data, size);
-            break;
-        }
-        case TypeFlags::BUFFER_CAMERA_DATA: {
-            auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
-            std::memcpy(typedPtr, data, size);
-            break;
-        }
-        case TypeFlags::BUFFER_DRAW_CALL_DATA: {
-            auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
-            std::memcpy(typedPtr, data, size);
-            break;
-        }
-        case TypeFlags::BUFFER_TEXTURE_DATA: {
-            auto *typedPtr = reinterpret_cast<GLuint64 *>(base);
-            std::memcpy(typedPtr, data, size);
-            break;
-        }
-        default:
-            std::memcpy(base, data, size); // fallback
-            break;
-        }
+    switch (type)
+    {
+    case TypeFlags::BUFFER_INSTANCE_DATA: {
+        auto *typedPtr = reinterpret_cast<InstanceData *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
     }
-    else
-    {
-
-        glNamedBufferSubData(BufferSlots[nextSlot], range.offset, size, data);
+    case TypeFlags::BUFFER_CAMERA_DATA: {
+        auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    case TypeFlags::BUFFER_DRAW_CALL_DATA: {
+        auto *typedPtr = reinterpret_cast<DrawElementsIndirectCommand *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    case TypeFlags::BUFFER_TEXTURE_DATA: {
+        auto *typedPtr = reinterpret_cast<GLuint64 *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }
+    default:
+        std::memcpy(base, data, size); // fallback
+        break;
     }
 }
 
@@ -977,22 +887,15 @@ void DynamicBuffer::EndWritting()
     // Bind the slot that will be used for rendering
     glBindBuffer(Target, BufferSlots[nextSlot]);
 
-    if (trippleBuffer)
-    {
-        // Place fence for the slot we just wrote (nextSlot)
-        // We set fence for nextSlot explicitly so waitForSlotFence checks the right sync object.
-        SetDownFence(nextSlot);
 
-        // Commit swap: nextSlot becomes current slot used for rendering
-        currentSlot = nextSlot;
+    // Place fence for the slot we just wrote (nextSlot)
+    // We set fence for nextSlot explicitly so waitForSlotFence checks the right sync object.
+    SetDownFence(nextSlot);
 
-        // Note: slot age already set by SetDownFence
-    }
-    else
-    {
-        // non-triple-buffer path: treat as single-slot immediate bind
-        currentSlot = nextSlot;
-    }
+    // Commit swap: nextSlot becomes current slot used for rendering
+    currentSlot = nextSlot;
+
+    // Note: slot age already set by SetDownFence
 }
 
 
