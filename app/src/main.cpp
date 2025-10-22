@@ -3,6 +3,7 @@
 #include "DataStructs.hpp"
 #include "Renderer.hpp"
 #include "camera.hpp"
+
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include <SDL3/SDL.h>
@@ -23,13 +24,12 @@ using namespace eHazGraphics;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+
+
+
+
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-
-
-
-#include <SDL3/SDL.h>
-
-
 
 void processInput(Window *c_window, bool &quit, Camera &camera)
 {
@@ -65,7 +65,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
             break;
 
         // --- Added mouse movement support for camera ---
-        /*case SDL_EVENT_MOUSE_MOTION: {
+        case SDL_EVENT_MOUSE_MOTION: {
             float xpos = static_cast<float>(event.motion.x);
             float ypos = static_cast<float>(event.motion.y);
 
@@ -84,7 +84,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
 
             camera.ProcessMouseMovement(xoffset, yoffset);
             break;
-        }*/
+        }
 
         // --- Added mouse scroll support for zoom ---
         case SDL_EVENT_MOUSE_WHEEL: {
@@ -162,55 +162,26 @@ int main()
 
 
 
-    std::string path = RESOURCES_PATH "cube.obj";
+    std::string path = RESOURCES_PATH "boombox.glb";
+    // std::string path = RESOURCES_PATH "cube.obj";
     Model cube = rend.p_meshManager->LoadModel(path);
     ShaderComboID temp;
 
-    Renderer::p_meshManager->SetModelInstanceCount(cube, 5);
+    // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
 
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, glm::vec3(0.0f, 0.0f, -15.0f));
-    InstanceData data = {model, materialID};
+    cube.SetPositionMat4(model);
 
     rend.p_meshManager->SetModelShader(cube, shader);
 
-    BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
+    // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    rend.SubmitStaticMesh(cube.GetMeshIDs(), instanceData, TypeFlags::BUFFER_STATIC_MESH_DATA);
-
-
+    rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
 
 
-
-
-
-    glm::mat4 model2(1.0f);
-    model2 = glm::translate(model2, glm::vec3(0.0f, 5.0f, -15.0f));
-    InstanceData data2 = {model2, materialID};
-    BufferRange instanceData2 = rend.SubmitDynamicData(&data2, sizeof(data2), TypeFlags::BUFFER_INSTANCE_DATA);
-
-
-
-    glm::mat4 model3(1.0f);
-    model3 = glm::translate(model3, glm::vec3(5.0f, 0.0f, -15.0f));
-    InstanceData data3 = {model3, materialID};
-    BufferRange instanceData3 = rend.SubmitDynamicData(&data3, sizeof(data3), TypeFlags::BUFFER_INSTANCE_DATA);
-
-
-
-    glm::mat4 model4(1.0f);
-    model4 = glm::translate(model4, glm::vec3(-5.0f, 0.0f, -15.0f));
-    InstanceData data4 = {model4, materialID};
-    BufferRange instanceData4 = rend.SubmitDynamicData(&data4, sizeof(data4), TypeFlags::BUFFER_INSTANCE_DATA);
-
-
-
-    glm::mat4 model5(1.0f);
-    model5 = glm::translate(model5, glm::vec3(0.0f, -5.0f, -15.0f));
-    InstanceData data5 = {model5, materialID};
-    BufferRange instanceData5 = rend.SubmitDynamicData(&data5, sizeof(data5), TypeFlags::BUFFER_INSTANCE_DATA);
 
 
 
@@ -224,7 +195,7 @@ int main()
     // test[2][2] = 69.0f;
 
 
-
+    //
     glm::mat4 projection1 = glm::perspective(
         glm::radians(camera.Zoom), (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
 
@@ -250,7 +221,7 @@ int main()
 
 
         processInput(rend.p_window.get(), rend.shouldQuit, camera);
-
+        rend.UpdateRenderer();
         glm::mat4 projection =
             glm::perspective(glm::radians(camera.Zoom),
                              (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
@@ -261,11 +232,7 @@ int main()
 
 
         // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
-        rend.UpdateDynamicData(instanceData, &data, sizeof(data));
-        rend.UpdateDynamicData(instanceData2, &data2, sizeof(data2));
-        rend.UpdateDynamicData(instanceData3, &data3, sizeof(data3));
-        rend.UpdateDynamicData(instanceData4, &data4, sizeof(data4));
-        rend.UpdateDynamicData(instanceData5, &data5, sizeof(data5));
+        // rend.UpdateDynamicData(instanceData, &data, sizeof(data));
 
         rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
@@ -277,7 +244,7 @@ int main()
         rend.RenderFrame(ranges);
         // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
         rend.UpdateDynamicData(materials, mat.first.data(), mat.first.size() * sizeof(PBRMaterial));
-        rend.UpdateRenderer();
+
         frameNum++;
 
         // printf("END OF FRAME: %u ==============================\n", frameNum);

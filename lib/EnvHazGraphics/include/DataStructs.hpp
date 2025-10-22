@@ -98,6 +98,10 @@ struct Vertex
     glm::vec3 Postion;
     glm::vec2 UV;
     glm::vec3 Normal;
+
+    // animation stuff;
+    glm::ivec4 boneIDs;
+    glm::vec4 boneWeights;
 };
 
 
@@ -124,6 +128,21 @@ class Texture2D
 
 
         data = stbi_load(texturePath.c_str(), &width, &height, &nrChannel, 0);
+
+        if (!data)
+        {
+            std::cerr << "stbi_load failed for " << texturePath << "\n";
+            std::cerr << "Reason: " << stbi_failure_reason() << "\n";
+            perror("fopen");
+        }
+        else
+        {
+            std::cout << "Loaded texture: " << width << "x" << height << " channels: " << nrChannel << std::endl;
+        }
+
+
+
+
         if (storageFormat == 0 && imageFormat == 0)
         {
             switch (nrChannel)
@@ -253,9 +272,10 @@ struct DrawElementsIndirectCommand
 
 struct InstanceData
 {
-    glm::mat4 modelMat;
+    glm::mat4 worldMat;
     uint32_t materialID;
-    uint32_t _pad[3]{0, 0, 0};
+    uint32_t modelMatID;
+    uint32_t padding[2];
 };
 
 struct DrawRange

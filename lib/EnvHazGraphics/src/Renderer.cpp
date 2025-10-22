@@ -202,6 +202,8 @@ bool Renderer::Initialize()
 
     bool hasSSBO = false;
     bool hasCompute = false;
+    bool hasBindless = false;
+
 
     GLint numExtensions = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
@@ -216,6 +218,10 @@ bool Renderer::Initialize()
         if (strcmp(ext, "GL_ARB_compute_shader") == 0)
         {
             hasCompute = true;
+        }
+        if (strcmp(ext, "GL_ARB_bindless_texture") == 0)
+        {
+            hasBindless = true;
         }
     }
 
@@ -238,8 +244,23 @@ bool Renderer::Initialize()
     }
 
 
+    if (hasCompute)
+    {
+        SDL_Log("Bindless texture supported via GL_ARB_bindless_texture");
+    }
+    else
+    {
+        SDL_Log("Bindless texture NOT supported on this driver!");
+    }
 
-
+    if (GLAD_GL_ARB_bindless_texture)
+    {
+        std::cout << "Bindless textures supported!" << std::endl;
+    }
+    else
+    {
+        std::cerr << "GL_ARB_bindless_texture not supported on this system!" << std::endl;
+    }
 
 
 
@@ -284,7 +305,7 @@ bool Renderer::Initialize()
 
     p_renderQueue->Initialize();
     p_shaderManager->Initialize();
-    p_meshManager->Initialize();
+    p_meshManager->Initialize(p_bufferManager.get());
     p_materialManager->Initialize();
     p_bufferManager->Initialize();
 
@@ -300,31 +321,88 @@ bool Renderer::Initialize()
 }
 
 
-
-void Renderer::SubmitStaticMesh(std::vector<MeshID> meshes, BufferRange &instanceData, TypeFlags dataType)
+// Model& model , TypeFlags dataType
+void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType)
 {
 
     // p_bufferManager->ClearBuffer(dataType);
+    std::vector<BufferRange> instanceRanges;
+    std::vector<InstanceData> instances;
 
 
-    for (auto &mesh : meshes)
+
+
+    for (auto &mesh : model.GetMeshIDs())
     {
 
+
+        VertexIndexInfoPair range;
+
         const Mesh &m_mesh = p_meshManager->GetMesh(mesh);
+        if (m_mesh.isResident() == false)
+        {
+            const auto &vertexPair = m_mesh.GetVertexData();
+            const auto &indexPair = m_mesh.GetIndexData();
 
-        const auto &vertexPair = m_mesh.GetVertexData();
-        const auto &indexPair = m_mesh.GetIndexData();
+            range = p_bufferManager->InsertNewStaticData(vertexPair.first, vertexPair.second, indexPair.first,
+                                                         indexPair.second, dataType);
+            p_meshManager->AddMeshLocation(mesh, range);
+            p_meshManager->SetMeshResidency(mesh, true);
+        }
+        else
+        {
+            range = p_meshManager->GetMeshLocation(mesh);
+        }
 
-        auto range = p_bufferManager->InsertNewStaticData(vertexPair.first, vertexPair.second, indexPair.first,
-                                                          indexPair.second, dataType);
 
-        // TODO: INTEGRATE THE INSTANCE DATA, get the data and create it;
+
+
+
+        // TODO: Get the instance data from the model and create the necessary render commands
+
+
+
+
+        glm::mat4 meshMat = p_meshManager->GetMeshTransform(mesh);
+
+        BufferRange matLocation;
+
+        if (p_meshManager->ContainsTransformRange(mesh))
+        {
+
+            matLocation = p_meshManager->GetTransformBufferRange(mesh);
+        }
+        else
+        {
+
+            matLocation =
+                p_bufferManager->InsertNewDynamicData(&meshMat, sizeof(meshMat), TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+            p_meshManager->AddTransformRange(mesh, matLocation);
+        }
+
+
+
+        uint32_t matID = matLocation.offset / sizeof(glm::mat4);
+
+
+        InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(), matID};
+
+
+        auto instanceData =
+            p_bufferManager->InsertNewDynamicData(&instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
 
         size_t instanceID = instanceData.offset / sizeof(InstanceData);
+
+        instanceRanges.push_back(instanceData);
+        instances.push_back(instData);
+
 
         int cmdID = p_renderQueue->CreateRenderCommand(range, true, instanceID, m_mesh.GetInstanceCount(),
                                                        m_mesh.GetShaderID());
     }
+
+    p_meshManager->AddSubmittedModel(&model);
+    model.SetInstances(instances, instanceRanges);
 }
 BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize, TypeFlags dataType)
 {
@@ -360,6 +438,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
 
     if (!p_shaderManager || !p_window)
     {
@@ -389,6 +468,8 @@ void Renderer::UpdateRenderer()
         shouldQuit = true;
 
     p_window->Update();
+    //  p_bufferManager->UpdateManager();
+    p_meshManager->Update();
 }
 
 void Renderer::Destroy()

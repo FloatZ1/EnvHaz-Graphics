@@ -6,14 +6,17 @@
 
 
 #include "BitFlags.hpp"
+#include "BufferManager.hpp"
 #include "DataStructs.hpp"
+
+
 #include "ShaderManager.hpp"
+#include "Utils/HashedStrings.hpp"
 #include "glad/glad.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <cstddef>
-#include <iterator>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -23,6 +26,9 @@
 namespace eHazGraphics
 {
 
+
+
+
 class Mesh
 {
   private:
@@ -30,7 +36,7 @@ class Mesh
     MeshData data{};
     ShaderComboID shaderID{};
     GLuint instances = 1;
-
+    glm::mat4 relativeMatrix = glm::mat4(1.0f);
     bool GPUresident = false;
 
   public:
@@ -51,6 +57,12 @@ class Mesh
         instances = numInstances;
     }
 
+    void SetResidencyStatus(bool value)
+    {
+        GPUresident = value;
+    }
+
+
     const GLuint &GetInstanceCount() const
     {
         return instances;
@@ -61,6 +73,10 @@ class Mesh
         shaderID = shader;
     }
 
+    void setRelativeMatrix(const glm::mat4 &mat)
+    {
+        relativeMatrix = mat;
+    }
 
     std::pair<const Vertex *, const size_t> GetVertexData() const
     {
@@ -96,19 +112,40 @@ class Model
     {
         return materialID;
     }
-    const unsigned int GetInstanceCount() const
+    /*const unsigned int GetInstanceCount() const
     {
         return instanceCount;
     }
-
-    void SetInstanceCount(unsigned int count)
+    */
+    void SetInstances(const std::vector<InstanceData> &instances, const std::vector<BufferRange> &InstanceRanges)
     {
-        instanceCount = count;
+        instanceCount = instances.size();
+        instanceRanges = InstanceRanges;
+        instanceData = instances;
+    }
+    const glm::mat4 GetPositionMat4() const
+    {
+        return position;
     }
 
+    void SetPositionMat4(glm::mat4 Postion)
+    {
+        position = Postion;
+    }
+    const std::vector<InstanceData> &GetInstances() const
+    {
+        return instanceData;
+    }
+    const std::vector<BufferRange> &GetInstanceRanges() const
+    {
+        return instanceRanges;
+    }
 
   private:
     std::vector<MeshID> meshes;
+    std::vector<InstanceData> instanceData;
+    std::vector<BufferRange> instanceRanges;
+    glm::mat4 position;
     unsigned int materialID = 0;
     unsigned int instanceCount = 1;
 };
@@ -119,7 +156,7 @@ class Model
 class MeshManager
 {
   public:
-    void Initialize(); // TODO: IMPLEMENT
+    void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
     Model LoadModel(std::string &path);
 
     void EraseMesh(MeshID mesh)
@@ -130,7 +167,12 @@ class MeshManager
         meshes.erase(mesh);
     }
 
+    const glm::mat4 &GetMeshTransform(MeshID mesh)
+    {
 
+
+        return meshTransforms[mesh];
+    }
 
     void SetModelShader(Model &model, ShaderComboID &shader)
     {
@@ -151,16 +193,88 @@ class MeshManager
     }
 
 
-    void SetModelInstanceCount(Model &model, unsigned int count)
+    void SetMeshResidency(MeshID mesh, bool value)
+    {
+        meshes[mesh].SetResidencyStatus(value);
+    }
+
+    void AddMeshLocation(const MeshID &mesh, VertexIndexInfoPair &location)
     {
 
-        for (auto &mesh : model.GetMeshIDs())
+        meshLocations.try_emplace(mesh, location);
+    }
+
+
+    const VertexIndexInfoPair &GetMeshLocation(const MeshID &mesh)
+    {
+
+        return meshLocations[mesh];
+    }
+
+
+
+
+
+    void SaveMeshLocation(const MeshID &mesh, const VertexIndexInfoPair &range)
+    {
+        meshLocations.try_emplace(mesh, range);
+    }
+
+    bool ContainsTransformRange(const MeshID &mesh)
+    {
+
+
+        return meshTransformRanges.contains(mesh);
+    }
+
+
+
+
+
+    void AddTransformRange(const MeshID &mesh, const BufferRange &range)
+    {
+
+
+        meshTransformRanges.try_emplace(mesh, range);
+    }
+
+    const BufferRange GetTransformBufferRange(const MeshID &mesh)
+    {
+
+        return meshTransformRanges[mesh];
+    }
+
+
+    void AddSubmittedModel(Model *model)
+    {
+
+        submittedModels.push_back(model);
+    }
+
+
+    void UpdateSubmittedMeshes()
+    {
+        for (unsigned int i = 0; i < submittedModels.size(); i++)
         {
 
-            meshes[mesh].SetInstanceCount(count);
-        }
+            auto Instances = submittedModels[i]->GetInstances();
+            auto InstanceRanges = submittedModels[i]->GetInstanceRanges();
+            assert(Instances.size() == InstanceRanges.size());
 
-        model.SetInstanceCount(count);
+            for (unsigned int i = 0; i < Instances.size(); i++)
+            {
+
+
+
+                bufferManager->UpdateData(InstanceRanges[i], &Instances[i], sizeof(InstanceData));
+            }
+        }
+    }
+
+
+    void Update()
+    {
+        UpdateSubmittedMeshes();
     }
 
 
@@ -181,11 +295,16 @@ class MeshManager
 
     unsigned int maxID = 0;
 
+
+
+    std::unordered_map<eHazGraphics_Utils::HashedString, Model> loadedModels;
+    std::vector<Model *> submittedModels;
     std::unordered_map<MeshID, Mesh> meshes;
     std::unordered_map<std::string, MeshID> meshPaths;
-
-
-
+    std::unordered_map<MeshID, glm::mat4> meshTransforms;
+    std::unordered_map<MeshID, BufferRange> meshTransformRanges;
+    std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
+    BufferManager *bufferManager;
     Assimp::Importer importer;
 };
 
