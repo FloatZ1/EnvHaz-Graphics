@@ -1,4 +1,5 @@
 
+#include "Animation/AnimatedModelManager.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Renderer.hpp"
@@ -37,7 +38,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera)
     // Delta time calculation using performance counters
     static uint64_t lastCounter = SDL_GetPerformanceCounter();
     uint64_t currentCounter = SDL_GetPerformanceCounter();
-    double deltaTime = double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
+    deltaTime = double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
     lastCounter = currentCounter;
 
     // Static mouse state
@@ -156,32 +157,40 @@ int main()
 
 
     ShaderComboID shader =
-        rend.p_shaderManager->CreateShaderProgramme(RESOURCES_PATH "shader.vert", RESOURCES_PATH "shader.frag");
+        rend.p_shaderManager->CreateShaderProgramme(RESOURCES_PATH "animation.vert", RESOURCES_PATH "shader.frag");
 
     SDL_Log("\n\n\n" RESOURCES_PATH "\n\n\n");
 
 
 
-    std::string path = RESOURCES_PATH "boombox.glb";
+    std::string path = RESOURCES_PATH "animated/Capoeira.glb";
     // std::string path = RESOURCES_PATH "cube.obj";
-    Model cube = rend.p_meshManager->LoadModel(path);
+    // Model cube = rend.p_meshManager->LoadModel(path);
+    AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+    int animationID;
+    rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeletonID(), path, animationID);
     ShaderComboID temp;
 
     // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
 
 
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -15.0f));
-    cube.SetPositionMat4(model);
+    glm::mat4 position = glm::mat4(1.0f);
+    position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
+    model.SetPositionMat4(position);
 
-    rend.p_meshManager->SetModelShader(cube, shader);
+
+
+
+    // cube.SetPositionMat4(model);
+
+    // rend.p_meshManager->SetModelShader(cube, shader);
 
     // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
+    // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
 
-
+    rend.SubmitAnimatedModel(model);
 
 
 
@@ -214,25 +223,21 @@ int main()
 
     while (rend.shouldQuit == false)
     {
-        // rend.p_renderQueue->ClearDynamicCommands();
 
-
-        // rend.p_bufferManager->BeginWritting();
 
 
         processInput(rend.p_window.get(), rend.shouldQuit, camera);
-        rend.UpdateRenderer();
+        rend.UpdateRenderer(deltaTime);
         glm::mat4 projection =
             glm::perspective(glm::radians(camera.Zoom),
                              (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
 
-        // std::vector<glm::mat4> cameraSend{camera.GetViewMatrix(), projection};
+
 
         camData camcamdata = {camera.GetViewMatrix(), projection};
 
 
-        // rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
-        // rend.UpdateDynamicData(instanceData, &data, sizeof(data));
+
 
         rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 

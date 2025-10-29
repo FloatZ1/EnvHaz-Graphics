@@ -141,6 +141,9 @@ class Model
         return instanceRanges;
     }
 
+    // Animation stuff
+
+
   private:
     std::vector<MeshID> meshes;
     std::vector<InstanceData> instanceData;

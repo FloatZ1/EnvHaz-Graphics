@@ -1,4 +1,6 @@
 #include "Renderer.hpp"
+#include "Animation/AnimatedModelManager.hpp"
+#include "BitFlags.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
 #include "MaterialManager.hpp"
@@ -132,7 +134,7 @@ std::unique_ptr<MaterialManager> Renderer::p_materialManager = nullptr;
 std::unique_ptr<MeshManager> Renderer::p_meshManager = nullptr;
 std::unique_ptr<RenderQueue> Renderer::p_renderQueue = nullptr;
 std::unique_ptr<BufferManager> Renderer::p_bufferManager = nullptr;
-
+std::unique_ptr<AnimatedModelManager> Renderer::p_AnimatedModelManager = nullptr;
 
 
 
@@ -302,10 +304,16 @@ bool Renderer::Initialize()
     p_meshManager = std::make_unique<MeshManager>();
     p_renderQueue = std::make_unique<RenderQueue>();
     p_bufferManager = std::make_unique<BufferManager>();
+    p_AnimatedModelManager = std::make_unique<AnimatedModelManager>();
+
+
 
     p_renderQueue->Initialize();
     p_shaderManager->Initialize();
     p_meshManager->Initialize(p_bufferManager.get());
+    p_AnimatedModelManager->Initialize(p_bufferManager.get());
+
+
     p_materialManager->Initialize();
     p_bufferManager->Initialize();
 
@@ -320,6 +328,62 @@ bool Renderer::Initialize()
     std::cout << "piss\n\n :)))";
 }
 
+void Renderer::SubmitAnimatedModel(AnimatedModel &model)
+{
+
+    std::vector<BufferRange> instanceRanges;
+    std::vector<InstanceData> instances;
+
+
+
+    for (auto &mesh : model.GetMeshIDs())
+    {
+
+        VertexIndexInfoPair range;
+
+        const Mesh &m_mesh = p_AnimatedModelManager->GetMesh(mesh);
+        if (m_mesh.isResident() == false)
+        {
+            const auto &vertexPair = m_mesh.GetVertexData();
+            const auto &indexPair = m_mesh.GetIndexData();
+
+            range = p_bufferManager->InsertNewStaticData(vertexPair.first, vertexPair.second, indexPair.first,
+                                                         indexPair.second, TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+
+            p_AnimatedModelManager->AddMeshLocation(mesh, range);
+        }
+        else
+        {
+            range = p_AnimatedModelManager->GetMeshLocation(mesh);
+        }
+
+
+
+        const Skeleton &skeleton = p_AnimatedModelManager->GetSkeleton(model.GetSkeletonID());
+
+
+        uint32_t matID = skeleton.GPUlocation.offset / sizeof(glm::mat4);
+
+
+        InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(), matID};
+
+
+        auto instanceData =
+            p_bufferManager->InsertNewDynamicData(&instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
+
+        size_t instanceID = instanceData.offset / sizeof(InstanceData);
+
+        instanceRanges.push_back(instanceData);
+        instances.push_back(instData);
+
+
+        int cmdID = p_renderQueue->CreateRenderCommand(range, true, instanceID, m_mesh.GetInstanceCount(),
+                                                       m_mesh.GetShaderID());
+    }
+
+    p_AnimatedModelManager->AddSubmittedModel(&model);
+    model.SetInstances(instances, instanceRanges);
+}
 
 // Model& model , TypeFlags dataType
 void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType)
@@ -439,6 +503,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
     p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
 
     if (!p_shaderManager || !p_window)
     {
@@ -461,7 +526,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder)
     p_bufferManager->BeginWritting();
 }
 
-void Renderer::UpdateRenderer()
+void Renderer::UpdateRenderer(float deltatime)
 {
     PollInputEvents();
     if (events.type == SDL_EVENT_QUIT)
@@ -470,6 +535,7 @@ void Renderer::UpdateRenderer()
     p_window->Update();
     //  p_bufferManager->UpdateManager();
     p_meshManager->Update();
+    p_AnimatedModelManager->Update(deltatime);
 }
 
 void Renderer::Destroy()

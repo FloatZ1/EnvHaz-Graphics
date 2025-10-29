@@ -40,6 +40,35 @@ struct BufferRange
 };
 
 
+class CopyDataPtr
+{
+
+  public:
+    CopyDataPtr(void *data, size_t size) : data(data), size(size)
+    {
+    }
+
+
+    const void *GetDataPtr() const
+    {
+        return data;
+    }
+
+    const size_t GetDataSize() const
+    {
+        return size;
+    }
+
+
+  private:
+    void *data;
+    size_t size;
+};
+
+
+
+
+
 typedef int MeshID;
 using VertexIndexInfoPair = std::pair<BufferRange, BufferRange>;
 
@@ -98,6 +127,12 @@ struct Vertex
     glm::vec3 Postion;
     glm::vec2 UV;
     glm::vec3 Normal;
+
+
+    glm::vec4 Tangent;
+
+    glm::vec3 Bitangent;
+
 
     // animation stuff;
     glm::ivec4 boneIDs;

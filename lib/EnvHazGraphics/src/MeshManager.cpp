@@ -89,6 +89,7 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node, const aiScene *scene)
         // part
 
 
+
         glm::mat4 relativeMat = eHazGraphics_Utils::convertAssimpMatrixToGLM(GetNodeToRootMat4(node));
 
         meshTransforms.emplace(maxID, relativeMat);

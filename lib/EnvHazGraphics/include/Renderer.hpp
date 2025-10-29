@@ -9,6 +9,7 @@
 #include <vector>
 
 
+#include "Animation/AnimatedModelManager.hpp"
 #include "BitFlags.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
@@ -30,7 +31,7 @@ class Renderer
     static std::unique_ptr<Window> p_window;
 
     static std::unique_ptr<ShaderManager> p_shaderManager;
-
+    static std::unique_ptr<AnimatedModelManager> p_AnimatedModelManager;
     static std::unique_ptr<MaterialManager> p_materialManager;
     static std::unique_ptr<MeshManager> p_meshManager;
     static std::unique_ptr<RenderQueue> p_renderQueue;
@@ -52,6 +53,8 @@ class Renderer
 
     void SubmitStaticModel(Model &model,
                            TypeFlags dataType); // require a an object/container from which to unwrap everything
+    void SubmitAnimatedModel(AnimatedModel &model);
+
 
     BufferRange SubmitDynamicData(const void *data, size_t dataSize,
                                   TypeFlags dataType); // same, require a container later/ from a octree node or smth
@@ -62,7 +65,7 @@ class Renderer
 
     void RenderFrame(std::vector<DrawRange> DrawOrder);
 
-    void UpdateRenderer();
+    void UpdateRenderer(float deltaTime);
 
 
     // future
