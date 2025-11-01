@@ -16,247 +16,233 @@
 #include <SDL3/SDL_scancode.h>
 #include <cstdint>
 
-
 #include <vector>
-
-
 
 using namespace eHazGraphics;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-
-
-
-
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
-void processInput(Window *c_window, bool &quit, Camera &camera)
-{
+void processInput(Window *c_window, bool &quit, Camera &camera) {
+
+
+
+
+
+
+
+
+
+
     SDL_Window *window = c_window->GetWindowPtr();
-    // Delta time calculation using performance counters
-    static uint64_t lastCounter = SDL_GetPerformanceCounter();
-    uint64_t currentCounter = SDL_GetPerformanceCounter();
-    deltaTime = double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
-    lastCounter = currentCounter;
+  // Delta time calculation using performance counters
+  static uint64_t lastCounter = SDL_GetPerformanceCounter();
+  uint64_t currentCounter = SDL_GetPerformanceCounter();
 
-    // Static mouse state
-    static bool firstMouse = true;
-    static float lastX = 0.0f;
-    static float lastY = 0.0f;
+  deltaTime =
+      double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
+  lastCounter = currentCounter;
 
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        switch (event.type)
-        {
-        case SDL_EVENT_QUIT:
-            quit = true;
-            break;
+  // Static mouse state
+  static bool firstMouse = true;
+  static float lastX = 0.0f;
+  static float lastY = 0.0f;
 
-        case SDL_EVENT_KEY_DOWN:
-            if (event.key.which == SDLK_ESCAPE)
-                quit = true;
-            break;
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
+    case SDL_EVENT_QUIT:
+      quit = true;
+      break;
 
-        case SDL_EVENT_KEY_UP:
+    case SDL_EVENT_KEY_DOWN:
+      if (event.key.which == SDLK_ESCAPE)
+        quit = true;
+      break;
 
+    case SDL_EVENT_KEY_UP:
 
-            break;
+      break;
 
-        // --- Added mouse movement support for camera ---
-        case SDL_EVENT_MOUSE_MOTION: {
-            float xpos = static_cast<float>(event.motion.x);
-            float ypos = static_cast<float>(event.motion.y);
+    // --- Added mouse movement support for camera ---
+    case SDL_EVENT_MOUSE_MOTION: {
+      float xpos = static_cast<float>(event.motion.x);
+      float ypos = static_cast<float>(event.motion.y);
 
-            if (firstMouse)
-            {
-                lastX = xpos;
-                lastY = ypos;
-                firstMouse = false;
-            }
+      if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+      }
 
-            float xoffset = xpos - lastX;
-            float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+      float xoffset = xpos - lastX;
+      float yoffset =
+          lastY - ypos; // reversed since y-coordinates go from bottom to top
 
-            lastX = xpos;
-            lastY = ypos;
+      lastX = xpos;
+      lastY = ypos;
 
-            camera.ProcessMouseMovement(xoffset, yoffset);
-            break;
-        }
-
-        // --- Added mouse scroll support for zoom ---
-        case SDL_EVENT_MOUSE_WHEEL: {
-            float yoffset = static_cast<float>(event.wheel.y);
-            camera.ProcessMouseScroll(yoffset);
-            break;
-        }
-
-        // --- Added window resize support (framebuffer_size_callback equivalent) ---
-        case SDL_EVENT_WINDOW_RESIZED: {
-            int width = event.window.data1;
-            int height = event.window.data2;
-            c_window->SetDimensions(width, height);
-            glViewport(0, 0, width, height);
-            break;
-        }
-
-        default:
-            break;
-        }
+      camera.ProcessMouseMovement(xoffset, yoffset);
+      break;
     }
 
-    // Continuous key input using scancodes
-    const auto *state = SDL_GetKeyboardState(nullptr);
-    if (state[SDL_SCANCODE_W])
-        camera.ProcessKeyboard(FORWARD, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_S])
-        camera.ProcessKeyboard(BACKWARD, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_A])
-        camera.ProcessKeyboard(LEFT, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_D])
-        camera.ProcessKeyboard(RIGHT, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_SPACE])
-        camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_LSHIFT])
-        camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
-    if (state[SDL_SCANCODE_R])
-        c_window->ToggleMouseCursor();
+    // --- Added mouse scroll support for zoom ---
+    case SDL_EVENT_MOUSE_WHEEL: {
+      float yoffset = static_cast<float>(event.wheel.y);
+      camera.ProcessMouseScroll(yoffset);
+      break;
+    }
+
+    // --- Added window resize support (framebuffer_size_callback equivalent)
+    // ---
+    case SDL_EVENT_WINDOW_RESIZED: {
+      int width = event.window.data1;
+      int height = event.window.data2;
+      c_window->SetDimensions(width, height);
+      glViewport(0, 0, width, height);
+      break;
+    }
+
+    default:
+      break;
+    }
+  }
+
+  // Continuous key input using scancodes
+  const auto *state = SDL_GetKeyboardState(nullptr);
+  if (state[SDL_SCANCODE_W])
+    camera.ProcessKeyboard(FORWARD, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_S])
+    camera.ProcessKeyboard(BACKWARD, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_A])
+    camera.ProcessKeyboard(LEFT, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_D])
+    camera.ProcessKeyboard(RIGHT, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_SPACE])
+    camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_LSHIFT])
+    camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
+  if (state[SDL_SCANCODE_R])
+    c_window->ToggleMouseCursor();
 }
-struct camData
-{
-    glm::mat4 view = glm::mat4(1.0f);
-    glm::mat4 projection = glm::mat4(1.0f);
+struct camData {
+  glm::mat4 view = glm::mat4(1.0f);
+  glm::mat4 projection = glm::mat4(1.0f);
 };
 
+int main() {
 
-int main()
-{
+  eHazGraphics::Renderer rend;
+  rend.Initialize();
 
+  rend.p_bufferManager->BeginWritting();
 
-    eHazGraphics::Renderer rend;
-    rend.Initialize();
+  unsigned int AlbedoTexture =
+      Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
 
+  unsigned int materialID = Renderer::p_materialManager->CreatePBRMaterial(
+      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture);
 
-    rend.p_bufferManager->BeginWritting();
+  auto mat = rend.p_materialManager->SubmitMaterials();
+  BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
+      mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
+      TypeFlags::BUFFER_TEXTURE_DATA);
 
+  ShaderComboID shader = rend.p_shaderManager->CreateShaderProgramme(
+      RESOURCES_PATH "animation.vert", RESOURCES_PATH "shader.frag");
 
+  SDL_Log("\n\n\n" RESOURCES_PATH "\n\n\n");
 
-    int AlbedoTexture = Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
+  std::string path = RESOURCES_PATH "animated/Capoeira.glb";
+  // std::string path = RESOURCES_PATH "cube.obj";
+  // Model cube = rend.p_meshManager->LoadModel(path);
+  AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+  int animationID;
+  rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeletonID(), path,
+                                             animationID);
+   auto& anim = rend.p_AnimatedModelManager->GetSkeleton(model.GetSkeletonID()).animator;
 
-    unsigned int materialID =
-        Renderer::p_materialManager->CreatePBRMaterial(AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture);
+  int skelAnimID = anim.AddAnimation(rend.p_AnimatedModelManager->GetAnimation(animationID));
+    
 
-    auto mat = rend.p_materialManager->SubmitMaterials();
-    BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
-        mat.first.data(), mat.first.size() * sizeof(PBRMaterial), TypeFlags::BUFFER_TEXTURE_DATA);
+  // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
+  glm::mat4 position = glm::mat4(1.0f);
+  position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
+  model.SetPositionMat4(position);
+  rend.p_AnimatedModelManager->SetModelShader(model, shader); 
+  // cube.SetPositionMat4(model);
 
+  // rend.p_meshManager->SetModelShader(cube, shader);
 
+  // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data),
+  // TypeFlags::BUFFER_INSTANCE_DATA);
 
-    ShaderComboID shader =
-        rend.p_shaderManager->CreateShaderProgramme(RESOURCES_PATH "animation.vert", RESOURCES_PATH "shader.frag");
+  // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
 
-    SDL_Log("\n\n\n" RESOURCES_PATH "\n\n\n");
+  rend.SubmitAnimatedModel(model);
 
+  auto ranges = rend.p_renderQueue->SubmitRenderCommands();
 
+  // glm::mat4 test(1.0f);
+  // test[2][2] = 69.0f;
 
-    std::string path = RESOURCES_PATH "animated/Capoeira.glb";
-    // std::string path = RESOURCES_PATH "cube.obj";
-    // Model cube = rend.p_meshManager->LoadModel(path);
-    AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
-    int animationID;
-    rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeletonID(), path, animationID);
-    ShaderComboID temp;
+  //
+  glm::mat4 projection1 = glm::perspective(
+      glm::radians(camera.Zoom),
+      (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
+      0.1f, 100.0f);
 
-    // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
+  camData deta{camera.GetViewMatrix(), projection1};
 
+  BufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
+                                             TypeFlags::BUFFER_CAMERA_DATA);
 
+  // rend.p_bufferManager->EndWritting();
 
-    glm::mat4 position = glm::mat4(1.0f);
-    position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
-    model.SetPositionMat4(position);
-
-
-
-
-    // cube.SetPositionMat4(model);
-
-    // rend.p_meshManager->SetModelShader(cube, shader);
-
-    // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data), TypeFlags::BUFFER_INSTANCE_DATA);
-
-    // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
-
-    rend.SubmitAnimatedModel(model);
-
-
-
-
-
-    auto ranges = rend.p_renderQueue->SubmitRenderCommands();
-
-
-
-    // glm::mat4 test(1.0f);
-    // test[2][2] = 69.0f;
-
-
-    //
-    glm::mat4 projection1 = glm::perspective(
-        glm::radians(camera.Zoom), (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
+  int frameNum = 0;
 
 
-    camData deta{camera.GetViewMatrix(), projection1};
 
-    BufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta), TypeFlags::BUFFER_CAMERA_DATA);
 
+
+
+
+
+  while (rend.shouldQuit == false) {
+
+    processInput(rend.p_window.get(), rend.shouldQuit, camera);
+    rend.UpdateRenderer(deltaTime);
+    glm::mat4 projection = glm::perspective(
+        glm::radians(camera.Zoom),
+        (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
+        0.1f, 100.0f);
+
+    camData camcamdata = {camera.GetViewMatrix(), projection};
+
+    rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
+
+
+
+    
+        
+    anim.PlayAnimation(skelAnimID);
+
+        
+
+    ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();
+    rend.RenderFrame(ranges);
+    // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
+    rend.UpdateDynamicData(materials, mat.first.data(),
+                           mat.first.size() * sizeof(PBRMaterial));
 
+    frameNum++;
 
-    int frameNum = 0;
+    // printf("END OF FRAME: %u ==============================\n", frameNum);
+  }
 
-
-
-
-    while (rend.shouldQuit == false)
-    {
-
-
-
-        processInput(rend.p_window.get(), rend.shouldQuit, camera);
-        rend.UpdateRenderer(deltaTime);
-        glm::mat4 projection =
-            glm::perspective(glm::radians(camera.Zoom),
-                             (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(), 0.1f, 100.0f);
-
-
-
-        camData camcamdata = {camera.GetViewMatrix(), projection};
-
-
-
-
-        rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
-
-
-
-
-        ranges = Renderer::p_renderQueue->SubmitRenderCommands();
-        // rend.p_bufferManager->EndWritting();
-        rend.RenderFrame(ranges);
-        // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
-        rend.UpdateDynamicData(materials, mat.first.data(), mat.first.size() * sizeof(PBRMaterial));
-
-        frameNum++;
-
-        // printf("END OF FRAME: %u ==============================\n", frameNum);
-    }
-
-
-
-
-    return 0;
+  return 0;
 }

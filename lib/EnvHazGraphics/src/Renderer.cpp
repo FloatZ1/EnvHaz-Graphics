@@ -348,9 +348,11 @@ void Renderer::SubmitAnimatedModel(AnimatedModel &model)
             const auto &indexPair = m_mesh.GetIndexData();
 
             range = p_bufferManager->InsertNewStaticData(vertexPair.first, vertexPair.second, indexPair.first,
-                                                         indexPair.second, TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+                                                         indexPair.second, TypeFlags::BUFFER_STATIC_MESH_DATA);// TODO: add vertex pulling for the animated meshes
 
             p_AnimatedModelManager->AddMeshLocation(mesh, range);
+            p_AnimatedModelManager->SetMeshResidency(mesh, true);
+            
         }
         else
         {

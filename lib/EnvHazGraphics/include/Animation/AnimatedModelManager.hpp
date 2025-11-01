@@ -119,9 +119,16 @@ class AnimatedModel
         instanceCount = instances.size();
         instanceRanges = InstanceRanges;
         instanceData = instances;
-    }
+    }                    
 
-
+   /* void SetShaderID(ShaderComboID id)
+    {
+        shader = id;
+    } 
+    ShaderComboID GetShaderID() const
+    {
+        return shader;
+    } */
 
     void SetSkeletonID(int id)
     {
@@ -161,7 +168,7 @@ class AnimatedModel
 
     int animatorID;
 
-
+    ShaderComboID shader;
 
     glm::mat4 position;
     unsigned int materialID = 0;
@@ -208,7 +215,23 @@ class AnimatedModelManager
     {
         return meshes[id];
     }
+     void SetModelShader(AnimatedModel &model, ShaderComboID &shader)
+    {
 
+        for (auto &mesh : model.GetMeshIDs())
+        {
+            auto it = meshes.find(mesh);
+            if (it != meshes.end())
+            {
+                it->second.SetShader(shader);
+            }
+            else
+            {
+                SDL_Log("ERROR, COULD NOT ASSIGN SHADER\n");
+                // Optionally log a warning: mesh ID not found
+            }
+        }
+    } 
 
     AnimatedModel LoadAnimatedModel(std::string path);
 
@@ -222,14 +245,25 @@ class AnimatedModelManager
     }
 
 
+    
+
+
+
+
 
 
     void Update(float deltaTime);
 
 
+   
 
 
-    const Skeleton &GetSkeleton(int ID)
+     void SetMeshResidency(MeshID mesh,bool status){
+         meshes[mesh].SetResidencyStatus(status);
+    }
+
+
+     Skeleton &GetSkeleton(int ID)
     {
         return skeletons[ID];
     }
@@ -241,14 +275,18 @@ class AnimatedModelManager
         submittedAnimatedModels.push_back(model);
     }
 
+    Animation GetAnimation(unsigned int animationID){
 
+        return animations[animationID];
+
+    }
 
 
 
     void Destroy();
 
   private:
-    std::vector<MeshID> ProcessMeshes(tinygltf::Model &model);
+    std::vector<MeshID> ProcessMeshes(tinygltf::Model &model, Skeleton& skeleton);
 
 
     void UploadBonesToGPU(BufferRange &range, std::vector<glm::mat4> finalMatrices);
