@@ -5,6 +5,7 @@
 #include "Renderer.hpp"
 #include "camera.hpp"
 
+#include "glm/detail/qualifier.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include <SDL3/SDL.h>
@@ -27,16 +28,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 void processInput(Window *c_window, bool &quit, Camera &camera) {
 
-
-
-
-
-
-
-
-
-
-    SDL_Window *window = c_window->GetWindowPtr();
+  SDL_Window *window = c_window->GetWindowPtr();
   // Delta time calculation using performance counters
   static uint64_t lastCounter = SDL_GetPerformanceCounter();
   uint64_t currentCounter = SDL_GetPerformanceCounter();
@@ -123,6 +115,7 @@ void processInput(Window *c_window, bool &quit, Camera &camera) {
   if (state[SDL_SCANCODE_SPACE])
     camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
   if (state[SDL_SCANCODE_LSHIFT])
+
     camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
   if (state[SDL_SCANCODE_R])
     c_window->ToggleMouseCursor();
@@ -147,6 +140,7 @@ int main() {
 
   auto mat = rend.p_materialManager->SubmitMaterials();
   BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
+
       mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
       TypeFlags::BUFFER_TEXTURE_DATA);
 
@@ -162,17 +156,19 @@ int main() {
   int animationID;
   rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeletonID(), path,
                                              animationID);
-   auto& anim = rend.p_AnimatedModelManager->GetSkeleton(model.GetSkeletonID()).animator;
+  auto &anim =
+      rend.p_AnimatedModelManager->GetSkeleton(model.GetSkeletonID()).animator;
 
-  int skelAnimID = anim.AddAnimation(rend.p_AnimatedModelManager->GetAnimation(animationID));
-    
+  int skelAnimID =
+      anim.AddAnimation(rend.p_AnimatedModelManager->GetAnimation(animationID));
 
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
   glm::mat4 position = glm::mat4(1.0f);
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
+  position = glm::scale(position, glm::vec3(0.5f));
   model.SetPositionMat4(position);
-  rend.p_AnimatedModelManager->SetModelShader(model, shader); 
+  rend.p_AnimatedModelManager->SetModelShader(model, shader);
   // cube.SetPositionMat4(model);
 
   // rend.p_meshManager->SetModelShader(cube, shader);
@@ -204,13 +200,6 @@ int main() {
 
   int frameNum = 0;
 
-
-
-
-
-
-
-
   while (rend.shouldQuit == false) {
 
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
@@ -224,13 +213,7 @@ int main() {
 
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
-
-
-    
-        
     anim.PlayAnimation(skelAnimID);
-
-        
 
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();

@@ -5,9 +5,11 @@
 #include "Utils/Math_Utils.hpp"
 #include "glm/fwd.hpp"
 
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <set>
 #include <vector>
 
@@ -17,6 +19,7 @@ template <typename T>
 int LoadAccessor(const tinygltf::Accessor &accessor,
                  tinygltf::Model &m_GltfModel, const T *&pointer,
                  uint *count = nullptr, int *type = nullptr) {
+
   const tinygltf::BufferView &view =
       m_GltfModel.bufferViews[accessor.bufferView];
   pointer = reinterpret_cast<const T *>(
@@ -31,11 +34,91 @@ int LoadAccessor(const tinygltf::Accessor &accessor,
   return accessor.componentType;
 }
 
+static void GetWeightsGeneric(const tinygltf::Model &model,
+                              const tinygltf::Primitive &prim,
+                              std::vector<float> &outWeights,
+                              int expectedComponents) {
+  auto it = prim.attributes.find("WEIGHTS_0");
+  if (it == prim.attributes.end())
+    return;
+  const tinygltf::Accessor &acc = model.accessors[it->second];
+  const tinygltf::BufferView &bv = model.bufferViews[acc.bufferView];
+  const tinygltf::Buffer &buf = model.buffers[bv.buffer];
+
+  const unsigned char *base = buf.data.data() + bv.byteOffset + acc.byteOffset;
+  size_t stride = acc.ByteStride(bv);
+  if (stride == 0)
+    stride = expectedComponents * sizeof(float); // glTF weights are float
+
+  outWeights.resize(acc.count * expectedComponents);
+  for (size_t i = 0; i < acc.count; ++i) {
+    const float *src = reinterpret_cast<const float *>(base + i * stride);
+    for (int c = 0; c < expectedComponents; ++c)
+      outWeights[i * expectedComponents + c] = src[c];
+  }
+}
+
+static void GetJointsGeneric(const tinygltf::Model &model,
+                             const tinygltf::Primitive &prim,
+                             std::vector<int> &outJoints,
+                             int expectedComponents) {
+  auto it = prim.attributes.find("JOINTS_0");
+  if (it == prim.attributes.end())
+    return;
+  const tinygltf::Accessor &acc = model.accessors[it->second];
+  const tinygltf::BufferView &bv = model.bufferViews[acc.bufferView];
+  const tinygltf::Buffer &buf = model.buffers[bv.buffer];
+
+  const unsigned char *base = buf.data.data() + bv.byteOffset + acc.byteOffset;
+  size_t stride = acc.ByteStride(bv);
+  if (stride == 0) {
+    switch (acc.componentType) {
+    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+      stride = expectedComponents * sizeof(uint8_t);
+      break;
+    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+      stride = expectedComponents * sizeof(uint16_t);
+      break;
+    case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+      stride = expectedComponents * sizeof(uint32_t);
+      break;
+    default:
+      SDL_Log("JOINTS unknown comp type %d", acc.componentType);
+      return;
+    }
+  }
+
+  outJoints.resize(acc.count * expectedComponents);
+
+  for (size_t i = 0; i < acc.count; ++i) {
+    const unsigned char *ptr = base + i * stride;
+    for (int c = 0; c < expectedComponents; ++c) {
+      switch (acc.componentType) {
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+        outJoints[i * expectedComponents + c] =
+            reinterpret_cast<const uint8_t *>(ptr)[c];
+        break;
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+        outJoints[i * expectedComponents + c] =
+            reinterpret_cast<const uint16_t *>(ptr)[c];
+        break;
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+        outJoints[i * expectedComponents + c] =
+            reinterpret_cast<const uint32_t *>(ptr)[c];
+        break;
+      default:
+        outJoints[i * expectedComponents + c] = 0;
+      }
+    }
+  }
+}
+
 template <typename T>
 static void GetAttributeData(const tinygltf::Model &model,
                              const tinygltf::Primitive &prim,
                              const std::string &attribName,
                              std::vector<T> &outData, int expectedComponents) {
+
   auto it = prim.attributes.find(attribName);
   if (it == prim.attributes.end())
     return;
@@ -139,26 +222,23 @@ void Skeleton::UpdateJoint(int jointIndex) {
   }
 }
 
-void LoadJoint(int globalGltfNodeIndex, int parentJoint, tinygltf::Model &model,
-               Skeleton &skeleton) {
+void BuildHierarchy(int jointIndex, int parentIndex,
+                    const tinygltf::Model &model, Skeleton &skeleton) {
+  Joint &joint = skeleton.m_Joints[jointIndex];
+  joint.m_ParentJoint = parentIndex;
 
-  int currentJoint = skeleton.m_GlobalGltfNodeToRootIndex[globalGltfNodeIndex];
-  auto &joint = skeleton.m_Joints[currentJoint];
+  int gltfNode = joint.m_GLobalGltfNodeIndex;
+  const auto &gltfChildren = model.nodes[gltfNode].children;
 
-  joint.m_ParentJoint = parentJoint;
+  for (int childNode : gltfChildren) {
+    // Check if this child is actually part of the skeleton (skin.joints)
+    auto it = skeleton.m_GlobalGltfNodeToRootIndex.find(childNode);
+    if (it == skeleton.m_GlobalGltfNodeToRootIndex.end())
+      continue;
 
-  size_t numberOfChildren = model.nodes[globalGltfNodeIndex].children.size();
-  if (numberOfChildren > 0) {
-
-    joint.m_Children.resize(numberOfChildren);
-    for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex) {
-
-      unsigned int globalGltfNodeIndexForChild =
-          model.nodes[globalGltfNodeIndex].children[childIndex];
-      joint.m_Children[childIndex] =
-          skeleton.m_GlobalGltfNodeToRootIndex[globalGltfNodeIndexForChild];
-      LoadJoint(globalGltfNodeIndexForChild, currentJoint, model, skeleton);
-    }
+    int childJointIndex = it->second;
+    joint.m_Children.push_back(childJointIndex);
+    BuildHierarchy(childJointIndex, jointIndex, model, skeleton);
   }
 }
 
@@ -198,71 +278,71 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
     printf("Failed to parse glTF\n");
   }
 
-  Skeleton skeleton; // WARINING: ERROR  line below
+  // Skeleton skeleton; // WARINING: ERROR  line below
 
   if (model.skins.empty()) {
     std::cerr << "Error: glTF file has no skins! (" << path << ")\n";
-    // You can either:
-    // - return an empty AnimatedModel
-    // - or handle it as a static model instead
-    // return AnimatedModel();
   }
 
-  tinygltf::Skin &skin = model.skins[0];
-  int numJoints = skin.joints.size();
-  skeleton.finalMatrices.resize(numJoints);
+  Skeleton skeleton;
 
-  auto &joints = skeleton.m_Joints;
+  const tinygltf::Skin &skin = model.skins[0];
+  int numJoints = skin.joints.size();
 
   skeleton.m_Joints.resize(numJoints);
-  skeleton.m_Name = model.skins[0].name;
+  skeleton.finalMatrices.resize(numJoints);
+  skeleton.m_Name = skin.name;
 
-  const glm::mat4 *inverseBindMatrices;
+  // Load inverse bind matrices
+  const glm::mat4 *inverseBindMatrices = nullptr;
   {
     unsigned int count = 0;
     int type = 0;
-    auto componentType =
-        LoadAccessor<glm::mat4>(model.accessors[skin.inverseBindMatrices],
-                                model, inverseBindMatrices, &count, &type);
+    LoadAccessor<glm::mat4>(model.accessors[skin.inverseBindMatrices], model,
+                            inverseBindMatrices, &count, &type);
   }
 
-  for (int jointIndex = 0; jointIndex < numJoints; jointIndex++) {
+  // Fill joints + map glTF node → joint index
+  for (int i = 0; i < numJoints; i++) {
+    int gltfNode = skin.joints[i];
+    Joint &joint = skeleton.m_Joints[i];
 
-    int globalGltfNodeIndex = skin.joints[jointIndex];
-    auto &joint = joints[jointIndex];
+    joint.m_InverseBindMatrix = inverseBindMatrices[i];
+    joint.m_GLobalGltfNodeIndex = gltfNode;
+    joint.m_Name = model.nodes[gltfNode].name;
 
-    joint.m_InverseBindMatrix = inverseBindMatrices[jointIndex];
-    joint.m_Name = model.nodes[globalGltfNodeIndex].name;
-
-    skeleton.m_GlobalGltfNodeToRootIndex[globalGltfNodeIndex] = jointIndex;
+    skeleton.m_GlobalGltfNodeToRootIndex[gltfNode] = i;
   }
 
+  // ---- Find true root joint (a joint that has no parent) ----
   std::set<int> allChildren;
-  for (int j : skin.joints) {
-    for (int c : model.nodes[j].children)
-      allChildren.insert(c);
-  }
-
-  int rootJoint = -1;
-  for (int j : skin.joints) {
-    if (allChildren.find(j) == allChildren.end()) {
-      rootJoint = j;
-      break;
+  for (int node : skin.joints) {
+    for (int child : model.nodes[node].children) {
+      allChildren.insert(child);
     }
   }
 
-  LoadJoint(rootJoint, -1, model, skeleton);
-
-  AnimatedModel retModel;
-  auto processedMeshes = ProcessMeshes(model, skeleton);
-
-  for (MeshID curMesh : processedMeshes) {
-
-    retModel.AddMesh(curMesh);
+  int rootNode = -1;
+  for (int node : skin.joints) {
+    if (!allChildren.count(node)) {
+      rootNode = node;
+      break;
+    }
+  }
+  if (rootNode == -1) {
+    throw std::runtime_error("Error: Could not find root joint in skin!");
   }
 
-  skeletons.push_back(skeleton);
+  int rootJointIndex = skeleton.m_GlobalGltfNodeToRootIndex[rootNode];
+  BuildHierarchy(rootJointIndex, -1, model, skeleton);
 
+  // ---- Process meshes & store skeleton ----
+  AnimatedModel retModel;
+  auto meshes = ProcessMeshes(model, skeleton);
+  for (auto m : meshes)
+    retModel.AddMesh(m);
+
+  skeletons.push_back(skeleton);
   retModel.SetSkeletonID(skeletons.size() - 1);
   return retModel;
 }
@@ -291,8 +371,10 @@ std::vector<MeshID> AnimatedModelManager::ProcessMeshes(tinygltf::Model &model,
       GetAttributeData(model, primitive, "NORMAL", normals, 3);
       GetAttributeData(model, primitive, "TEXCOORD_0", uvs, 2);
 
-      GetAttributeData(model, primitive, "JOINTS_0", joints, 4);
-      GetAttributeData(model, primitive, "WEIGHTS_0", weights, 4);
+      GetJointsGeneric(model, primitive, joints, 4);
+      GetWeightsGeneric(model, primitive, weights, 4);
+      // GetAttributeData(model, primitive, "JOINTS_0", joints, 4);
+      // GetAttributeData(model, primitive, "WEIGHTS_0", weights, 4);
       GetAttributeData(model, primitive, "TANGENT", tangents, 4);
 
       int vertexCount = positions.size() / 3;
@@ -317,10 +399,10 @@ std::vector<MeshID> AnimatedModelManager::ProcessMeshes(tinygltf::Model &model,
           vertex.Bitangent = bitangent;
         }
 
-        float w0 = weights[i * 4 + 0];
-        float w1 = weights[i * 4 + 1];
-        float w2 = weights[i * 4 + 2];
-        float w3 = weights[i * 4 + 3];
+        float w0 = weights[j * 4 + 0];
+        float w1 = weights[j * 4 + 1];
+        float w2 = weights[j * 4 + 2];
+        float w3 = weights[j * 4 + 3];
         float sum = w0 + w1 + w2 + w3;
         if (sum > 0.0f) {
           w0 /= sum;
@@ -336,13 +418,34 @@ std::vector<MeshID> AnimatedModelManager::ProcessMeshes(tinygltf::Model &model,
 
         // vertex.boneWeights = {weights[j * 4 + 0], weights[j * 4 + 1],
         //                       weights[j * 4 + 2], weights[j * 4 + 3]};
-        vertex.boneIDs = {joints[j * 4 + 0], joints[j * 4 + 1],
-                          joints[j * 4 + 2], joints[j * 4 + 3]};
-
+        vertex.boneIDs = {
+            skeleton.m_GlobalGltfNodeToRootIndex[joints[j * 4 + 0]],
+            skeleton.m_GlobalGltfNodeToRootIndex[joints[j * 4 + 1]],
+            skeleton.m_GlobalGltfNodeToRootIndex[joints[j * 4 + 2]],
+            skeleton.m_GlobalGltfNodeToRootIndex[joints[j * 4 + 3]]};
         vertices.push_back(vertex);
       }
     }
 
+    /*for (size_t v = 0; v < vertices.size(); ++v) {
+      auto &vert = vertices[v];
+      for (int b = 0; b < 4; ++b) {
+        if (vert.boneIDs[b] < 0 ||
+            vert.boneIDs[b] >= (int)skeleton.m_Joints.size()) {
+          printf("BAD_BONE_INDEX: mesh %u vertex %zu bone slot %d id=%d "
+                 "skeletonSize=%zu",
+                 i, v, b, vert.boneIDs[b], skeleton.m_Joints.size());
+          // Optionally clamp to 0 to avoid shader UB:
+          // vert.boneIDs[b] = glm::min(vert.boneIDs[b],
+          // (int)skeleton.m_Joints.size()-1);
+        }
+      }
+      float sum = vert.boneWeights.x + vert.boneWeights.y + vert.boneWeights.z +
+                  vert.boneWeights.w;
+      if (!std::isfinite(sum) || fabs(sum) < 1e-6f) {
+        SDL_Log("BAD_WEIGHTS: mesh %u vertex %zu weights sum=%f", i, v, sum);
+      }
+    } */
     c_meshData.indecies = indecies;
     c_meshData.vertices = vertices;
 
