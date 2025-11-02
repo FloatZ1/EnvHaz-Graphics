@@ -12,6 +12,8 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "tinygltf/tiny_gltf.h"
 #include <assimp/Importer.hpp>
+#include <assimp/mesh.h>
+#include <assimp/scene.h>
 #include <glm/gtc/quaternion.hpp>
 #include <map>
 
@@ -25,22 +27,15 @@ namespace eHazGraphics {
 struct Joint {
 
   std::string m_Name;
+  int m_ParentJoint; // Index of parent in the flat Joint array
 
-  glm::mat4 m_BindMatrix = glm::mat4(1.0f); // bind
-  glm::mat4 m_InverseBindMatrix;
+  // Static Data (Loaded Once from Assimp)
+  glm::mat4 mOffsetMatrix = glm::mat4(1.0f);
 
-  glm::vec3 m_DeformedNodeTranslation = glm::vec3(0.0f);
-  glm::quat m_DeformedNodeRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-  glm::vec3 m_DeformedNodeScale = glm::vec3(1.0f);
-
-  glm::mat4 GetDeformedBindMatrix() {
-
-    return glm::translate(glm::mat4(1.0f), m_DeformedNodeTranslation) *
-           glm::mat4(m_DeformedNodeRotation) *
-           glm::scale(glm::mat4(1.0f), m_DeformedNodeScale) * m_BindMatrix;
-  }
-
-  int m_ParentJoint; // relative to the skeleton joints vector
+  // Dynamic Data (Calculated Every Frame)
+  glm::mat4 m_GlobalTransform = glm::mat4(1.0f); // M_GlobalBone
+  glm::mat4 m_FinalShaderMatrix = glm::mat4(
+      1.0f); // M_Final (M_Root * M_GlobalBone * M_Offset * M_Root_Inv)
 };
 
 struct Skeleton {
@@ -171,11 +166,23 @@ public:
   void Destroy();
 
 private:
-  std::vector<MeshID> ProcessMeshes(tinygltf::Model &model, Skeleton &skeleton);
+  std::vector<MeshID> processNode(aiNode *node);
+
+  Mesh processMesh(aiMesh *mesh);
 
   void UploadBonesToGPU(BufferRange &range,
                         std::vector<glm::mat4> finalMatrices);
 
+  void BuildBaseSkeleton();
+
+  void SetParentHierarchy(aiNode *node);
+
+  /*
+
+
+
+
+  */
   unsigned int maxID = 0;
 
   BufferManager *bufferManager;
@@ -183,10 +190,29 @@ private:
   std::unordered_map<MeshID, Mesh> meshes;
   std::unordered_map<eHazGraphics_Utils::HashedString, AnimatedModel>
       loadedModels;
+
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
   std::vector<AnimatedModel *> submittedAnimatedModels;
   std::vector<Skeleton> skeletons; // in da closet
   std::vector<Animation> animations;
+
+  // processing stuff:
+
+  struct VertexBoneData {
+    int boneIDs[4];
+    float boneWeights[4];
+  };
+
+  VertexBoneData GetVertexBoneData(int vertexID, aiMesh *mesh);
+  std::map<unsigned int, std::vector<std::pair<int, float>>>
+      m_CurrentMeshBoneData;
+
+  void PopulateMeshBoneData(aiMesh *mesh);
+
+  const aiScene *scene;
+  Skeleton processingSkeleton;
+
+  std::unordered_map<std::string, int> m_BoneMap;
 
   Assimp::Importer importer;
 };
