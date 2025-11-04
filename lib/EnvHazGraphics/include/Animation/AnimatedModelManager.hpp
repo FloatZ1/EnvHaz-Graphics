@@ -2,14 +2,16 @@
 #ifndef ENVHAZ_ANIMATED_MODEL_MANAGER_HPP
 #define ENVHAZ_ANIMATED_MODEL_MANAGER_HPP
 
+#include "Animation/Animation.hpp"
+#include "Animation/Animator.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
 #include "MeshManager.hpp"
 #include "Utils/HashedStrings.hpp"
 
-#include "Animation.hpp"
-
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/ext/quaternion_float.hpp"
+#include "glm/fwd.hpp"
 #include "tinygltf/tiny_gltf.h"
 #include <assimp/Importer.hpp>
 #include <assimp/mesh.h>
@@ -24,31 +26,37 @@
 
 namespace eHazGraphics {
 
-struct Joint {
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
 
-  std::string m_Name;
-  int m_ParentJoint; // Index of parent in the flat Joint array
-
-  // Static Data (Loaded Once from Assimp)
-  glm::mat4 mOffsetMatrix = glm::mat4(1.0f);
-
-  // Dynamic Data (Calculated Every Frame)
-  glm::mat4 m_GlobalTransform = glm::mat4(1.0f); // M_GlobalBone
-  glm::mat4 m_FinalShaderMatrix = glm::mat4(
-      1.0f); // M_Final (M_Root * M_GlobalBone * M_Offset * M_Root_Inv)
-};
-
-struct Skeleton {
-
-  BufferRange GPUlocation;
-
-  std::vector<glm::mat4> finalMatrices;
-
-  void Update(float deltaTime);
-
-  std::vector<Joint> m_Joints;
-};
-
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
 class AnimatedModel {
 
 public:
@@ -75,14 +83,13 @@ public:
    {
        return shader;
    } */
-
-  void SetSkeletonID(int id) { skeletonID = id; }
+  void SetSkeleton(std::shared_ptr<Skeleton> Skeleton) { skeleton = Skeleton; }
 
   void SetAnimatorID(int id) { animatorID = id; }
 
   int GetAnimatorID() const { return animatorID; }
 
-  int GetSkeletonID() const { return skeletonID; }
+  std::shared_ptr<Skeleton> GetSkeleton() const { return skeleton; }
 
   glm::mat4 GetPositionMat4() { return position; }
 
@@ -92,7 +99,7 @@ private:
 
   // array type shit for the bones
 
-  int skeletonID;
+  std::shared_ptr<Skeleton> skeleton;
 
   int animatorID;
 
@@ -143,7 +150,8 @@ public:
 
   AnimatedModel LoadAnimatedModel(std::string path);
 
-  void LoadAnimation(int skeletonID, std::string &path, int &r_AnimationID);
+  void LoadAnimation(std::shared_ptr<Skeleton> skeleton, std::string &path,
+                     int &r_AnimationID);
 
   void Update(float deltaTime);
 
@@ -151,14 +159,16 @@ public:
     meshes[mesh].SetResidencyStatus(status);
   }
 
-  Skeleton &GetSkeleton(int ID) { return skeletons[ID]; }
+  std::shared_ptr<Skeleton> &GetSkeleton(int ID) { return skeletons[ID]; }
+
+  std::shared_ptr<Animator> &GetAnimator(int ID) { return animators[ID]; }
 
   void AddSubmittedModel(AnimatedModel *model) {
     // TODO: make all model calls be shared pointers , and in static models
     submittedAnimatedModels.push_back(model);
   }
 
-  Animation GetAnimation(unsigned int animationID) {
+  std::shared_ptr<Animation> GetAnimation(unsigned int animationID) {
 
     return animations[animationID];
   }
@@ -193,8 +203,9 @@ private:
 
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
   std::vector<AnimatedModel *> submittedAnimatedModels;
-  std::vector<Skeleton> skeletons; // in da closet
-  std::vector<Animation> animations;
+  std::vector<std::shared_ptr<Skeleton>> skeletons; // in da closet
+  std::vector<std::shared_ptr<Animation>> animations;
+  std::vector<std::shared_ptr<Animator>> animators;
 
   // processing stuff:
 

@@ -27,16 +27,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 void processInput(Window *c_window, bool &quit, Camera &camera) {
 
-
-
-
-
-
-
-
-
-
-    SDL_Window *window = c_window->GetWindowPtr();
+  SDL_Window *window = c_window->GetWindowPtr();
   // Delta time calculation using performance counters
   static uint64_t lastCounter = SDL_GetPerformanceCounter();
   uint64_t currentCounter = SDL_GetPerformanceCounter();
@@ -160,19 +151,19 @@ int main() {
   // Model cube = rend.p_meshManager->LoadModel(path);
   AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
   int animationID;
-  rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeletonID(), path,
+  rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeleton(), path,
                                              animationID);
-   auto& anim = rend.p_AnimatedModelManager->GetSkeleton(model.GetSkeletonID()).animator;
+  auto &anim = rend.p_AnimatedModelManager->GetAnimator(model.GetAnimatorID());
 
-  int skelAnimID = anim.AddAnimation(rend.p_AnimatedModelManager->GetAnimation(animationID));
-    
+  int skelAnimID = anim->AddAnimation(
+      rend.p_AnimatedModelManager->GetAnimation(animationID));
 
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
   glm::mat4 position = glm::mat4(1.0f);
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
   model.SetPositionMat4(position);
-  rend.p_AnimatedModelManager->SetModelShader(model, shader); 
+  rend.p_AnimatedModelManager->SetModelShader(model, shader);
   // cube.SetPositionMat4(model);
 
   // rend.p_meshManager->SetModelShader(cube, shader);
@@ -189,6 +180,24 @@ int main() {
   // glm::mat4 test(1.0f);
   // test[2][2] = 69.0f;
 
+  // animation stuff here, adding into animator
+
+  const auto &animationClip =
+      rend.p_AnimatedModelManager->GetAnimation(animationID);
+
+  // 1. Register the animation with the Animator (as per your current design)
+  // The returned index (localAnimationID) is for the Animator's internal list
+  // only.
+  int localAnimationID = anim->AddAnimation(animationClip);
+
+  // --- Core Animation Setup ---
+  // 2. Create the first animation layer (this usually returns 0)
+  int layerIndex = anim->CreateAnimationLayer();
+
+  // 3. Set the loaded Animation as the source for that layer
+  // The layer will now start playing this animation clip.
+  anim->SetLayerSource(layerIndex, animationClip);
+
   //
   glm::mat4 projection1 = glm::perspective(
       glm::radians(camera.Zoom),
@@ -204,13 +213,6 @@ int main() {
 
   int frameNum = 0;
 
-
-
-
-
-
-
-
   while (rend.shouldQuit == false) {
 
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
@@ -224,13 +226,7 @@ int main() {
 
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
-
-
-    
-        
-    anim.PlayAnimation(skelAnimID);
-
-        
+    // TODO: make animator play the fucking animation;
 
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();

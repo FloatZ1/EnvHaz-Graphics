@@ -1,10 +1,12 @@
 #include "Animation/AnimatedModelManager.hpp"
 #include "Animation/Animation.hpp"
+#include "Animation/Animator.hpp"
 #include "DataStructs.hpp"
 #include "MeshManager.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "Utils/Math_Utils.hpp"
 #include "glm/fwd.hpp"
+#include "glm/matrix.hpp"
 
 #include <assimp/mesh.h>
 #include <assimp/postprocess.h>
@@ -14,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -100,6 +103,9 @@ void AnimatedModelManager::SetParentHierarchy(aiNode *node) {
  */
 AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
+  processingSkeleton.m_Joints.clear();
+  processingSkeleton.finalMatrices.clear();
+
   std::vector<MeshID> r_meshes;
 
   eHazGraphics_Utils::HashedString hashedPath =
@@ -125,10 +131,19 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   SetParentHierarchy(scene->mRootNode);
 
-  skeletons.push_back(processingSkeleton);
+  processingSkeleton.m_RootTransform =
+      convertAssimpMatrixToGLM(scene->mRootNode->mTransformation);
+  processingSkeleton.m_InverseRoot =
+      glm::inverse(processingSkeleton.m_RootTransform);
+
+  skeletons.push_back(std::make_shared<Skeleton>(processingSkeleton));
 
   AnimatedModel model;
-  model.SetSkeletonID(skeletons.size() - 1);
+  model.SetSkeleton(skeletons[skeletons.size() - 1]);
+
+  animators.push_back(std::make_shared<Animator>());
+  model.SetAnimatorID(animators.size() - 1);
+  animators[animators.size() - 1]->SetSkeleton(model.GetSkeleton());
 
   for (auto &mesh : r_meshes) {
 
@@ -297,9 +312,6 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
  *
  */
 
-void AnimatedModelManager::LoadAnimation(int skeletonID, std::string &path,
-                                         int &r_AnimationID) {}
-
 void AnimatedModelManager::UploadBonesToGPU(
     BufferRange &range, std::vector<glm::mat4> finalMatrices) {
 
@@ -307,6 +319,7 @@ void AnimatedModelManager::UploadBonesToGPU(
     range = bufferManager->InsertNewDynamicData(
         finalMatrices.data(), finalMatrices.size() * sizeof(glm::mat4),
         TypeFlags::BUFFER_ANIMATION_DATA);
+
   } else {
     bufferManager->UpdateData(range, finalMatrices.data(),
                               finalMatrices.size() * sizeof(glm::mat4));
@@ -314,8 +327,8 @@ void AnimatedModelManager::UploadBonesToGPU(
 }
 
 void AnimatedModelManager::Update(float deltaTime) {
-  for (Skeleton &skeleton : skeletons) {
-    skeleton.Update(deltaTime);
+  for (auto &animator : animators) {
+    animator->Update(deltaTime);
   }
 
   // Submit to GPU or instance buffer
@@ -331,9 +344,10 @@ void AnimatedModelManager::Update(float deltaTime) {
                                 sizeof(InstanceData));
     }
 
-    Skeleton &skeleton = skeletons[model->GetSkeletonID()];
-    UploadBonesToGPU(skeleton.GPUlocation,
-                     skeleton.finalMatrices); // your existing submission logic
+    auto &animator = animators[model->GetAnimatorID()];
+    UploadBonesToGPU(
+        animator->GetGPULocation(),
+        animator->GetFinalMatrices()); // your existing submission logic
   }
 }
 
