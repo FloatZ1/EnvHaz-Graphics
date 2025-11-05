@@ -1,98 +1,83 @@
 #version 460 core
 #extension GL_ARB_bindless_texture : require
 
-// ====================================================================
-// Vertex Attributes (Input from VBO)
-// ====================================================================
-layout(location = 0) in vec3 aPos; // Vertex Position
-layout(location = 1) in vec2 aTexCoords; // Texture Coordinates
-layout(location = 2) in vec3 aNormal; // Vertex Normal
-layout(location = 3) in ivec4 aBoneIDs; // Bone Indices (up to 4)
-layout(location = 4) in vec4 aBoneWeights; // Bone Weights (up to 4)
+// ============================ Vertex Inputs ============================
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aTexCoords;
+layout(location = 2) in vec3 aNormal;
+layout(location = 3) in ivec4 aBoneIDs;
+layout(location = 4) in vec4 aBoneWeights;
 
-// ====================================================================
-// Outputs to Fragment Shader (Interpolated)
-// ====================================================================
+// ============================ Outputs ============================
 out vec2 TexCoords;
 out vec3 FragNormal;
-flat out uint MatID; // Flat means no interpolation (required for IDs)
+flat out uint MatID;
 
-// ====================================================================
-// Uniform Buffer Objects (Camera Data)
-// ====================================================================
+// ============================ Camera (UBO/SSBO) ============================
 struct VP {
     mat4 view;
     mat4 projection;
 };
-// Binding 5: Camera View and Projection matrices
 layout(std430, binding = 5) readonly buffer ssbo5 {
     VP camMats;
 };
 
-// ====================================================================
-// Shader Storage Buffer Objects (Per-Instance Data)
-// ====================================================================
+// ============================ Instance Data ============================
 struct InstanceData {
-    mat4 model; // Model-to-World matrix
+    mat4 model;
     uint materialID;
-    uint modelMatID; // unused
+    uint modelMatID;
 };
-// Binding 0: Array of Instance Data
 layout(std430, binding = 0) readonly buffer ssbo0 {
     InstanceData data[];
 };
 
-// ====================================================================
-// Shader Storage Buffer Objects (Skinning Data)
-// ====================================================================
-// Binding 2: Array of final joint matrices (Bone Transforms)
-// NOTE: This SSBO is updated by the AnimatedModelManager::UploadBonesToGPU
-layout(std430, binding = 2) readonly buffer ssbo8 {
+// ============================ Bone Matrices ============================
+layout(std430, binding = 2) readonly buffer ssbo2 {
     mat4 jointMatrices[];
 };
 
-// ====================================================================
-// Main Function
-// ====================================================================
+// ============================ Main ============================
 void main()
 {
-    // Combine draw index and instance index to get the global index for instance data
+    // Instance selection
     uint curID = gl_DrawID + gl_InstanceID;
-
-    // --- Prepare Fragment Outputs ---
-    MatID = data[curID].materialID;
-    TexCoords = aTexCoords;
-
-    // --- Bone Skinning Computation ---
-
-    // Accumulate the weighted bone transforms into a single matrix
-    mat4 skinMat = mat4(0.0);
-
-    // Check if the vertex has weight, if not, treat as identity (optional)
-    if (dot(aBoneWeights, vec4(1.0)) > 0.0) {
-        skinMat += jointMatrices[aBoneIDs.x] * aBoneWeights.x;
-        skinMat += jointMatrices[aBoneIDs.y] * aBoneWeights.y;
-        skinMat += jointMatrices[aBoneIDs.z] * aBoneWeights.z;
-        skinMat += jointMatrices[aBoneIDs.w] * aBoneWeights.w;
-    } else {
-        // If no weights, use an identity matrix (no skinning)
-        skinMat = mat4(1.0);
-    }
-
-    // Apply the skinning matrix to the local vertex position
-    vec4 skinnedPos = skinMat * vec4(aPos, 1.0);
-    // Apply the skinning matrix to the local normal (using mat3 for normals)
-    vec3 skinnedNormal = normalize(mat3(skinMat) * aNormal);
-
-    // --- World Space Transformation ---
     mat4 model = data[curID].model;
 
-    // Transform the skinned position to world space
-    vec4 worldPos = model * skinnedPos;
+    TexCoords = aTexCoords;
+    MatID = data[curID].materialID;
 
-    // Transform the skinned normal to world space (normalize after model transform)
-    FragNormal = normalize(mat3(model) * skinnedNormal);
+    // ----------- Bone Skinning -----------
+    vec4 totalPosition = vec4(0.0);
+    vec3 totalNormal = vec3(0.0);
 
-    // --- Final Clip Space Position ---
+    // Sum of weights to detect zero-weight vertices
+    float weightSum = aBoneWeights.x + aBoneWeights.y +
+            aBoneWeights.z + aBoneWeights.w;
+
+    if (weightSum > 0.0) {
+        const int MAX_BONE_INFLUENCE = 4;
+        for (int i = 0; i < MAX_BONE_INFLUENCE; i++)
+        {
+            int id = aBoneIDs[i];
+            float w = aBoneWeights[i];
+            if (id < 0 || w <= 0.0)
+                continue;
+
+            mat4 boneTransform = jointMatrices[id];
+            totalPosition += (boneTransform * vec4(aPos, 1.0)) * w;
+            totalNormal += (mat3(boneTransform) * aNormal) * w;
+        }
+    } else {
+        // No bone influence: use model-space position as is
+        totalPosition = vec4(aPos, 1.0);
+        totalNormal = aNormal;
+    }
+
+    // ----------- World Transform -----------
+    vec4 worldPos = model * totalPosition;
+    FragNormal = normalize(mat3(model) * totalNormal);
+
+    // ----------- Final Clip Position -----------
     gl_Position = camMats.projection * camMats.view * worldPos;
 }

@@ -33,6 +33,16 @@ public:
   JointTransform GetJointTransform(size_t jointIndex, float time);
 
   size_t GetJointCount() const;
+
+  float ticksPerSecond = 25.0f;
+
+  float GetTicksPerSecond() const { return ticksPerSecond; }
+  float GetDurationTicks() const {
+    return frames.empty() ? 0.0f : frames.back().timeStamp;
+  }
+
+  // These can be set when loading from Assimp
+  void SetTicksPerSecond(float tps) { ticksPerSecond = tps; }
 };
 
 } // namespace eHazGraphics

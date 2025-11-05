@@ -195,6 +195,10 @@ void AnimatedModelManager::LoadAnimation(std::shared_ptr<Skeleton> skeleton,
                                      : 25.0f);
   float durationInTicks = (float)assimpAnimation->mDuration;
 
+  newAnimation->SetTicksPerSecond(assimpAnimation->mTicksPerSecond != 0.0
+                                      ? assimpAnimation->mTicksPerSecond
+                                      : 25.0f);
+
   // We sample at each tick
   // Note: This can be optimized to sample only at unique keyframe times,
   // but sampling per tick is simpler and very robust.

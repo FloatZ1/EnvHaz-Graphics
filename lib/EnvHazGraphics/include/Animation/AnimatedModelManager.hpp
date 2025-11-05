@@ -187,6 +187,8 @@ private:
 
   void SetParentHierarchy(aiNode *node);
 
+  void ComputeGlobalBindTransforms(aiNode *node, const glm::mat4 &parentGlobal);
+
   /*
 
 

@@ -2,6 +2,7 @@
 #define ENVHAZ_GRAPHICS_UTILS_ALGHORITHMS
 #include "glm/glm.hpp"
 #include <algorithm>
+#include <assimp/scene.h>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/fwd.hpp>
@@ -14,6 +15,7 @@ glm::vec3 BlendVec3s(const std::vector<glm::vec3> &vectors,
 glm::quat BlendQuats(const std::vector<glm::quat> &quaternions,
                      const std::vector<float> &weights);
 
+aiMatrix4x4 GetNodeToRootMat4(aiNode *node);
 }; // namespace eHazGraphics_Utils
 
 #endif

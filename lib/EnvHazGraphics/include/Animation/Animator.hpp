@@ -27,8 +27,9 @@ struct Joint {
 
   // Dynamic Data (Calculated Every Frame)
   glm::mat4 m_GlobalTransform = glm::mat4(1.0f); // M_GlobalBone
-  glm::mat4 m_FinalShaderMatrix = glm::mat4(
-      1.0f); // M_Final (M_Root * M_GlobalBone * M_Offset * M_Root_Inv)
+  // glm::mat4 m_FinalShaderMatrix = glm::mat4(
+  //   1.0f); // M_Final (M_Root * M_GlobalBone * M_Offset * M_Root_Inv)
+  glm::mat4 localBindTransform = glm::mat4(1.0f);
 };
 
 struct Skeleton {

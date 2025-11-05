@@ -85,9 +85,9 @@ void CalculateJointTransforms(const KeyFrame &pose,
 
   // 3. Calculate the Final Shader Matrix
   // Final Matrix = M_GlobalBone * M_OffsetMatrix
-  glm::mat4 finalMatrix = skeleton->m_RootTransform * globalTransform *
-                          (skeleton->m_Joints[jointIndex].mOffsetMatrix) *
-                          skeleton->m_InverseRoot;
+  glm::mat4 finalMatrix =
+      globalTransform * (skeleton->m_Joints[jointIndex].mOffsetMatrix);
+
   skeleton->finalMatrices[jointIndex] = finalMatrix;
 
   // 4. Recursively call for all children
@@ -132,7 +132,17 @@ void Animator::Update(float deltaTime) {
     }
 
     // Advance time and get the current layer's pose
-    layer.currentTime += deltaTime;
+    // layer.currentTime += deltaTime;
+
+    float tps = layer.activeSource->GetTicksPerSecond();
+    float duration = layer.activeSource->GetDurationTicks();
+
+    layer.currentTime += deltaTime * tps; // advance in ticks
+
+    // Loop back around if past the end
+    if (duration > 0.0f)
+      layer.currentTime = std::fmod(layer.currentTime, duration);
+
     KeyFrame currentPose = layer.activeSource->GetPoseAt(layer.currentTime);
 
     // The blend factor (how much the current layer contributes)
@@ -165,7 +175,7 @@ void Animator::Update(float deltaTime) {
   // Matrices)
   int rootJointIndex = 0;
   CalculateJointTransforms(finalPose, skeleton, rootJointIndex,
-                           glm::mat4(1.0f));
+                           skeleton->m_RootTransform);
 }
 std::vector<glm::mat4> Animator::GetFinalMatrices() {
 

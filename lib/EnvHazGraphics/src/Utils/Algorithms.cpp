@@ -1,5 +1,21 @@
 #include "Utils/Alghorithms.hpp"
+
+#include <assimp/scene.h>
 namespace eHazGraphics_Utils {
+
+aiMatrix4x4 GetNodeToRootMat4(aiNode *node) {
+
+  aiMatrix4x4 globalTransform = node->mTransformation;
+
+  aiNode *currentNode = node->mParent;
+  while (currentNode) {
+
+    globalTransform = currentNode->mTransformation * globalTransform;
+    currentNode = currentNode->mParent;
+  }
+
+  return globalTransform;
+}
 
 glm::quat BlendQuats(const std::vector<glm::quat> &quaternions,
                      const std::vector<float> &weights) {
