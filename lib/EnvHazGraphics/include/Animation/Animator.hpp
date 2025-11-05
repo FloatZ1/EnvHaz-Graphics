@@ -35,6 +35,8 @@ struct Joint {
 struct Skeleton {
   std::vector<glm::mat4> finalMatrices;
   std::vector<Joint> m_Joints;
+  std::vector<int> m_RootJointIndecies;
+
   glm::mat4 m_InverseRoot = glm::mat4(1.0f);
   glm::mat4 m_RootTransform = glm::mat4(1.0f);
 };

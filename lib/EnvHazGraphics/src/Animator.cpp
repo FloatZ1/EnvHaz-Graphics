@@ -166,14 +166,27 @@ void Animator::Update(float deltaTime) {
   const glm::mat4 &rootModelTransform = skeleton->m_RootTransform;
 
   // FIND ALL ROOT JOINTS AND START A RECURSION FOR EACH.
-  for (size_t i = 0; i < skeleton->m_Joints.size(); ++i) {
+  //
+  //
+  //
+  //
+
+  /*for (size_t i = 0; i < skeleton->m_Joints.size(); ++i) {
     if (skeleton->m_Joints[i].m_ParentJoint == -1) {
       // Found a root joint! Start a new FK chain from here.
 
       // Pass the model's root transform as the parent transform
       // for this chain's first joint.
-      CalculateJointTransforms(finalPose, skeleton, i, rootModelTransform);
+      CalculateJointTransforms(finalPose, skeleton, i,
+                               skeleton->m_Joints[0].localBindTransform);
     }
+  }*/
+
+  for (size_t i = 0; i < skeleton->m_RootJointIndecies.size(); i++) {
+
+    int &rootIndex = skeleton->m_RootJointIndecies[i];
+
+    CalculateJointTransforms(finalPose, skeleton, rootIndex, glm::mat4(1.0f));
   }
 }
 std::vector<glm::mat4> Animator::GetFinalMatrices() {

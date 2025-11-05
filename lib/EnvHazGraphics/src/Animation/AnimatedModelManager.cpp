@@ -116,9 +116,9 @@ void AnimatedModelManager::ComputeGlobalBindTransforms(
     int idx = it->second;
     Joint &j = processingSkeleton.m_Joints[idx];
     j.m_GlobalTransform = global;
-    j.localBindTransform = local; // store global bind
-    // Recompute inverse bind from the node global transform — often fixes
-    // FBX/Mixamo root-scale problems
+    // j.localBindTransform = local; // store global bind
+    //  Recompute inverse bind from the node global transform — often fixes
+    //  FBX/Mixamo root-scale problems
     j.mOffsetMatrix = glm::inverse(global);
   }
 
@@ -163,6 +163,14 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
       glm::inverse(processingSkeleton.m_RootTransform);
   std::cout << determinant(processingSkeleton.m_Joints[0].mOffsetMatrix)
             << std::endl;
+
+  for (size_t i = 0; i < processingSkeleton.m_Joints.size(); i++) {
+
+    if (processingSkeleton.m_Joints[i].m_ParentJoint == -1) {
+      processingSkeleton.m_RootJointIndecies.push_back(i);
+    }
+  }
+
   skeletons.push_back(std::make_shared<Skeleton>(processingSkeleton));
 
   AnimatedModel model;
