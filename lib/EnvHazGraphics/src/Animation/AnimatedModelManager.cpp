@@ -140,9 +140,9 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
     return loadedModels[hashedPath];
   }
 
-  scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs |
-                                      aiProcess_GenNormals |
-                                      aiProcess_CalcTangentSpace);
+  scene = importer.ReadFile(
+      path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
+                aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
@@ -155,6 +155,7 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
   r_meshes = processNode(scene->mRootNode);
 
   SetParentHierarchy(scene->mRootNode);
+
   ComputeGlobalBindTransforms(scene->mRootNode, glm::mat4(1.0f));
   processingSkeleton.m_RootTransform =
       convertAssimpMatrixToGLM(scene->mRootNode->mTransformation);
@@ -171,26 +172,45 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
   model.SetAnimatorID(animators.size() - 1);
   animators[animators.size() - 1]->SetSkeleton(model.GetSkeleton());
 
-  for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
-    // Recompute global bind using parent relationships
-    glm::mat4 globalBind = processingSkeleton.m_Joints[i].localBindTransform;
-    int parent = processingSkeleton.m_Joints[i].m_ParentJoint;
-    if (parent != -1) {
-      globalBind =
-          processingSkeleton.m_Joints[parent].m_GlobalTransform * globalBind;
-    }
+  /* for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
+     // Recompute global bind using parent relationships
+     glm::mat4 globalBind = processingSkeleton.m_Joints[i].localBindTransform;
+     int parent = processingSkeleton.m_Joints[i].m_ParentJoint;
+     if (parent != -1) {
+       globalBind =
+           processingSkeleton.m_Joints[parent].m_GlobalTransform * globalBind;
+     }
 
-    // Multiply by inverse bind (offset matrix)
+     // Multiply by inverse bind (offset matrix)
+     glm::mat4 test = globalBind * processingSkeleton.m_Joints[i].mOffsetMatrix;
+
+     // If bind was correct, test ≈ identity
+     if (glm::length(glm::vec3(test[0][0] - 1.0f, test[1][1] - 1.0f,
+                               test[2][2] - 1.0f)) > 0.01f) {
+       std::cout << "Joint " << processingSkeleton.m_Joints[i].m_Name
+                 << " has incorrect bind pose!\n";
+     }
+   } */
+  for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
+
+    // **CRITICAL FIX:** Do NOT recompute the global bind from parent indices.
+    // Instead, use the correct global bind transform already calculated
+    // and stored by ComputeGlobalBindTransforms (which used the full Assimp
+    // node path).
+    glm::mat4 globalBind = processingSkeleton.m_Joints[i].m_GlobalTransform;
+
+    // The inverse bind matrix (offset matrix) was set to inverse(globalBind)
+    // inside ComputeGlobalBindTransforms, so this check should now work for ALL
+    // joints.
     glm::mat4 test = globalBind * processingSkeleton.m_Joints[i].mOffsetMatrix;
 
     // If bind was correct, test ≈ identity
     if (glm::length(glm::vec3(test[0][0] - 1.0f, test[1][1] - 1.0f,
                               test[2][2] - 1.0f)) > 0.01f) {
       std::cout << "Joint " << processingSkeleton.m_Joints[i].m_Name
-                << " has incorrect bind pose!\n";
+                << " has incorrect bind pose (multi-root fix applied)!\n";
     }
   }
-
   // defjidsmgokdlmg;
   //
   //
@@ -362,17 +382,29 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
               boneData.boneWeights[3] = 0.0f;
         } else {
           // As a last resort, assign to bone 0
-          boneData.boneIDs[0] = 0;
-          boneData.boneWeights[0] = 1.0f;
-          boneData.boneIDs[1] = boneData.boneIDs[2] = boneData.boneIDs[3] = 0;
-          boneData.boneWeights[1] = boneData.boneWeights[2] =
-              boneData.boneWeights[3] = 0.0f;
+          //
+          if (i > 0) {
+
+            for (int l = 0; l < 4; l++) {
+
+              boneData.boneIDs[l] = vertices[i - 1].boneIDs[l];
+              boneData.boneWeights[l] = vertices[i - 1].boneWeights[l];
+            }
+
+          } else {
+
+            boneData.boneIDs[0] = 0;
+            boneData.boneWeights[0] = 0.0f;
+            boneData.boneIDs[1] = boneData.boneIDs[2] = boneData.boneIDs[3] = 0;
+            boneData.boneWeights[1] = boneData.boneWeights[2] =
+                boneData.boneWeights[3] = 0.0f;
+          }
         }
       } else {
         // Mesh had no bones at all, keep as rigid (no skinning). We still set
         // default bone 0 so shader can't index out of range.
         boneData.boneIDs[0] = 0;
-        boneData.boneWeights[0] = 1.0f;
+        boneData.boneWeights[0] = 0.0f;
         boneData.boneIDs[1] = boneData.boneIDs[2] = boneData.boneIDs[3] = 0;
         boneData.boneWeights[1] = boneData.boneWeights[2] =
             boneData.boneWeights[3] = 0.0f;

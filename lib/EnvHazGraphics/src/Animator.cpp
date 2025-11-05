@@ -99,83 +99,82 @@ void CalculateJointTransforms(const KeyFrame &pose,
 }
 
 void Animator::Update(float deltaTime) {
-
   if (!skeleton) {
     std::cerr << "Animator Error: No skeleton set." << std::endl;
     return;
   }
   if (layers.empty() || !layers[0].activeSource) {
-    return; // Fallback: no animation
+    return;
   }
 
-  // 1. Advance time and get the BASE POSE (Layer 0)
-  AnimationLayer &baseLayer = layers[0];
-  baseLayer.currentTime += deltaTime;
-  KeyFrame finalPose = baseLayer.activeSource->GetPoseAt(baseLayer.currentTime);
-
-  // Initialize finalMatrices vector size
+  // Initialize finalMatrices
   if (skeleton->finalMatrices.size() != skeleton->m_Joints.size()) {
     skeleton->finalMatrices.resize(skeleton->m_Joints.size());
   }
 
-  // Determine joint count based on the base pose
+  // Get base layer
+  AnimationLayer &baseLayer = layers[0];
+
+  // Advance time in ticks
+  float tps = baseLayer.activeSource->GetTicksPerSecond();
+  float duration = baseLayer.activeSource->GetDurationTicks();
+
+  baseLayer.currentTime += deltaTime * tps;
+  if (duration > 0.0f) {
+    baseLayer.currentTime = std::fmod(baseLayer.currentTime, duration);
+  }
+
+  KeyFrame finalPose = baseLayer.activeSource->GetPoseAt(baseLayer.currentTime);
   const size_t jointCount = finalPose.transforms.size();
 
-  // 2. ITERATE and BLEND secondary layers (Layer 1, 2, 3, ...)
+  // Blend additional layers
   for (size_t i = 1; i < layers.size(); ++i) {
     AnimationLayer &layer = layers[i];
 
-    // Skip inactive or zero-weight layers
     if (!layer.activeSource ||
         layer.weight < std::numeric_limits<float>::epsilon()) {
       continue;
     }
 
-    // Advance time and get the current layer's pose
-    // layer.currentTime += deltaTime;
+    float layerTps = layer.activeSource->GetTicksPerSecond();
+    float layerDuration = layer.activeSource->GetDurationTicks();
 
-    float tps = layer.activeSource->GetTicksPerSecond();
-    float duration = layer.activeSource->GetDurationTicks();
-
-    layer.currentTime += deltaTime * tps; // advance in ticks
-
-    // Loop back around if past the end
-    if (duration > 0.0f)
-      layer.currentTime = std::fmod(layer.currentTime, duration);
+    layer.currentTime += deltaTime * layerTps;
+    if (layerDuration > 0.0f) {
+      layer.currentTime = std::fmod(layer.currentTime, layerDuration);
+    }
 
     KeyFrame currentPose = layer.activeSource->GetPoseAt(layer.currentTime);
-
-    // The blend factor (how much the current layer contributes)
     const float w = layer.weight;
 
-    // Blend the base pose towards the current layer's pose for every joint
-    for (size_t j = 0; j < jointCount; ++j) {
-      if (j >= currentPose.transforms.size())
-        continue;
-
+    for (size_t j = 0; j < jointCount && j < currentPose.transforms.size();
+         ++j) {
       const JointTransform &currentT = currentPose.transforms[j];
       JointTransform &finalT = finalPose.transforms[j];
 
-      // NOTE: In a more complex system, this is where a blend mask would be
-      // applied. For now, we use simple linear blending (Lerp/Slerp) on all
-      // transforms.
-
-      // Position: Linear Interpolation (glm::mix is Lerp for vectors)
       finalT.position = glm::mix(finalT.position, currentT.position, w);
-
-      // Rotation: Spherical Linear Interpolation
       finalT.rotation = glm::slerp(finalT.rotation, currentT.rotation, w);
-
-      // Scale: Linear Interpolation
       finalT.scale = glm::mix(finalT.scale, currentT.scale, w);
     }
   }
-
   // 3. Apply Forward Kinematics (Convert the final blended pose to Shader
   // Matrices)
-  int rootJointIndex = 0;
-  CalculateJointTransforms(finalPose, skeleton, rootJointIndex,
-                           skeleton->m_RootTransform);
+  /* int rootJointIndex = 0;
+   CalculateJointTransforms(finalPose, skeleton, rootJointIndex,
+                            skeleton->m_RootTransform); */
+
+  const glm::mat4 &rootModelTransform = skeleton->m_RootTransform;
+
+  // FIND ALL ROOT JOINTS AND START A RECURSION FOR EACH.
+  for (size_t i = 0; i < skeleton->m_Joints.size(); ++i) {
+    if (skeleton->m_Joints[i].m_ParentJoint == -1) {
+      // Found a root joint! Start a new FK chain from here.
+
+      // Pass the model's root transform as the parent transform
+      // for this chain's first joint.
+      CalculateJointTransforms(finalPose, skeleton, i, rootModelTransform);
+    }
+  }
 }
 std::vector<glm::mat4> Animator::GetFinalMatrices() {
 

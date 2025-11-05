@@ -10,83 +10,53 @@
 namespace eHazGraphics {
 
 KeyFrame Animation::GetPoseAt(float time) {
-
   if (frames.empty()) {
-    // Return a default/bind pose if the animation has no data
-    return KeyFrame();
+    return KeyFrame{};
   }
 
-  // 1. Handle Looping
-  // We assume the duration is the time of the last keyframe for simplicity,
-  // but a proper `duration` member should be used for safety.
-  float animationDuration = frames.back().timeStamp;
-  time = std::fmod(time, animationDuration);
-  if (time < 0.0f) {
-    time += animationDuration;
+  // Handle looping
+  float duration = GetDurationTicks();
+  if (duration > 0.0f) {
+    time = std::fmod(time, duration);
   }
 
-  // 2. Find the bracketing keyframes (prevFrame and nextFrame)
-  size_t prevFrameIndex = 0;
-  size_t nextFrameIndex = 0;
-
-  for (size_t i = 0; i < frames.size(); ++i) {
-    // Use timeStamp as defined in your KeyFrame struct
-    if (frames[i].timeStamp > time) {
-      nextFrameIndex = i;
-      // Handle looping back to the last frame if we are between the last frame
-      // and time 0
-      prevFrameIndex = (i == 0) ? frames.size() - 1 : i - 1;
+  // Find surrounding keyframes
+  size_t frameIndex = 0;
+  for (size_t i = 0; i < frames.size() - 1; ++i) {
+    if (time >= frames[i].timeStamp && time < frames[i + 1].timeStamp) {
+      frameIndex = i;
       break;
     }
   }
 
-  // Safety check for single-frame animations or if time is past the last frame
-  if (nextFrameIndex == 0) {
-    // Time is past the last frame (loop has been handled) or equals the last
-    // frame time. Return the last frame's pose.
-    return frames[frames.size() - 1];
+  // If we're at or past the last frame
+  if (frameIndex >= frames.size() - 1) {
+    return frames.back();
   }
 
-  const KeyFrame &prevFrame = frames[prevFrameIndex];
-  const KeyFrame &nextFrame = frames[nextFrameIndex];
+  // Interpolate between frameIndex and frameIndex + 1
+  const KeyFrame &frame0 = frames[frameIndex];
+  const KeyFrame &frame1 = frames[frameIndex + 1];
 
-  // 3. Calculate the Interpolation Factor (alpha)
-  float totalTime = nextFrame.timeStamp - prevFrame.timeStamp; // Use timeStamp
+  float frameDelta = frame1.timeStamp - frame0.timeStamp;
+  float factor =
+      (frameDelta > 0.0f) ? (time - frame0.timeStamp) / frameDelta : 0.0f;
 
-  // Handle case where two frames are at the same time
-  if (totalTime < std::numeric_limits<float>::epsilon()) {
-    return prevFrame;
+  KeyFrame result;
+  result.timeStamp = time;
+  result.transforms.resize(frame0.transforms.size());
+
+  // Interpolate each joint
+  for (size_t i = 0; i < frame0.transforms.size(); ++i) {
+    result.transforms[i].position = glm::mix(
+        frame0.transforms[i].position, frame1.transforms[i].position, factor);
+    result.transforms[i].rotation = glm::slerp(
+        frame0.transforms[i].rotation, frame1.transforms[i].rotation, factor);
+    result.transforms[i].scale = glm::mix(frame0.transforms[i].scale,
+                                          frame1.transforms[i].scale, factor);
   }
 
-  // alpha is the normalized time (0.0 to 1.0) between prevFrame and nextFrame
-  float alpha = (time - prevFrame.timeStamp) / totalTime;
-
-  // 4. Interpolate Each Joint
-  KeyFrame interpolatedPose;
-  // Assuming all KeyFrames have the same number of JointTransforms
-  size_t jointCount = prevFrame.transforms.size();
-  interpolatedPose.transforms.resize(jointCount);
-
-  for (size_t i = 0; i < jointCount; ++i) {
-    const JointTransform &prevT = prevFrame.transforms[i];
-    const JointTransform &nextT = nextFrame.transforms[i];
-
-    JointTransform &resultT = interpolatedPose.transforms[i];
-
-    // Position (Translation): Linear Interpolation (LERP)
-    // Using `position` as defined in your struct
-    resultT.position = glm::lerp(prevT.position, nextT.position, alpha);
-
-    // Rotation: Spherical Linear Interpolation (SLERP)
-    resultT.rotation = glm::slerp(prevT.rotation, nextT.rotation, alpha);
-
-    // Scale: Linear Interpolation (LERP)
-    resultT.scale = glm::lerp(prevT.scale, nextT.scale, alpha);
-  }
-
-  interpolatedPose.timeStamp = time;
-
-  return interpolatedPose;
+  return result;
 }
 
 JointTransform Animation::GetJointTransform(size_t jointIndex, float time) {
@@ -94,13 +64,16 @@ JointTransform Animation::GetJointTransform(size_t jointIndex, float time) {
   if (jointIndex < pose.transforms.size()) {
     return pose.transforms[jointIndex];
   }
-  return JointTransform(); // Return default transform on error
+  // Return identity transform as fallback
+  return JointTransform{
+      glm::vec3(1.0f),                  // scale
+      glm::vec3(0.0f),                  // position
+      glm::quat(1.0f, 0.0f, 0.0f, 0.0f) // rotation
+  };
 }
 
 size_t Animation::GetJointCount() const {
-  if (frames.empty())
-    return 0;
-  return frames.front().transforms.size();
+  return frames.empty() ? 0 : frames[0].transforms.size();
 }
 
 } // namespace eHazGraphics
