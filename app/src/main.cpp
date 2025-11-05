@@ -146,7 +146,7 @@ int main() {
 
   SDL_Log("\n\n\n" RESOURCES_PATH "\n\n\n");
 
-  std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
+  std::string path = RESOURCES_PATH "animated/Capoeira.glb";
   // std::string path = RESOURCES_PATH "cube.obj";
   // Model cube = rend.p_meshManager->LoadModel(path);
   AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
