@@ -189,6 +189,8 @@ private:
 
   void ComputeGlobalBindTransforms(aiNode *node, const glm::mat4 &parentGlobal);
 
+  void ExtractBoneWeightForVertices(std::vector<Vertex> &vertices,
+                                    aiMesh *mesh);
   /*
 
 

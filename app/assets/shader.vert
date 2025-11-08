@@ -46,4 +46,5 @@ uint partMat = data[curID].modelMatID;
 TexCoords = aTexCoords;
 
 gl_Position = camMats . projection * camMats . view * data[curID] . model * modelMat[partMat] * vec4(aPos, 1.0);
+
 }

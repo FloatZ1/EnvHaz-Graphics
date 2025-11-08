@@ -1,3 +1,5 @@
+
+
 #version 460 core
 #extension GL_ARB_bindless_texture : require
 
@@ -27,6 +29,8 @@ struct InstanceData {
     mat4 model;
     uint materialID;
     uint modelMatID;
+    uint numJoints;
+    uint jointMatLocation; // starting offset into jointMatrices[]
 };
 layout(std430, binding = 0) readonly buffer ssbo0 {
     InstanceData data[];
@@ -40,44 +44,59 @@ layout(std430, binding = 2) readonly buffer ssbo2 {
 // ============================ Main ============================
 void main()
 {
-    // Instance selection
     uint curID = gl_DrawID + gl_InstanceID;
-    mat4 model = data[curID].model;
+    InstanceData inst = data[curID];
 
+    mat4 model = inst.model;
     TexCoords = aTexCoords;
-    MatID = data[curID].materialID;
+    MatID = inst.materialID;
 
-    // ----------- Bone Skinning -----------
-    vec4 totalPosition = vec4(0.0);
-    vec3 totalNormal = vec3(0.0);
+    // --- Skinning inputs ---
+    vec4 pos = vec4(aPos, 1.0f);
+    vec4 norm = vec4(aNormal, 0.0f);
 
-    // Sum of weights to detect zero-weight vertices
-    float weightSum = aBoneWeights.x + aBoneWeights.y +
-            aBoneWeights.z + aBoneWeights.w;
+    vec4 posSkinned = vec4(0.0f);
+    vec4 normSkinned = vec4(0.0f);
 
-    if (weightSum > 0.0) {
-        const int MAX_BONE_INFLUENCE = 4;
-        for (int i = 0; i < MAX_BONE_INFLUENCE; i++)
-        {
-            int id = aBoneIDs[i];
-            float w = aBoneWeights[i];
-            if (id < 0 || w <= 0.0)
-                continue;
+    const int MAX_BONE_INFLUENCE = 4;
 
-            mat4 boneTransform = jointMatrices[id];
-            totalPosition += (boneTransform * vec4(aPos, 1.0)) * w;
-            totalNormal += (mat3(boneTransform) * aNormal) * w;
-        }
-    } else {
-        // No bone influence: use model-space position as is
-        totalPosition = vec4(aPos, 1.0);
-        totalNormal = aNormal;
+    // Loop over 4 influences
+    for (int i = 0; i < MAX_BONE_INFLUENCE; ++i)
+    {
+        int id = aBoneIDs[i];
+        float w = aBoneWeights[i];
+
+        // Skip invalid or zero-weight entries
+        if (id < 0 || w <= 0.0f)
+            continue;
+
+        // Apply per-instance joint offset
+        id += int(inst.jointMatLocation);
+
+        // Prevent out-of-bounds indexing
+        if (id >= int(inst.jointMatLocation + inst.numJoints))
+            continue;
+
+        mat4 bone = jointMatrices[id];
+        posSkinned += (bone * pos) * w;
+        normSkinned += (bone * norm) * w;
     }
 
-    // ----------- World Transform -----------
-    vec4 worldPos = model * totalPosition;
-    FragNormal = normalize(mat3(model) * totalNormal);
+    // If no valid weights, use bind pose
+    float totalW = dot(aBoneWeights, vec4(1.0));
+    if (totalW <= 0.0001f) {
+        int safeID = int(data[curID].jointMatLocation);
+        mat4 rootBone = jointMatrices[safeID];
+        posSkinned = rootBone * pos;
+        normSkinned = rootBone * norm;
+    }
 
-    // ----------- Final Clip Position -----------
+    posSkinned.w = 1.0f;
+
+    // --- Transform to world space ---
+    vec4 worldPos = model * posSkinned;
+    FragNormal = normalize(mat3(model) * normSkinned.xyz);
+
+    // --- Clip space ---
     gl_Position = camMats.projection * camMats.view * worldPos;
 }

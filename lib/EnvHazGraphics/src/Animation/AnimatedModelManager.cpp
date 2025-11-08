@@ -9,12 +9,14 @@
 #include "glm/fwd.hpp"
 #include "glm/matrix.hpp"
 
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <assimp/mesh.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <set>
@@ -142,7 +144,8 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
-                aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData);
+                aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData |
+                aiProcess_JoinIdenticalVertices);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
@@ -151,7 +154,7 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
   }
 
   BuildBaseSkeleton();
-
+  SetParentHierarchy(scene->mRootNode);
   r_meshes = processNode(scene->mRootNode);
 
   SetParentHierarchy(scene->mRootNode);
@@ -215,8 +218,8 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
     // If bind was correct, test ≈ identity
     if (glm::length(glm::vec3(test[0][0] - 1.0f, test[1][1] - 1.0f,
                               test[2][2] - 1.0f)) > 0.01f) {
-      std::cout << "Joint " << processingSkeleton.m_Joints[i].m_Name
-                << " has incorrect bind pose (multi-root fix applied)!\n";
+      //  std::cout << "Joint " << processingSkeleton.m_Joints[i].m_Name
+      //          << " has incorrect bind pose (multi-root fix applied)!\n";
     }
   }
   // defjidsmgokdlmg;
@@ -239,7 +242,7 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
       }
       float sum =
           v.boneWeights.x + v.boneWeights.y + v.boneWeights.z + v.boneWeights.w;
-      if (std::abs(sum - 1.0f) > 0.01f) {
+      if (sum < 1.0f) { // std::abs(sum - 1.0f) > 0.01f) {
         std::cout << "Vertex " << vi << " weight sum = " << sum << "\n";
       }
     }
@@ -344,6 +347,67 @@ AnimatedModelManager::GetVertexBoneData(int vertexID, aiMesh *mesh) {
 
   return finalData;
 }
+
+void SetVertexBoneData(Vertex &vertex, int boneID, float weight) {
+  for (int i = 0; i < 4; ++i) {
+    if (vertex.boneIDs[i] < 0) {
+      vertex.boneWeights[i] = weight;
+      vertex.boneIDs[i] = boneID;
+      break;
+    }
+  }
+}
+
+void AnimatedModelManager::ExtractBoneWeightForVertices(
+    std::vector<Vertex> &vertices, aiMesh *mesh) {
+  for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
+    int boneID = -1;
+    std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
+    if (m_BoneMap.find(boneName) == m_BoneMap.end()) {
+      /*  BoneInfo newBoneInfo;
+        newBoneInfo.id = m_BoneCounter;
+        newBoneInfo.offset = AssimpGLMHelpers::ConvertMatrixToGLMFormat(
+            mesh->mBones[boneIndex]->mOffsetMatrix);
+        m_BoneInfoMap[boneName] = newBoneInfo;
+        boneID = m_BoneCounter;
+        m_BoneCounter++; */
+
+      Joint joint;
+      joint.m_Name = boneName;
+      joint.mOffsetMatrix =
+          convertAssimpMatrixToGLM(mesh->mBones[boneIndex]->mOffsetMatrix);
+
+      processingSkeleton.m_Joints.push_back(joint);
+      int jointIndex = processingSkeleton.m_Joints.size() - 1;
+      m_BoneMap[boneName] = jointIndex;
+      boneID = jointIndex;
+
+    } else {
+      boneID = m_BoneMap[boneName];
+    }
+    assert(boneID != -1);
+    auto weights = mesh->mBones[boneIndex]->mWeights;
+    int numWeights = mesh->mBones[boneIndex]->mNumWeights;
+
+    for (int weightIndex = 0; weightIndex < numWeights; ++weightIndex) {
+      int vertexId = weights[weightIndex].mVertexId;
+      float weight = weights[weightIndex].mWeight;
+      assert(vertexId <= vertices.size());
+      SetVertexBoneData(vertices[vertexId], boneID, weight);
+
+      std::cout << "Vertex: " << vertexId << " " << " weight/bone: " << weight
+                << "/" << boneName << " id: " << boneID << "\n";
+    }
+  }
+}
+
+void SetVertexBoneDataToDefault(Vertex &vertex) {
+  for (int i = 0; i < 4; i++) {
+    vertex.boneIDs[i] = -1;
+    vertex.boneWeights[i] = 0.0f;
+  }
+}
+
 Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
   std::vector<Vertex> vertices;
   std::vector<GLuint> indices;
@@ -352,6 +416,9 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
 
   for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
     Vertex vertex;
+
+    // SetVertexBoneDataToDefault(vertex);
+
     glm::vec3 vector;
     vector.x = mesh->mVertices[i].x;
     vector.y = mesh->mVertices[i].y;
@@ -375,7 +442,7 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
     VertexBoneData boneData = GetVertexBoneData(i, mesh);
     float sum = boneData.boneWeights[0] + boneData.boneWeights[1] +
                 boneData.boneWeights[2] + boneData.boneWeights[3];
-    if (sum < 1e-6f) {
+    /*if (sum < 0.1f) {
       // Try to assign the vertex to a reasonable fallback bone:
       if (mesh->mNumBones > 0) {
         // Use the first bone of this mesh (most exporters attach the mesh to
@@ -417,7 +484,7 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
         boneData.boneWeights[1] = boneData.boneWeights[2] =
             boneData.boneWeights[3] = 0.0f;
       }
-    }
+    } */
 
     glm::ivec4 boneIDs = {boneData.boneIDs[0], boneData.boneIDs[1],
                           boneData.boneIDs[2], boneData.boneIDs[3]};
@@ -435,6 +502,45 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
     aiFace face = mesh->mFaces[i];
     for (unsigned int j = 0; j < face.mNumIndices; j++)
       indices.push_back(face.mIndices[j]);
+  }
+
+  // ExtractBoneWeightForVertices(vertices, mesh);
+  /*  for (int i = 0; i < vertices.size(); i++) {
+      glm::vec4 &boneWeights = vertices[i].boneWeights;
+      float totalWeight =
+          boneWeights.x + boneWeights.y + boneWeights.z + boneWeights.w;
+
+      if (totalWeight < 1) {
+        std::cout << "Vertex: " << i << " has sum: " << totalWeight << "\n";
+      }
+
+      if (totalWeight > 0.0f) {
+        vertices[i].boneWeights =
+            glm::vec4(boneWeights.x / totalWeight, boneWeights.y / totalWeight,
+                      boneWeights.z / totalWeight, boneWeights.w / totalWeight);
+      }
+    }*/
+
+  // for (auto &vertex : vertices) {
+  for (int i = 0; i < vertices.size(); i++) {
+    Vertex &vertex = vertices[i];
+    float sum = vertex.boneWeights[0] + vertex.boneWeights[1] +
+                vertex.boneWeights[2] + vertex.boneWeights[3];
+    if (sum == 0.0f) {
+      // NOTE: This is the only way i can think of fixing the stretched random
+      // ass vertices, this might be a one off thing but idk im frustrated with
+      // the lack of info on this and ai aint helping here since
+      // since all it suggests is to normalize the weights or put the root
+      // bone... WHICH IS ACTUALLY BULLSHIT LIKE MF THAT WILL JUST STRETCH IT TO
+      // THE ROOT BONE GOD. DAMN. IT.
+      if (i != vertices.size() - 1) {
+        vertex.boneIDs = vertices[i + 1].boneIDs;
+        vertex.boneWeights = vertices[i + 1].boneWeights;
+      }
+    } else if (sum != 1.0f) {
+      for (int i = 0; i < 4; ++i)
+        vertex.boneWeights[i] /= sum;
+    }
   }
 
   return Mesh({vertices, indices}, ShaderComboID());

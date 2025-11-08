@@ -278,8 +278,13 @@ void Renderer::SubmitAnimatedModel(AnimatedModel &model) {
 
     uint32_t matID = animator->GetGPULocation().offset / sizeof(glm::mat4);
 
-    InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(),
-                          matID};
+    unsigned int numJoints = model.GetSkeleton()->m_Joints.size();
+
+    unsigned int jointLocation =
+        animator->GetGPULocation().offset / sizeof(glm::mat4);
+
+    InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(), matID,
+                          numJoints, jointLocation};
 
     auto instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);

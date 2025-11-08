@@ -7,6 +7,7 @@
 
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
+#include "glm/trigonometric.hpp"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
@@ -161,8 +162,13 @@ int main() {
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
 
   glm::mat4 position = glm::mat4(1.0f);
-  position = glm::translate(position, glm::vec3(0.0f, 0.0f, -15.0f));
+
+  position = glm::translate(position, glm::vec3(0.0f, 0.0f, -10.0f));
+  position =
+      glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+  position = glm::scale(position, glm::vec3(0.3f));
   model.SetPositionMat4(position);
+
   rend.p_AnimatedModelManager->SetModelShader(model, shader);
   // cube.SetPositionMat4(model);
 
