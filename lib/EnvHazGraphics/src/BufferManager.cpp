@@ -95,8 +95,8 @@ void StaticBuffer::setVertexAttribPointers()
 
     // Skeleton stuff
 
-
-    glVertexAttribPointer(3, 4, GL_INT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, boneIDs));
+    glVertexAttribIPointer(3, 4, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, boneIDs));            
+    //glVertexAttribIPointer(3, 4, GL_INT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, boneIDs));
     glEnableVertexAttribArray(3);
 
 
@@ -855,6 +855,11 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data, size_t si
         std::memcpy(typedPtr, data, size);
         break;
     }
+    case TypeFlags::BUFFER_ANIMATION_DATA: {
+        auto *typedPtr = reinterpret_cast<glm::mat4 *>(base);
+        std::memcpy(typedPtr, data, size);
+        break;
+    }  
     default:
         std::memcpy(base, data, size); // fallback
         break;
