@@ -41,7 +41,8 @@ public:
 
   bool shouldQuit = false;
 
-  bool Initialize();
+  bool Initialize(int width = 1920, int height = 1080, std::string tittle = "",
+                  bool fullscreen = false);
 
   void SubmitStaticModel(Model &model,
                          TypeFlags dataType); // require a an object/container
@@ -57,6 +58,8 @@ public:
                          const size_t size);
 
   void PollInputEvents();
+
+  void ClearRenderCommandBuffer();
 
   void RenderFrame(std::vector<DrawRange> DrawOrder);
 

@@ -113,7 +113,8 @@ std::unique_ptr<AnimatedModelManager> Renderer::p_AnimatedModelManager =
 
 // NOTE: refactor when everything works ...
 
-bool Renderer::Initialize() {
+bool Renderer::Initialize(int width, int height, std::string tittle,
+                          bool fullscreen) {
 
   p_window = std::make_unique<Window>();
 
@@ -124,7 +125,7 @@ bool Renderer::Initialize() {
     success = false;
   }
 
-  if (p_window->Create(1920, 1080, false, "yummers")) {
+  if (p_window->Create(width, height, fullscreen, tittle)) {
     SDL_Log("Window created successfully.\n");
     if (gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
       SDL_Log("GLAD INITIALIZED SUCESSFULLY!");
@@ -440,4 +441,8 @@ void Renderer::UpdateDynamicData(const BufferRange &location, const void *data,
   p_bufferManager->UpdateData(location, data, size);
 }
 
+void Renderer::ClearRenderCommandBuffer() {
+
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+}
 } // namespace eHazGraphics

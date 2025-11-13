@@ -19,7 +19,7 @@ add_subdirectory(dependencies/glm/glm)
 
 
 
-# Find OpenGL and SDL3                                   
+# Find OpenGL and SDL3
 find_package(OpenGL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(assimp REQUIRED)
@@ -37,7 +37,7 @@ target_include_directories(EnvHazGraphics PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/EnvHazGraphics/include"
     ${SDL3_INCLUDE_DIRS}
   "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glm"
- 
+
 )
 target_compile_definitions(EnvHazGraphics PUBLIC
     RESOURCES_PATH="${CMAKE_SOURCE_DIR}/app/assets/"
