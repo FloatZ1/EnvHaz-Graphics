@@ -115,7 +115,7 @@ std::unique_ptr<AnimatedModelManager> Renderer::p_AnimatedModelManager =
 
 bool Renderer::Initialize(int width, int height, std::string tittle,
                           bool fullscreen) {
-
+  r_instance.reset(this);
   p_window = std::make_unique<Window>();
 
   bool success{true};
@@ -201,31 +201,6 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
               << std::endl;
   }
 
-  /*   shaderManager = ShaderManager();
-     materialManager = MaterialManager();
-     // meshManager = MeshManager();
-     renderQueue = RenderQueue();
-     //  bufferManager = BufferManager();
-
-
-
-     //  bufferManager.Initialize();
-     renderQueue.Initialize();
-     shaderManager.Initialize();
-     meshManager.Initialize();
-     materialManager.Initialize();
-
-
-     p_window = std::make_unique<Window>(window);
-     p_events = std::make_unique<SDL_Event>(events);
-     p_shaderManager = std::make_unique<ShaderManager>(shaderManager);
-     p_materialManager = std::make_unique<MaterialManager>(materialManager);
-     p_meshManager = std::make_unique<MeshManager>();
-     p_renderQueue = std::make_unique<RenderQueue>(renderQueue);
-     p_bufferManager = std::make_unique<BufferManager>();
-     p_bufferManager->Initialize();
-                                  */
-
   p_shaderManager = std::make_unique<ShaderManager>();
   p_materialManager = std::make_unique<MaterialManager>();
   p_meshManager = std::make_unique<MeshManager>();
@@ -240,8 +215,6 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 
   p_materialManager->Initialize();
   p_bufferManager->Initialize();
-
-  r_instance.reset(this);
 
   assert(p_shaderManager && "ShaderManager is not initialized");
   assert(p_window && "Window is not initialized");
