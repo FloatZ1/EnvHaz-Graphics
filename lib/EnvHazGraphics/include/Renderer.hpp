@@ -28,6 +28,8 @@ namespace eHazGraphics {
 class Renderer {
 
 public:
+  static std::unique_ptr<Renderer> r_instance;
+
   static std::unique_ptr<Window> p_window;
 
   static std::unique_ptr<ShaderManager> p_shaderManager;
