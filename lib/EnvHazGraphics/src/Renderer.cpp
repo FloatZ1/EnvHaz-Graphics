@@ -102,7 +102,7 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id,
 namespace eHazGraphics {
 
 std::unique_ptr<Window> Renderer::p_window = nullptr;
-
+std::unique_ptr<Renderer> Renderer::r_instance = nullptr;
 std::unique_ptr<ShaderManager> Renderer::p_shaderManager = nullptr;
 std::unique_ptr<MaterialManager> Renderer::p_materialManager = nullptr;
 std::unique_ptr<MeshManager> Renderer::p_meshManager = nullptr;
@@ -240,6 +240,8 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 
   p_materialManager->Initialize();
   p_bufferManager->Initialize();
+
+  r_instance.reset(this);
 
   assert(p_shaderManager && "ShaderManager is not initialized");
   assert(p_window && "Window is not initialized");
