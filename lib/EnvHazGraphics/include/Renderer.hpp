@@ -46,10 +46,10 @@ public:
   bool Initialize(int width = 1920, int height = 1080, std::string tittle = "",
                   bool fullscreen = false);
 
-  void SubmitStaticModel(Model &model,
+  void SubmitStaticModel(std::shared_ptr<Model> &model,
                          TypeFlags dataType); // require a an object/container
                                               // from which to unwrap everything
-  void SubmitAnimatedModel(AnimatedModel &model);
+  void SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model);
 
   BufferRange
   SubmitDynamicData(const void *data, size_t dataSize,

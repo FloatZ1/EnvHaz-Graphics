@@ -116,9 +116,9 @@ public:
     return meshTransforms[mesh];
   }
 
-  void SetModelShader(Model &model, ShaderComboID &shader) {
+  void SetModelShader(std::shared_ptr<Model> model, ShaderComboID &shader) {
 
-    for (auto &mesh : model.GetMeshIDs()) {
+    for (auto &mesh : model->GetMeshIDs()) {
       auto it = meshes.find(mesh);
       if (it != meshes.end()) {
         it->second.SetShader(shader);
@@ -162,7 +162,9 @@ public:
     return meshTransformRanges[mesh];
   }
 
-  void AddSubmittedModel(Model *model) { submittedModels.push_back(model); }
+  void AddSubmittedModel(std::shared_ptr<Model> model) {
+    submittedModels.push_back(model);
+  }
 
   void UpdateSubmittedMeshes() {
     for (unsigned int i = 0; i < submittedModels.size(); i++) {
@@ -195,7 +197,7 @@ private:
 
   std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Model>>
       loadedModels;
-  std::vector<Model *> submittedModels;
+  std::vector<std::shared_ptr<Model>> submittedModels;
   std::unordered_map<MeshID, Mesh> meshes;
   std::unordered_map<std::string, MeshID> meshPaths;
   std::unordered_map<MeshID, glm::mat4> meshTransforms;

@@ -37,7 +37,7 @@ std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
   temps = (processNode(scene->mRootNode, scene));
 
   // Model model;
-  std::shared_ptr<Model> model;
+  std::shared_ptr<Model> model = std::make_shared<Model>();
   for (auto mesh : temps) {
     model->AddMesh(mesh);
   }

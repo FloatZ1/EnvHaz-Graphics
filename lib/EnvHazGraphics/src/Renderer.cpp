@@ -223,12 +223,12 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   std::cout << "piss\n\n :)))";
 }
 
-void Renderer::SubmitAnimatedModel(AnimatedModel &model) {
+void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model) {
 
   std::vector<BufferRange> instanceRanges;
   std::vector<InstanceData> instances;
 
-  for (auto &mesh : model.GetMeshIDs()) {
+  for (auto &mesh : model->GetMeshIDs()) {
 
     VertexIndexInfoPair range;
 
@@ -250,17 +250,18 @@ void Renderer::SubmitAnimatedModel(AnimatedModel &model) {
       range = p_AnimatedModelManager->GetMeshLocation(mesh);
     }
 
-    auto &animator = p_AnimatedModelManager->GetAnimator(model.GetAnimatorID());
+    auto &animator =
+        p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
     uint32_t matID = animator->GetGPULocation().offset / sizeof(glm::mat4);
 
-    unsigned int numJoints = model.GetSkeleton()->m_Joints.size();
+    unsigned int numJoints = model->GetSkeleton()->m_Joints.size();
 
     unsigned int jointLocation =
         animator->GetGPULocation().offset / sizeof(glm::mat4);
 
-    InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(), matID,
-                          numJoints, jointLocation};
+    InstanceData instData{model->GetPositionMat4(), model->GetMaterialID(),
+                          matID, numJoints, jointLocation};
 
     auto instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
@@ -275,18 +276,19 @@ void Renderer::SubmitAnimatedModel(AnimatedModel &model) {
                                                    m_mesh.GetShaderID());
   }
 
-  p_AnimatedModelManager->AddSubmittedModel(&model);
-  model.SetInstances(instances, instanceRanges);
+  p_AnimatedModelManager->AddSubmittedModel(model);
+  model->SetInstances(instances, instanceRanges);
 }
 
 // Model& model , TypeFlags dataType
-void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType) {
+void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
+                                 TypeFlags dataType) {
 
   // p_bufferManager->ClearBuffer(dataType);
   std::vector<BufferRange> instanceRanges;
   std::vector<InstanceData> instances;
 
-  for (auto &mesh : model.GetMeshIDs()) {
+  for (auto &mesh : model->GetMeshIDs()) {
 
     VertexIndexInfoPair range;
 
@@ -323,7 +325,7 @@ void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType) {
 
     uint32_t matID = matLocation.offset / sizeof(glm::mat4);
 
-    InstanceData instData{model.GetPositionMat4(), model.GetMaterialID(),
+    InstanceData instData{model->GetPositionMat4(), model->GetMaterialID(),
                           matID};
 
     auto instanceData = p_bufferManager->InsertNewDynamicData(
@@ -339,8 +341,8 @@ void Renderer::SubmitStaticModel(Model &model, TypeFlags dataType) {
                                                    m_mesh.GetShaderID());
   }
 
-  p_meshManager->AddSubmittedModel(&model);
-  model.SetInstances(instances, instanceRanges);
+  p_meshManager->AddSubmittedModel(model);
+  model->SetInstances(instances, instanceRanges);
 }
 BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize,
                                         TypeFlags dataType) {

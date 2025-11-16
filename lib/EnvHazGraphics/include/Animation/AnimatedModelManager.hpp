@@ -135,9 +135,10 @@ public:
   }
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
-  void SetModelShader(AnimatedModel &model, ShaderComboID &shader) {
+  void SetModelShader(std::shared_ptr<AnimatedModel> &model,
+                      ShaderComboID &shader) {
 
-    for (auto &mesh : model.GetMeshIDs()) {
+    for (auto &mesh : model->GetMeshIDs()) {
       auto it = meshes.find(mesh);
       if (it != meshes.end()) {
         it->second.SetShader(shader);
@@ -148,7 +149,7 @@ public:
     }
   }
 
-  AnimatedModel LoadAnimatedModel(std::string path);
+  std::shared_ptr<AnimatedModel> LoadAnimatedModel(std::string path);
 
   void LoadAnimation(std::shared_ptr<Skeleton> skeleton, std::string &path,
                      int &r_AnimationID);
@@ -163,7 +164,7 @@ public:
 
   std::shared_ptr<Animator> &GetAnimator(int ID) { return animators[ID]; }
 
-  void AddSubmittedModel(AnimatedModel *model) {
+  void AddSubmittedModel(std::shared_ptr<AnimatedModel> model) {
     // TODO: make all model calls be shared pointers , and in static models
     submittedAnimatedModels.push_back(model);
   }
@@ -202,11 +203,12 @@ private:
   BufferManager *bufferManager;
 
   std::unordered_map<MeshID, Mesh> meshes;
-  std::unordered_map<eHazGraphics_Utils::HashedString, AnimatedModel>
+  std::unordered_map<eHazGraphics_Utils::HashedString,
+                     std::shared_ptr<AnimatedModel>>
       loadedModels;
 
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
-  std::vector<AnimatedModel *> submittedAnimatedModels;
+  std::vector<std::shared_ptr<AnimatedModel>> submittedAnimatedModels;
   std::vector<std::shared_ptr<Skeleton>> skeletons; // in da closet
   std::vector<std::shared_ptr<Animation>> animations;
   std::vector<std::shared_ptr<Animator>> animators;

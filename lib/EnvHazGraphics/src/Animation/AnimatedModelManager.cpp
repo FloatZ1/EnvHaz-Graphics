@@ -128,7 +128,8 @@ void AnimatedModelManager::ComputeGlobalBindTransforms(
     ComputeGlobalBindTransforms(node->mChildren[i], global);
 }
 
-AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
+std::shared_ptr<AnimatedModel>
+AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   processingSkeleton.m_Joints.clear();
   processingSkeleton.finalMatrices.clear();
@@ -176,32 +177,13 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   skeletons.push_back(std::make_shared<Skeleton>(processingSkeleton));
 
-  AnimatedModel model;
-  model.SetSkeleton(skeletons[skeletons.size() - 1]);
+  std::shared_ptr<AnimatedModel> model = std::make_unique<AnimatedModel>();
+  model->SetSkeleton(skeletons[skeletons.size() - 1]);
 
   animators.push_back(std::make_shared<Animator>());
-  model.SetAnimatorID(animators.size() - 1);
-  animators[animators.size() - 1]->SetSkeleton(model.GetSkeleton());
+  model->SetAnimatorID(animators.size() - 1);
+  animators[animators.size() - 1]->SetSkeleton(model->GetSkeleton());
 
-  /* for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
-     // Recompute global bind using parent relationships
-     glm::mat4 globalBind = processingSkeleton.m_Joints[i].localBindTransform;
-     int parent = processingSkeleton.m_Joints[i].m_ParentJoint;
-     if (parent != -1) {
-       globalBind =
-           processingSkeleton.m_Joints[parent].m_GlobalTransform * globalBind;
-     }
-
-     // Multiply by inverse bind (offset matrix)
-     glm::mat4 test = globalBind * processingSkeleton.m_Joints[i].mOffsetMatrix;
-
-     // If bind was correct, test ≈ identity
-     if (glm::length(glm::vec3(test[0][0] - 1.0f, test[1][1] - 1.0f,
-                               test[2][2] - 1.0f)) > 0.01f) {
-       std::cout << "Joint " << processingSkeleton.m_Joints[i].m_Name
-                 << " has incorrect bind pose!\n";
-     }
-   } */
   for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
 
     // **CRITICAL FIX:** Do NOT recompute the global bind from parent indices.
@@ -250,9 +232,9 @@ AnimatedModel AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   for (auto &mesh : r_meshes) {
 
-    model.AddMesh(mesh);
+    model->AddMesh(mesh);
   }
-
+  loadedModels[hashedPath] = model;
   return model;
 }
 
@@ -597,7 +579,7 @@ void AnimatedModelManager::Update(float deltaTime) {
   }
 
   // Submit to GPU or instance buffer
-  for (AnimatedModel *model : submittedAnimatedModels) {
+  for (auto &model : submittedAnimatedModels) {
 
     auto Instances = model->GetInstances();
     auto InstanceRanges = model->GetInstanceRanges();

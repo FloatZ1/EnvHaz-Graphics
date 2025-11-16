@@ -150,11 +150,11 @@ int main() {
   std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
   // std::string path = RESOURCES_PATH "cube.obj";
   // Model cube = rend.p_meshManager->LoadModel(path);
-  AnimatedModel model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+  auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
   int animationID;
-  rend.p_AnimatedModelManager->LoadAnimation(model.GetSkeleton(), path,
+  rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
                                              animationID);
-  auto &anim = rend.p_AnimatedModelManager->GetAnimator(model.GetAnimatorID());
+  auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
   int skelAnimID = anim->AddAnimation(
       rend.p_AnimatedModelManager->GetAnimation(animationID));
@@ -167,7 +167,7 @@ int main() {
   position =
       glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   position = glm::scale(position, glm::vec3(0.3f));
-  model.SetPositionMat4(position);
+  model->SetPositionMat4(position);
 
   rend.p_AnimatedModelManager->SetModelShader(model, shader);
   // cube.SetPositionMat4(model);
