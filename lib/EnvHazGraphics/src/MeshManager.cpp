@@ -7,13 +7,14 @@
 #include "glad/glad.h"
 #include <assimp/mesh.h>
 #include <assimp/scene.h>
+#include <memory>
 #include <vector>
 
 using namespace eHazGraphics_Utils;
 
 namespace eHazGraphics {
 
-Model MeshManager::LoadModel(std::string &path) {
+std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
   std::vector<MeshID> temps;
 
   eHazGraphics_Utils::HashedString hashedPath =
@@ -35,10 +36,10 @@ Model MeshManager::LoadModel(std::string &path) {
 
   temps = (processNode(scene->mRootNode, scene));
 
-  Model model;
-
+  // Model model;
+  std::shared_ptr<Model> model;
   for (auto mesh : temps) {
-    model.AddMesh(mesh);
+    model->AddMesh(mesh);
   }
 
   importer.FreeScene();
