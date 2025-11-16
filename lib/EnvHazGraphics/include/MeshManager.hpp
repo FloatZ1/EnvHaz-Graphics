@@ -12,6 +12,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -102,7 +103,7 @@ private:
 class MeshManager {
 public:
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
-  Model LoadModel(std::string &path);
+  std::shared_ptr<Model> LoadModel(std::string &path);
 
   void EraseMesh(MeshID mesh) {
 
@@ -192,7 +193,8 @@ private:
 
   unsigned int maxID = 0;
 
-  std::unordered_map<eHazGraphics_Utils::HashedString, Model> loadedModels;
+  std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Model>>
+      loadedModels;
   std::vector<Model *> submittedModels;
   std::unordered_map<MeshID, Mesh> meshes;
   std::unordered_map<std::string, MeshID> meshPaths;
