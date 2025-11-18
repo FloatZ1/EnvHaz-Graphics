@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 
-#define EHAZ_DEBUG
+// #define EHAZ_DEBUG
 
 #ifdef EHAZ_DEBUG
 
