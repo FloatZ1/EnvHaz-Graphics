@@ -138,6 +138,7 @@ int main() {
       AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture);
 
   auto mat = rend.p_materialManager->SubmitMaterials();
+
   BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
       mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
       TypeFlags::BUFFER_TEXTURE_DATA);
