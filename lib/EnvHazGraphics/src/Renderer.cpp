@@ -387,7 +387,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
                                 range.count, 0);
   }
 
-  SDL_GL_SwapWindow(p_window->GetWindowPtr());
+  //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
   p_bufferManager->BeginWritting();
 }
 

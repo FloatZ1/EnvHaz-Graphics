@@ -65,6 +65,8 @@ public:
 
   void RenderFrame(std::vector<DrawRange> DrawOrder);
 
+  void SwapBuffers() { SDL_GL_SwapWindow(p_window->GetWindowPtr()); }
+
   void UpdateRenderer(float deltaTime);
 
   // future
