@@ -43,14 +43,15 @@ bool Window::Create(int width, int height, bool fullscreen, std::string title) {
 bool previousCursorStat = false;
 
 void Window::Update() {
-  // if (lockCursor != previousCursorStat)
-  {
+  if (lockCursor) {
 
-    SDL_SetWindowRelativeMouseMode(mWindow, lockCursor);
+    SDL_SetWindowRelativeMouseMode(mWindow, true);
     // SDL_CaptureMouse(true);
     SDL_WarpMouseInWindow(mWindow, std::abs(mWidth / 2), std::abs(mHeight / 2));
 
     previousCursorStat = lockCursor;
+  } else {
+    SDL_SetWindowRelativeMouseMode(mWindow, false);
   }
 }
 
