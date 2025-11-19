@@ -47,8 +47,8 @@ void Window::Update() {
   {
 
     SDL_SetWindowRelativeMouseMode(mWindow, lockCursor);
-    // SDL_WarpMouseInWindow(mWindow, std::abs(mWidth / 2), std::abs(mHeight /
-    // 2));
+    // SDL_CaptureMouse(true);
+    SDL_WarpMouseInWindow(mWindow, std::abs(mWidth / 2), std::abs(mHeight / 2));
 
     previousCursorStat = lockCursor;
   }
