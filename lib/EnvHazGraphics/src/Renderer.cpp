@@ -3,6 +3,7 @@
 #include "BitFlags.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
+#include "FrameBuffers/FrameBuffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
 #include "RenderQueue.hpp"
@@ -16,8 +17,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-
-// #define EHAZ_DEBUG
+#define EHAZ_DEBUG
 
 #ifdef EHAZ_DEBUG
 
@@ -111,8 +111,6 @@ std::unique_ptr<BufferManager> Renderer::p_bufferManager = nullptr;
 std::unique_ptr<AnimatedModelManager> Renderer::p_AnimatedModelManager =
     nullptr;
 
-// NOTE: refactor when everything works ...
-
 bool Renderer::Initialize(int width, int height, std::string tittle,
                           bool fullscreen) {
   r_instance.reset(this);
@@ -201,6 +199,8 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
               << std::endl;
   }
 
+  SetViewport(p_window->GetWidth(), p_window->GetHeight());
+
   p_shaderManager = std::make_unique<ShaderManager>();
   p_materialManager = std::make_unique<MaterialManager>();
   p_meshManager = std::make_unique<MeshManager>();
@@ -215,6 +215,50 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 
   p_materialManager->Initialize();
   p_bufferManager->Initialize();
+
+  std::string ScreenRenderVS =
+      "//@@start@@ ScreenRenderVS shader @@end@@\n"
+      "#version 460 core\n"
+      "const vec2 verts[3] = vec2[](\n"
+      "    vec2(-1.0, -1.0),\n"
+      "    vec2(3.0, -1.0),\n"
+      "    vec2(-1.0, 3.0)\n"
+      ");\n"
+      "void main() {\n"
+      "    gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);\n"
+      "}\n";
+
+  std::string ScreenRenderFS =
+      "//@@start@@ ScreenRenderFS shader @@end@@\n"
+      "#version 460 core\n"
+      "layout(binding = 0) uniform sampler2D u_ScreenTex;\n"
+      "out vec4 FragColor;\n"
+      "void main() {\n"
+      "    vec2 uv = gl_FragCoord.xy / vec2(textureSize(u_ScreenTex, 0));\n"
+      "    FragColor = vec4(vec3(1.0) - texture(u_ScreenTex, uv).rgb,\n"
+      "                     texture(u_ScreenTex, uv).a);\n"
+      "}\n";
+
+  auto dis = p_shaderManager->CreateShaderProgramme(ScreenRenderVS,
+                                                    ScreenRenderFS, false);
+
+  mainFBO.SetDisplayShader(dis);
+
+  std::vector<RenderTexture2D_Spec> colors = {
+      {p_window->GetWidth(), p_window->GetHeight(),
+       GL_RGBA16F} // HDR color buffer
+  };
+
+  RenderTexture2D_Spec depth;
+  depth.width = colors[0].width;
+  depth.height = colors[0].height;
+  depth.internalFormat = GL_DEPTH_COMPONENT24;
+  depth.format = GL_DEPTH_COMPONENT; // important
+  depth.type = GL_FLOAT;
+  mainFBO.Create(colors, depth);
+
+  DefaultFrameBuffer();
+  // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   assert(p_shaderManager && "ShaderManager is not initialized");
   assert(p_window && "Window is not initialized");
@@ -357,6 +401,7 @@ BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize,
 void Renderer::PollInputEvents() { SDL_PollEvent(&events); }
 
 void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
+
   p_bufferManager->EndWritting();
   glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
@@ -422,4 +467,21 @@ void Renderer::ClearRenderCommandBuffer() {
 
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
 }
+
+void Renderer::SetViewport(int width, int height) {
+
+  glViewport(0, 0, width, height);
+  vp_height = height;
+  vp_width = width;
+}
+void Renderer::SetFrameBuffer(const FrameBuffer &fbo) {
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo.GetFBO());
+  SetViewport(fbo.GetWidth(), fbo.GetHeight());
+}
+
+void Renderer::DefaultFrameBuffer() {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  SetViewport(p_window->GetWidth(), p_window->GetHeight());
+}
+
 } // namespace eHazGraphics

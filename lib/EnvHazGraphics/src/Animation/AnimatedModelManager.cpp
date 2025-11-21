@@ -165,8 +165,8 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
       convertAssimpMatrixToGLM(scene->mRootNode->mTransformation);
   processingSkeleton.m_InverseRoot =
       glm::inverse(processingSkeleton.m_RootTransform);
-  std::cout << determinant(processingSkeleton.m_Joints[0].mOffsetMatrix)
-            << std::endl;
+  // std::cout << determinant(processingSkeleton.m_Joints[0].mOffsetMatrix)
+  //          << std::endl;
 
   for (size_t i = 0; i < processingSkeleton.m_Joints.size(); i++) {
 
@@ -322,8 +322,8 @@ AnimatedModelManager::GetVertexBoneData(int vertexID, aiMesh *mesh) {
   int jointCount = processingSkeleton.m_Joints.size();
   for (int k = 0; k < 4; k++) {
     if (finalData.boneIDs[k] < 0 || finalData.boneIDs[k] >= jointCount) {
-      std::cout << "Vertex " << vertexID << " invalid bone id "
-                << finalData.boneIDs[k] << "\n";
+      // std::cout << "Vertex " << vertexID << " invalid bone id "
+      //         << finalData.boneIDs[k] << "\n";
     }
   }
 
@@ -377,8 +377,9 @@ void AnimatedModelManager::ExtractBoneWeightForVertices(
       assert(vertexId <= vertices.size());
       SetVertexBoneData(vertices[vertexId], boneID, weight);
 
-      std::cout << "Vertex: " << vertexId << " " << " weight/bone: " << weight
-                << "/" << boneName << " id: " << boneID << "\n";
+      // std::cout << "Vertex: " << vertexId << " " << " weight/bone: " <<
+      // weight
+      //<< "/" << boneName << " id: " << boneID << "\n";
     }
   }
 }

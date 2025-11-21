@@ -1,8 +1,6 @@
 #ifndef SHADER_MANAGER_HPP
 #define SHADER_MANAGER_HPP
 
-
-
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
@@ -18,209 +16,175 @@
 #include <string>
 #include <unordered_map>
 
-namespace eHazGraphics
-{
+namespace eHazGraphics {
 
-
-
-
-
-
-class Shader
-{
-
-  public:
-    Shader(std::string shaderPath) : shaderSource(shaderPath)
-    {
-        data = SDLFileReadBuffer(shaderPath);
-        type = shaderTypeFromExtension(shaderPath);
-    }
-
-    const BitFlag<ShaderManagerFlags> &Type() const
-    {
-        return shaderFlags;
-    }
-
-    std::string GetData() const
-    {
-        return data.getString();
-    }
-
-    // add a function later which reads shader metadata from a file and adds the necessary flags
-    bool ReadMetaData();
-
-
-
-    GLuint GetGLShaderID()
-    {
-        if (OpenGL_ShaderExists())
-            return shaderID;
-
-        Compile();
-        return shaderID;
-    }
-
-
-
-    bool OpenGL_ShaderExists() const
-    {
-        return shaderID != 0;
-    }
-
-
-    ~Shader()
-    {
-        if (OpenGL_ShaderExists())
-        {
-            glDeleteShader(shaderID);
-        }
-    }
-
-  private:
-    GLenum shaderTypeFromExtension(const std::string &path)
-    {
-
-        if (path.ends_with(".vert"))
-            return GL_VERTEX_SHADER;
-        if (path.ends_with(".frag"))
-            return GL_FRAGMENT_SHADER;
-        if (path.ends_with(".geom"))
-            return GL_GEOMETRY_SHADER;
-        if (path.ends_with(".comp"))
-            return GL_COMPUTE_SHADER;
-        if (path.ends_with(".vs"))
-            return GL_VERTEX_SHADER;
-        if (path.ends_with(".fs"))
-            return GL_FRAGMENT_SHADER;
-        if (path.ends_with(".gs"))
-
-            return GL_GEOMETRY_SHADER;
-        if (path.ends_with(".cs"))
-            return GL_COMPUTE_SHADER;
-        throw std::runtime_error("Unknown shader extension: " + path);
-    }
-
-    void Compile()
-    {
-        int success;
-        char infoLog[512];
-        shaderID = glCreateShader(type);
-
-        std::string tempSh = data.getString();
-        const char *sh = tempSh.c_str();
-
-        glShaderSource(shaderID, 1, &sh, NULL);
-        glCompileShader(shaderID);
-        glGetShaderiv(shaderID, GL_COMPILE_STATUS, &success);
-
-        if (!success)
-        {
-            glGetShaderInfoLog(shaderID, 512, NULL, infoLog);
-
-            std::string error("ERROR::SHADER::COMPILATION_FAILED\n");
-            error += infoLog;
-            SDL_Log("%s", error.c_str());
-        }
-    }
-
-
-    SDLFileReadBuffer data;
-    GLenum type;
-    BitFlag<ShaderManagerFlags> shaderFlags;
-    GLuint shaderID = 0;
-    std::string shaderSource;
+struct ShaderSpec {
+  bool isPath = false;
+  std::string extension;
 };
 
+class Shader {
 
+public:
+  Shader(std::string shaderSource, ShaderSpec spec = {true, ""})
+      : shaderSource(shaderSource) {
 
-
-
-class StandartShaderProgramme
-{
-
-  public:
-    StandartShaderProgramme(Shader &shader1, Shader &shader2);
-
-
-    GLuint GetGLShaderID() const
-    {
-        return progID;
+    if (spec.isPath == true) {
+      data = SDLFileReadBuffer(shaderSource);
+      type = shaderTypeFromExtension(shaderSource);
+    } else {
+      rawData = shaderSource;
+      isRaw = true;
+      type = shaderTypeFromExtension(spec.extension);
     }
+  }
 
-    const BitFlag<ShaderManagerFlags> GetFlags() const
-    {
-        return shaderFlags;
+  const BitFlag<ShaderManagerFlags> &Type() const { return shaderFlags; }
+
+  std::string GetData() const {
+    if (isRaw == false)
+      return data.getString();
+    else
+      rawData;
+  }
+
+  // add a function later which reads shader metadata from a file and adds the
+  // necessary flags
+  bool ReadMetaData();
+
+  GLuint GetGLShaderID() {
+    if (OpenGL_ShaderExists())
+      return shaderID;
+
+    Compile();
+    return shaderID;
+  }
+
+  bool OpenGL_ShaderExists() const { return shaderID != 0; }
+
+  ~Shader() {
+    if (OpenGL_ShaderExists()) {
+      glDeleteShader(shaderID);
     }
+  }
 
+private:
+  GLenum shaderTypeFromExtension(const std::string &path) {
 
-    void UseProgramme();
+    if (path.ends_with(".vert"))
+      return GL_VERTEX_SHADER;
+    if (path.ends_with(".frag"))
+      return GL_FRAGMENT_SHADER;
+    if (path.ends_with(".geom"))
+      return GL_GEOMETRY_SHADER;
+    if (path.ends_with(".comp"))
+      return GL_COMPUTE_SHADER;
+    if (path.ends_with(".vs"))
+      return GL_VERTEX_SHADER;
+    if (path.ends_with(".fs"))
+      return GL_FRAGMENT_SHADER;
+    if (path.ends_with(".gs"))
 
-    ~StandartShaderProgramme()
-    {
+      return GL_GEOMETRY_SHADER;
+    if (path.ends_with(".cs"))
+      return GL_COMPUTE_SHADER;
+    throw std::runtime_error("Unknown shader extension: " + path);
+  }
 
-        SDL_Log("SHADER PROGRAMME DESTRUCTOR CALLED");
+  void Compile() {
+    int success;
+    char infoLog[512];
+    shaderID = glCreateShader(type);
 
-        glDeleteProgram(progID);
+    std::string tempSh;
+    if (isRaw == false)
+      tempSh = data.getString();
+    else
+      tempSh = rawData;
+
+    const char *sh = tempSh.c_str();
+
+    glShaderSource(shaderID, 1, &sh, NULL);
+    glCompileShader(shaderID);
+    glGetShaderiv(shaderID, GL_COMPILE_STATUS, &success);
+
+    if (!success) {
+      glGetShaderInfoLog(shaderID, 512, NULL, infoLog);
+
+      std::string error("ERROR::SHADER::COMPILATION_FAILED\n");
+      error += infoLog;
+      SDL_Log("%s", error.c_str());
     }
-
-  private:
-    void FlipFlags(BitFlag<ShaderManagerFlags> flags);
-
-    BitFlag<ShaderManagerFlags> executionFlags;
-
-
-    BitFlag<ShaderManagerFlags> shaderFlags;
-    unsigned int progID = 0;
-    unsigned int vertexShader = 0;
-    unsigned int fragmentShader = 0;
+  }
+  bool isRaw = false;
+  std::string rawData;
+  SDLFileReadBuffer data;
+  GLenum type;
+  BitFlag<ShaderManagerFlags> shaderFlags;
+  GLuint shaderID = 0;
+  std::string shaderSource;
 };
 
+class StandartShaderProgramme {
 
+public:
+  StandartShaderProgramme(Shader &shader1, Shader &shader2);
 
+  GLuint GetGLShaderID() const { return progID; }
 
+  const BitFlag<ShaderManagerFlags> GetFlags() const { return shaderFlags; }
 
+  void UseProgramme();
 
-class ShaderManager
-{
-  public:
-    void Initialize();
+  ~StandartShaderProgramme() {
 
-    // well this is a bummer i cant load binary shader programmes like in Vulkan unless
-    // i use extensions, When i port all this to vulkan ill remake this
-    ShaderComboID CreateShaderProgramme(const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
+    SDL_Log("SHADER PROGRAMME DESTRUCTOR CALLED");
 
-    void UseProgramme(const ShaderComboID &ShaderProgrammeID);
+    glDeleteProgram(progID);
+  }
 
+private:
+  void FlipFlags(BitFlag<ShaderManagerFlags> flags);
 
+  BitFlag<ShaderManagerFlags> executionFlags;
 
-
-    void Destroy();
-
-  private:
-    // Sets the OpenGL flags needed for the shader to work correctly, like for example enable/disable blending etc.
-    void SetOpenGLFlags(const std::shared_ptr<StandartShaderProgramme> shaderProgramme);
-    // mostly done
-
-
-    // convert the paths to HashedString and match them with their shaders
-    std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Shader>> LoadedShaders;
-    // brain ache, if performance is really tight in the future, hash the two hashesh toghether to create a single value
-    // for lookup
-    std::unordered_map<ShaderComboID, std::shared_ptr<StandartShaderProgramme>, ShaderComboID::ShaderComboHasher>
-        LoadedProgrammes;
+  BitFlag<ShaderManagerFlags> shaderFlags;
+  unsigned int progID = 0;
+  unsigned int vertexShader = 0;
+  unsigned int fragmentShader = 0;
 };
 
+class ShaderManager {
+public:
+  void Initialize();
 
+  // well this is a bummer i cant load binary shader programmes like in Vulkan
+  // unless i use extensions, When i port all this to vulkan ill remake this
+  ShaderComboID CreateShaderProgramme(const std::string &vertexShader,
+                                      const std::string &fragmentShader,
+                                      bool isPath = true);
 
+  void UseProgramme(const ShaderComboID &ShaderProgrammeID);
 
+  void Destroy();
 
+private:
+  // Sets the OpenGL flags needed for the shader to work correctly, like for
+  // example enable/disable blending etc.
+  void SetOpenGLFlags(
+      const std::shared_ptr<StandartShaderProgramme> shaderProgramme);
+  // mostly done
+
+  // convert the paths to HashedString and match them with their shaders
+  std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Shader>>
+      LoadedShaders;
+  // brain ache, if performance is really tight in the future, hash the two
+  // hashesh toghether to create a single value for lookup
+  std::unordered_map<ShaderComboID, std::shared_ptr<StandartShaderProgramme>,
+                     ShaderComboID::ShaderComboHasher>
+      LoadedProgrammes;
+};
 
 } // namespace eHazGraphics
-
-
-
-
-
-
 
 #endif

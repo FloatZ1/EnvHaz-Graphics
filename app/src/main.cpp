@@ -222,6 +222,7 @@ int main() {
 
   while (rend.shouldQuit == false) {
 
+    rend.DefaultFrameBuffer();
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
     rend.UpdateRenderer(deltaTime);
     glm::mat4 projection = glm::perspective(
@@ -238,6 +239,10 @@ int main() {
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();
     rend.RenderFrame(ranges);
+
+    rend.DisplayFrameBuffer(rend.GetMainFBO());
+
+    rend.SwapBuffers();
     // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
     rend.UpdateDynamicData(materials, mat.first.data(),
                            mat.first.size() * sizeof(PBRMaterial));

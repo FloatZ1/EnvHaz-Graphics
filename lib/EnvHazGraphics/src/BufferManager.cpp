@@ -191,7 +191,7 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
   VertexSizeOccupied += vertexDataSize;
   numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
 
-  std::cout << vertexDataSize << " <-vertexDataSize \n";
+  // std::cout << vertexDataSize << " <-vertexDataSize \n";
 
   // process the indecies since they need to be appended by the count of
   // vertices in store

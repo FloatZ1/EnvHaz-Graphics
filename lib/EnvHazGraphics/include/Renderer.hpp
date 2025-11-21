@@ -1,6 +1,7 @@
 #ifndef EnvHazGraphics
 #define EnvHazGraphics
 #include "Utils/Drawing/Lines.hpp"
+#include "glad/glad.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <cstddef>
@@ -17,12 +18,12 @@
 #include "BitFlags.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
+#include "FrameBuffers/FrameBuffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
 #include "Window.hpp"
-
 namespace eHazGraphics {
 // eHazGAPI
 class Renderer {
@@ -42,6 +43,12 @@ public:
   const SDL_Event &GetEvent() const { return events; }
 
   bool shouldQuit = false;
+  void SetViewport(int width, int height);
+  void SetFrameBuffer(const FrameBuffer &fbo);
+
+  void DefaultFrameBuffer();
+
+  FrameBuffer &GetMainFBO() { return mainFBO; }
 
   bool Initialize(int width = 1920, int height = 1080, std::string tittle = "",
                   bool fullscreen = false);
@@ -67,6 +74,24 @@ public:
 
   void SwapBuffers() { SDL_GL_SwapWindow(p_window->GetWindowPtr()); }
 
+  void DisplayFrameBuffer(const FrameBuffer &fbo) {
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // draw to window
+    bool depthVal = glIsEnabled(GL_DEPTH_TEST);
+
+    glDisable(GL_DEPTH_TEST);
+
+    p_shaderManager->UseProgramme(fbo.GetShaderID());
+
+    glBindTextureUnit(0, fbo.GetColorTextures()[0].GetTextureID());
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    if (depthVal == true) {
+      glEnable(GL_DEPTH_TEST);
+    }
+  }
+
   void UpdateRenderer(float deltaTime);
 
   // future
@@ -91,9 +116,14 @@ public:
 
 #endif
 
+  const int &GetViewportWidth() const { return vp_width; }
+  const int &GetViewportHeight() const { return vp_height; }
+
   void Destroy();
 
 private:
+  int vp_width, vp_height;
+  FrameBuffer mainFBO;
   SDL_Event events;
   /* Window window;
 

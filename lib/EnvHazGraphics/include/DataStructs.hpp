@@ -99,6 +99,36 @@ public:
   std::vector<GLuint> indecies;
 };
 
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
 class Texture2D {
 public:
   GLuint64 TextureHandle;
