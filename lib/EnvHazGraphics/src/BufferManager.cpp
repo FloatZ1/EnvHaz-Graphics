@@ -16,8 +16,6 @@
 #include <utility>
 #include <vector>
 
-// #define EHAZ_DEBUG
-
 namespace eHazGraphics {
 
 StaticBuffer::StaticBuffer() {

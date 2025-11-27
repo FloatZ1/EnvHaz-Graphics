@@ -12,8 +12,6 @@
 #include <vector>
 // temp
 
-#define EHAZ_DEBUG_DRAWING
-
 #include "Animation/AnimatedModelManager.hpp"
 #include "BitFlags.hpp"
 #include "BufferManager.hpp"
