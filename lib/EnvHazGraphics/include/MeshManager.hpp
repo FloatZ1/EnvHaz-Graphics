@@ -87,8 +87,8 @@ public:
 
     for (int i = 0; i < instances.size(); i++) {
 
-      instanceRanges.push_back((InstanceRanges[i]));
-      instanceData.push_back((instances[i]));
+      instanceRanges.push_back(std::move(InstanceRanges[i]));
+      instanceData.push_back(std::move(instances[i]));
     }
 
     instanceCount = instanceData.size();

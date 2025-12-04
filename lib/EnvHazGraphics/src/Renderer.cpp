@@ -267,7 +267,8 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   std::cout << "piss\n\n :)))";
 }
 
-void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model) {
+void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
+                                   glm::mat4 position) {
 
   std::vector<BufferRange> instanceRanges;
   std::vector<InstanceData> instances;
@@ -304,8 +305,8 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model) {
     unsigned int jointLocation =
         animator->GetGPULocation().offset / sizeof(glm::mat4);
 
-    InstanceData instData{model->GetPositionMat4(), model->GetMaterialID(),
-                          matID, numJoints, jointLocation};
+    InstanceData instData{position, model->GetMaterialID(), matID, numJoints,
+                          jointLocation};
 
     auto instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
@@ -321,7 +322,7 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model) {
   }
 
   p_AnimatedModelManager->AddSubmittedModel(model);
-  model->SetInstances(instances, instanceRanges);
+  model->AddInstances(instances, instanceRanges);
 }
 
 // Model& model , TypeFlags dataType
@@ -435,10 +436,11 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
 
   p_bufferManager->BeginWritting();
-  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+  ClearRenderCommandBuffer();
   p_renderQueue->ClearDynamicCommands();
   p_renderQueue->ClearStaticCommnads();
   p_meshManager->ClearSubmittedModelInstances();
+  p_AnimatedModelManager->ClearSubmittedModelInstances();
 }
 
 void Renderer::UpdateRenderer(float deltatime) {

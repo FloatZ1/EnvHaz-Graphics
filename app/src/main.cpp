@@ -168,7 +168,7 @@ int main() {
   position =
       glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   position = glm::scale(position, glm::vec3(0.3f));
-  model->SetPositionMat4(position);
+  // model->SetPositionMat4(position);
 
   rend.p_AnimatedModelManager->SetModelShader(model, shader);
   // cube.SetPositionMat4(model);
@@ -180,7 +180,7 @@ int main() {
 
   // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
 
-  rend.SubmitAnimatedModel(model);
+  rend.SubmitAnimatedModel(model, position);
 
   auto ranges = rend.p_renderQueue->SubmitRenderCommands();
 
@@ -234,8 +234,7 @@ int main() {
 
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
-    // TODO: make animator play the fucking animation;
-
+    rend.SubmitAnimatedModel(model, position);
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();
     rend.RenderFrame(ranges);

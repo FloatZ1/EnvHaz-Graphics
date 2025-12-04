@@ -54,7 +54,8 @@ public:
   void SubmitStaticModel(std::shared_ptr<Model> &model, glm::mat4 position,
                          TypeFlags dataType); // require a an object/container
                                               // from which to unwrap everything
-  void SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model);
+  void SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
+                           glm::mat4 position);
 
   BufferRange
   SubmitDynamicData(const void *data, size_t dataSize,

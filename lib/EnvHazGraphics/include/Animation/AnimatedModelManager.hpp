@@ -75,6 +75,24 @@ public:
     instanceData = instances;
   }
 
+  void AddInstances(std::vector<InstanceData> &instances,
+                    std::vector<BufferRange> &InstanceRanges) {
+
+    for (int i = 0; i < instances.size(); i++) {
+
+      instanceRanges.push_back(std::move(InstanceRanges[i]));
+      instanceData.push_back(std::move(instances[i]));
+    }
+
+    instanceCount = instanceData.size();
+  }
+
+  void ClearInstances() {
+    instanceCount = 0;
+    instanceRanges.clear();
+    instanceData.clear();
+  }
+
   /* void SetShaderID(ShaderComboID id)
    {
        shader = id;
@@ -167,6 +185,11 @@ public:
   void AddSubmittedModel(std::shared_ptr<AnimatedModel> model) {
     // TODO: make all model calls be shared pointers , and in static models
     submittedAnimatedModels.push_back(model);
+  }
+  void ClearSubmittedModelInstances() {
+    for (auto &model : submittedAnimatedModels) {
+      model->ClearInstances();
+    }
   }
 
   std::shared_ptr<Animation> GetAnimation(unsigned int animationID) {
