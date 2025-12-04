@@ -135,7 +135,7 @@ int main() {
       Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
 
   unsigned int materialID = Renderer::p_materialManager->CreatePBRMaterial(
-      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture);
+      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture, "pissy");
 
   auto mat = rend.p_materialManager->SubmitMaterials();
 
@@ -222,7 +222,7 @@ int main() {
 
   while (rend.shouldQuit == false) {
 
-    rend.DefaultFrameBuffer();
+    // rend.DefaultFrameBuffer();
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
     rend.UpdateRenderer(deltaTime);
     glm::mat4 projection = glm::perspective(
@@ -240,7 +240,7 @@ int main() {
     // rend.p_bufferManager->EndWritting();
     rend.RenderFrame(ranges);
 
-    rend.DisplayFrameBuffer(rend.GetMainFBO());
+    // rend.DisplayFrameBuffer(rend.GetMainFBO());
 
     rend.SwapBuffers();
     // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);

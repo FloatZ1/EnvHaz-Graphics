@@ -81,6 +81,25 @@ public:
     instanceRanges = InstanceRanges;
     instanceData = instances;
   }
+
+  void AddInstances(std::vector<InstanceData> &instances,
+                    std::vector<BufferRange> &InstanceRanges) {
+
+    for (int i = 0; i < instances.size(); i++) {
+
+      instanceRanges.push_back((InstanceRanges[i]));
+      instanceData.push_back((instances[i]));
+    }
+
+    instanceCount = instanceData.size();
+  }
+
+  void ClearInstances() {
+    instanceCount = 0;
+    instanceRanges.clear();
+    instanceData.clear();
+  }
+
   const glm::mat4 GetPositionMat4() const { return position; }
 
   void SetPositionMat4(glm::mat4 Postion) { position = Postion; }
@@ -160,6 +179,12 @@ public:
   const BufferRange GetTransformBufferRange(const MeshID &mesh) {
 
     return meshTransformRanges[mesh];
+  }
+
+  void ClearSubmittedModelInstances() {
+    for (auto &model : submittedModels) {
+      model->ClearInstances();
+    }
   }
 
   void AddSubmittedModel(std::shared_ptr<Model> model) {

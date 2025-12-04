@@ -326,7 +326,7 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model) {
 
 // Model& model , TypeFlags dataType
 void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
-                                 TypeFlags dataType) {
+                                 glm::mat4 position, TypeFlags dataType) {
 
   // p_bufferManager->ClearBuffer(dataType);
   std::vector<BufferRange> instanceRanges;
@@ -369,8 +369,7 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
 
     uint32_t matID = matLocation.offset / sizeof(glm::mat4);
 
-    InstanceData instData{model->GetPositionMat4(), model->GetMaterialID(),
-                          matID};
+    InstanceData instData{position, model->GetMaterialID(), matID};
 
     auto instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
@@ -386,7 +385,8 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
   }
 
   p_meshManager->AddSubmittedModel(model);
-  model->SetInstances(instances, instanceRanges);
+  // model->SetInstances(instances, instanceRanges);
+  model->AddInstances(instances, instanceRanges);
 }
 BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize,
                                         TypeFlags dataType) {
@@ -433,7 +433,12 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   }
 
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
+
   p_bufferManager->BeginWritting();
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+  p_renderQueue->ClearDynamicCommands();
+  p_renderQueue->ClearStaticCommnads();
+  p_meshManager->ClearSubmittedModelInstances();
 }
 
 void Renderer::UpdateRenderer(float deltatime) {
