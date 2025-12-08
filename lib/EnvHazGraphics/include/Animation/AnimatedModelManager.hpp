@@ -63,6 +63,15 @@ namespace eHazGraphics {
 
 class AnimatedModelManager {
 public:
+  void ClearEverything() {
+    meshes.clear();
+    loadedModels.clear();
+    animators.clear();
+    animations.clear();
+    meshLocations.clear();
+    submittedAnimatedModels.clear();
+  }
+
   void Initialize(BufferManager *bufferManager);
 
   void AddMeshLocation(const MeshID &mesh, VertexIndexInfoPair &location);
