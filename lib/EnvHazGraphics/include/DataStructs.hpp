@@ -5,7 +5,7 @@
 #include "Utils/HashedStrings.hpp"
 #include "stbi_image.h"
 #include <SDL3/SDL_log.h>
-
+#include <boost/serialization/access.hpp>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <string>
@@ -41,7 +41,16 @@ private:
   size_t size;
 };
 
-typedef int MeshID;
+typedef eHazGraphics_Utils::HashedString MeshID;
+
+typedef eHazGraphics_Utils::HashedString ModelID;
+
+typedef eHazGraphics_Utils::HashedString SkeletonID;
+
+typedef eHazGraphics_Utils::HashedString AnimatorID;
+
+typedef eHazGraphics_Utils::HashedString AnimationID;
+
 using VertexIndexInfoPair = std::pair<BufferRange, BufferRange>;
 
 struct ShaderComboID {
@@ -76,10 +85,19 @@ struct ShaderComboID {
     return fragment <
            other.fragment; // compare fragment hash if vertex hash is equal
   }
+
+private:
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & vertex;
+    ar & fragment;
+  }
 };
 
 struct Vertex {
-  glm::vec3 Postion;
+  glm::vec3 Position;
   glm::vec2 UV;
   glm::vec3 Normal;
 
@@ -90,6 +108,17 @@ struct Vertex {
   // animation stuff;
   glm::ivec4 boneIDs;
   glm::vec4 boneWeights;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & Position;
+    ar & Normal;
+    ar & UV;
+    ar & Tangent;
+    ar & Bitangent;
+    ar & boneIDs;
+    ar & boneWeights;
+  }
 };
 
 class MeshData {
@@ -97,6 +126,11 @@ public:
   std::vector<Vertex> vertices;
 
   std::vector<GLuint> indecies;
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & vertices;
+    ar & indecies;
+  }
 };
 
 /*

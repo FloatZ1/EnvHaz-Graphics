@@ -2,20 +2,23 @@
 #ifndef ENVHAZ_ANIMATED_MODEL_MANAGER_HPP
 #define ENVHAZ_ANIMATED_MODEL_MANAGER_HPP
 
+#include "Animation/AnimatedModel.hpp"
 #include "Animation/Animation.hpp"
 #include "Animation/Animator.hpp"
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
-#include "MeshManager.hpp"
+// #include "MeshManager.hpp"
+#include "ModelPackage.hpp"
 #include "Utils/HashedStrings.hpp"
-
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/quaternion_float.hpp"
 #include "glm/fwd.hpp"
 #include "tinygltf/tiny_gltf.h"
+#include <Model.hpp>
 #include <assimp/Importer.hpp>
 #include <assimp/mesh.h>
 #include <assimp/scene.h>
+
 #include <glm/gtc/quaternion.hpp>
 #include <map>
 
@@ -57,149 +60,76 @@ namespace eHazGraphics {
  *
  *
  */
-class AnimatedModel {
-
-public:
-  void AddMesh(MeshID ID) { meshes.push_back(ID); }
-  const std::vector<MeshID> &GetMeshIDs() const { return meshes; }
-  const unsigned int GetMaterialID() const { return materialID; }
-  void SetPositionMat4(glm::mat4 Postion) { position = Postion; }
-  const std::vector<InstanceData> &GetInstances() const { return instanceData; }
-  const std::vector<BufferRange> &GetInstanceRanges() const {
-    return instanceRanges;
-  }
-  void SetInstances(const std::vector<InstanceData> &instances,
-                    const std::vector<BufferRange> &InstanceRanges) {
-    instanceCount = instances.size();
-    instanceRanges = InstanceRanges;
-    instanceData = instances;
-  }
-
-  void AddInstances(std::vector<InstanceData> &instances,
-                    std::vector<BufferRange> &InstanceRanges) {
-
-    for (int i = 0; i < instances.size(); i++) {
-
-      instanceRanges.push_back(std::move(InstanceRanges[i]));
-      instanceData.push_back(std::move(instances[i]));
-    }
-
-    instanceCount = instanceData.size();
-  }
-
-  void ClearInstances() {
-    instanceCount = 0;
-    instanceRanges.clear();
-    instanceData.clear();
-  }
-
-  /* void SetShaderID(ShaderComboID id)
-   {
-       shader = id;
-   }
-   ShaderComboID GetShaderID() const
-   {
-       return shader;
-   } */
-  void SetSkeleton(std::shared_ptr<Skeleton> Skeleton) { skeleton = Skeleton; }
-
-  void SetAnimatorID(int id) { animatorID = id; }
-
-  int GetAnimatorID() const { return animatorID; }
-
-  std::shared_ptr<Skeleton> GetSkeleton() const { return skeleton; }
-
-  glm::mat4 GetPositionMat4() { return position; }
-
-private:
-  std::vector<MeshID> meshes;
-  // std::map<std::string, std::unique_ptr<Joint>> joints;
-
-  // array type shit for the bones
-
-  std::shared_ptr<Skeleton> skeleton;
-
-  int animatorID;
-
-  ShaderComboID shader;
-
-  glm::mat4 position;
-  unsigned int materialID = 0;
-
-  std::vector<InstanceData> instanceData;
-  std::vector<BufferRange> instanceRanges;
-
-  unsigned int instanceCount = 1;
-};
 
 class AnimatedModelManager {
 public:
-  void Initialize(BufferManager *bufferManager) {
-    this->bufferManager = bufferManager;
-  }
+  void Initialize(BufferManager *bufferManager);
 
-  void AddMeshLocation(const MeshID &mesh, VertexIndexInfoPair &location) {
+  void AddMeshLocation(const MeshID &mesh, VertexIndexInfoPair &location);
 
-    meshLocations.try_emplace(mesh, location);
-  }
+  const VertexIndexInfoPair &GetMeshLocation(const MeshID &mesh);
 
-  const VertexIndexInfoPair &GetMeshLocation(const MeshID &mesh) {
-
-    return meshLocations[mesh];
-  }
-
-  void SaveMeshLocation(const MeshID &mesh, const VertexIndexInfoPair &range) {
-    meshLocations.try_emplace(mesh, range);
-  }
+  void SaveMeshLocation(const MeshID &mesh, const VertexIndexInfoPair &range);
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
-  void SetModelShader(std::shared_ptr<AnimatedModel> &model,
-                      ShaderComboID &shader) {
 
-    for (auto &mesh : model->GetMeshIDs()) {
-      auto it = meshes.find(mesh);
-      if (it != meshes.end()) {
-        it->second.SetShader(shader);
-      } else {
-        SDL_Log("ERROR, COULD NOT ASSIGN SHADER\n");
-        // Optionally log a warning: mesh ID not found
-      }
-    }
-  }
+  void SetModelShader(std::shared_ptr<AnimatedModel> &model,
+                      ShaderComboID &shader);
 
   std::shared_ptr<AnimatedModel> LoadAnimatedModel(std::string path);
 
   void LoadAnimation(std::shared_ptr<Skeleton> skeleton, std::string &path,
-                     int &r_AnimationID);
+                     AnimationID &r_AnimationID);
 
   void Update(float deltaTime);
 
-  void SetMeshResidency(MeshID mesh, bool status) {
-    meshes[mesh].SetResidencyStatus(status);
+  void SetMeshResidency(MeshID mesh, bool status);
+
+  std::shared_ptr<Skeleton> &GetSkeleton(SkeletonID ID) {
+    return skeletons[ID];
   }
 
-  std::shared_ptr<Skeleton> &GetSkeleton(int ID) { return skeletons[ID]; }
+  std::shared_ptr<Animator> &GetAnimator(AnimatorID ID) {
+    return animators[ID];
+  }
 
-  std::shared_ptr<Animator> &GetAnimator(int ID) { return animators[ID]; }
+  std::shared_ptr<AnimatedModel> GetModel(ModelID ID) {
+    return loadedModels[ID];
+  }
 
   void AddSubmittedModel(std::shared_ptr<AnimatedModel> model) {
-    // TODO: make all model calls be shared pointers , and in static models
+
     submittedAnimatedModels.push_back(model);
   }
-  void ClearSubmittedModelInstances() {
-    for (auto &model : submittedAnimatedModels) {
-      model->ClearInstances();
-    }
-  }
+  void ClearSubmittedModelInstances();
 
-  std::shared_ptr<Animation> GetAnimation(unsigned int animationID) {
+  std::shared_ptr<Animation> GetAnimation(AnimationID animationID) {
 
     return animations[animationID];
   }
 
+  // NOTE: Binary file loading and encoding
+
+  void ExportAHazModel(std::string exportPath, ModelID modelID);
+
+  ModelID LoadAHazModel(std::string path);
+
+  std::vector<ModelID> LoadAHazModelList(std::vector<std::string> paths);
+  std::vector<ModelID>
+  LoadAHazModelList(std::vector<AnimatedModelPackage> &packages);
+
   void Destroy();
 
 private:
+  static AnimatedModelPackage LoadSingleModel(const std::string &path);
+
+  std::vector<ModelID>
+  LoadAHazModelListLimited(const std::vector<std::string> &paths,
+                           size_t maxThreads = 4);
+  void ValidateLoadedFile(ModelID model);
+
+  void ValidateLoadedFiles();
+
   std::vector<MeshID> processNode(aiNode *node);
 
   Mesh processMesh(aiMesh *mesh);
@@ -221,7 +151,9 @@ private:
 
 
   */
-  unsigned int maxID = 0;
+  // unsigned int maxID = 0;
+
+  std::mutex mapMutex;
 
   BufferManager *bufferManager;
 
@@ -231,10 +163,16 @@ private:
       loadedModels;
 
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
+  /* std::vector<std::shared_ptr<AnimatedModel>> submittedAnimatedModels;
+   std::vector<std::shared_ptr<Skeleton>> skeletons; // in da closet
+   std::vector<std::shared_ptr<Animation>> animations;
+   std::vector<std::shared_ptr<Animator>> animators;
+   */
   std::vector<std::shared_ptr<AnimatedModel>> submittedAnimatedModels;
-  std::vector<std::shared_ptr<Skeleton>> skeletons; // in da closet
-  std::vector<std::shared_ptr<Animation>> animations;
-  std::vector<std::shared_ptr<Animator>> animators;
+  std::unordered_map<ModelID, std::shared_ptr<Skeleton>>
+      skeletons; // in da closet
+  std::unordered_map<AnimationID, std::shared_ptr<Animation>> animations;
+  std::unordered_map<AnimatorID, std::shared_ptr<Animator>> animators;
 
   // processing stuff:
 
@@ -252,9 +190,7 @@ private:
   const aiScene *scene;
   Skeleton processingSkeleton;
 
-  std::unordered_map<std::string, int> m_BoneMap;
-
-  Assimp::Importer importer;
+  // std::unordered_map<std::string, int> m_BoneMap;
 };
 
 } // namespace eHazGraphics

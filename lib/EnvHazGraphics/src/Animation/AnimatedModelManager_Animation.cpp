@@ -1,6 +1,8 @@
 #include "Animation/AnimatedModelManager.hpp"
 #include "Animation/Animation.hpp" // For KeyFrame, JointTransform
-#include "Utils/Math_Utils.hpp"    // For Assimp-to-GLM conversions
+#include "DataStructs.hpp"
+#include "Utils/HashedStrings.hpp"
+#include "Utils/Math_Utils.hpp" // For Assimp-to-GLM conversions
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -165,7 +167,7 @@ namespace eHazGraphics {
  */
 void AnimatedModelManager::LoadAnimation(std::shared_ptr<Skeleton> skeleton,
                                          std::string &path,
-                                         int &r_AnimationID) {
+                                         AnimationID &r_AnimationID) {
 
   // 1. Load the scene containing the animation
   // We use a new importer for each animation file
@@ -180,6 +182,8 @@ void AnimatedModelManager::LoadAnimation(std::shared_ptr<Skeleton> skeleton,
     r_AnimationID = -1;
     return;
   }
+
+  auto &m_BoneMap = skeleton->m_BoneMap;
 
   // We assume the file contains at least one animation (index 0)
   aiAnimation *assimpAnimation = animationScene->mAnimations[0];
@@ -241,10 +245,13 @@ void AnimatedModelManager::LoadAnimation(std::shared_ptr<Skeleton> skeleton,
     // Add the fully populated "snapshot" keyframe to the animation
     newAnimation->frames.push_back(keyFrame);
   }
-
+  AnimationID animID =
+      eHazGraphics_Utils::computeHash(assimpAnimation->mName.data);
   // 4. Store the new animation and return its ID
-  animations.push_back(newAnimation);
-  r_AnimationID = (int)animations.size() - 1;
+  animations.emplace(
+      eHazGraphics_Utils::computeHash(assimpAnimation->mName.data),
+      newAnimation);
+  r_AnimationID = animID;
 
   // animationImporter goes out of scope here, freeing the aiScene
 }

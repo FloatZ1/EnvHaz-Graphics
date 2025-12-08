@@ -151,8 +151,13 @@ int main() {
   std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
   // std::string path = RESOURCES_PATH "cube.obj";
   // Model cube = rend.p_meshManager->LoadModel(path);
-  auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
-  int animationID;
+  // auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+
+  ModelID modelID =
+      rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
+  auto model = rend.p_AnimatedModelManager->GetModel(modelID);
+
+  AnimationID animationID;
   rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
                                              animationID);
   auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
@@ -161,7 +166,7 @@ int main() {
       rend.p_AnimatedModelManager->GetAnimation(animationID));
 
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
-
+  rend.p_AnimatedModelManager->SetModelShader(model, shader);
   glm::mat4 position = glm::mat4(1.0f);
 
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -10.0f));
@@ -170,16 +175,16 @@ int main() {
   position = glm::scale(position, glm::vec3(0.3f));
   // model->SetPositionMat4(position);
 
-  rend.p_AnimatedModelManager->SetModelShader(model, shader);
-  // cube.SetPositionMat4(model);
+  /* rend.p_AnimatedModelManager->SetModelShader(model, shader);
+   // cube.SetPositionMat4(model);
 
-  // rend.p_meshManager->SetModelShader(cube, shader);
+   // rend.p_meshManager->SetModelShader(cube, shader);
 
-  // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data),
-  // TypeFlags::BUFFER_INSTANCE_DATA);
+   // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data),
+   // TypeFlags::BUFFER_INSTANCE_DATA);
 
-  // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
-
+   // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
+    */
   rend.SubmitAnimatedModel(model, position);
 
   auto ranges = rend.p_renderQueue->SubmitRenderCommands();
@@ -219,7 +224,8 @@ int main() {
   // rend.p_bufferManager->EndWritting();
 
   int frameNum = 0;
-
+  // rend.p_AnimatedModelManager->ExportAHazModel(RESOURCES_PATH "TEST.ahzm",
+  //                                            model->GetID());
   while (rend.shouldQuit == false) {
 
     // rend.DefaultFrameBuffer();
@@ -235,6 +241,7 @@ int main() {
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
     rend.SubmitAnimatedModel(model, position);
+
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
     // rend.p_bufferManager->EndWritting();
     rend.RenderFrame(ranges);

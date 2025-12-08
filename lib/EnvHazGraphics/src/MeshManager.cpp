@@ -14,6 +14,30 @@ using namespace eHazGraphics_Utils;
 
 namespace eHazGraphics {
 
+void MeshManager::EraseMesh(MeshID mesh) {
+
+  // TODO: maybe find a way to clear the bufferManager buffer, but that could
+  // create problems since meshes are different sizes, so preloading is best
+
+  meshes.erase(mesh);
+  meshTransforms.erase(mesh);
+  meshTransformRanges.erase(mesh);
+  meshLocations.erase(mesh);
+}
+
+void MeshManager::SetModelShader(std::shared_ptr<Model> model,
+                                 ShaderComboID &shader) {
+
+  for (auto &mesh : model->GetMeshIDs()) {
+    auto it = meshes.find(mesh);
+    if (it != meshes.end()) {
+      it->second.SetShader(shader);
+    } else {
+      SDL_Log("ERROR, COULD NOT ASSIGN SHADER\n");
+      // Optionally log a warning: mesh ID not found
+    }
+  }
+}
 std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
   std::vector<MeshID> temps;
 
@@ -41,6 +65,7 @@ std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
   for (auto mesh : temps) {
     model->AddMesh(mesh);
   }
+  model->SetID(hashedPath);
 
   importer.FreeScene();
 
@@ -53,10 +78,10 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
   std::vector<MeshID> meshIDs;
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-    maxID += 1;
-    // meshes[maxID] = processMesh(mesh, scene);
 
-    meshes.try_emplace(maxID, processMesh(mesh, scene));
+    HashedString t_hsID = computeHash(mesh->mName.data);
+
+    meshes.try_emplace(t_hsID, processMesh(mesh, scene));
 
     // TODO: DECIDE HOW TO DO THIS, currently meshTransforms is only used in
     // Renderer.cpp at the InsertStaticMesh part
@@ -64,14 +89,15 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
     glm::mat4 relativeMat =
         eHazGraphics_Utils::convertAssimpMatrixToGLM(GetNodeToRootMat4(node));
 
-    meshTransforms.emplace(maxID, relativeMat);
-    meshes[maxID].setRelativeMatrix(relativeMat);
+    meshTransforms.emplace(t_hsID, relativeMat);
+    meshes[t_hsID].setRelativeMatrix(relativeMat);
+    meshes[t_hsID].SetID(t_hsID);
 
-    AddTransformRange(maxID, bufferManager->InsertNewDynamicData(
-                                 &relativeMat, sizeof(relativeMat),
-                                 TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+    AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
+                                  &relativeMat, sizeof(relativeMat),
+                                  TypeFlags::BUFFER_STATIC_MATRIX_DATA));
 
-    meshIDs.push_back(maxID);
+    meshIDs.push_back(t_hsID);
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -95,7 +121,7 @@ Mesh MeshManager::processMesh(aiMesh *mesh, const aiScene *scene) {
     vector.x = mesh->mVertices[i].x;
     vector.y = mesh->mVertices[i].y;
     vector.z = mesh->mVertices[i].z;
-    vertex.Postion = vector;
+    vertex.Position = vector;
 
     vector.x = mesh->mNormals[i].x;
     vector.y = mesh->mNormals[i].y;

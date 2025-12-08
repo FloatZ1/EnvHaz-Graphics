@@ -23,6 +23,9 @@ add_subdirectory(dependencies/glm/glm)
 find_package(OpenGL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(assimp REQUIRED)
+find_package(Boost REQUIRED COMPONENTS serialization)
+
+
 pkg_check_modules(SDL3 REQUIRED sdl3)
 
 # Gather library sources
@@ -37,6 +40,7 @@ target_include_directories(EnvHazGraphics PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/EnvHazGraphics/include"
     ${SDL3_INCLUDE_DIRS}
   "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/glm"
+ ${Boost_INCLUDE_DIRS}
 
 )
 target_compile_definitions(EnvHazGraphics PUBLIC
@@ -50,4 +54,5 @@ target_link_libraries(EnvHazGraphics PUBLIC
     ${SDL3_LIBRARIES}
     glm::glm
     ${ASSIMP_LIBRARIES}
+ PUBLIC Boost::serialization
 )

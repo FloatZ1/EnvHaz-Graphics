@@ -4,11 +4,11 @@
 #include "DataStructs.hpp"
 #include "MeshManager.hpp"
 #include "Utils/Alghorithms.hpp"
+#include "Utils/Boost_GLM_Serialization.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "Utils/Math_Utils.hpp"
 #include "glm/fwd.hpp"
 #include "glm/matrix.hpp"
-
 #include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <assimp/mesh.h>
@@ -24,7 +24,59 @@
 #include <vector>
 
 using namespace eHazGraphics_Utils;
+
 namespace eHazGraphics {
+
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+void AnimatedModelManager::Initialize(BufferManager *bufferManager) {
+  this->bufferManager = bufferManager;
+}
+void AnimatedModelManager::AddMeshLocation(const MeshID &mesh,
+                                           VertexIndexInfoPair &location) {
+
+  meshLocations.try_emplace(mesh, location);
+}
+const VertexIndexInfoPair &
+AnimatedModelManager::GetMeshLocation(const MeshID &mesh) {
+
+  return meshLocations[mesh];
+}
+void AnimatedModelManager::SaveMeshLocation(const MeshID &mesh,
+                                            const VertexIndexInfoPair &range) {
+  meshLocations.try_emplace(mesh, range);
+}
+
+void AnimatedModelManager::SetMeshResidency(MeshID mesh, bool status) {
+  meshes[mesh].SetResidencyStatus(status);
+}
+void AnimatedModelManager::ClearSubmittedModelInstances() {
+  for (auto &model : submittedAnimatedModels) {
+    model->ClearInstances();
+  }
+}
+void AnimatedModelManager::SetModelShader(std::shared_ptr<AnimatedModel> &model,
+                                          ShaderComboID &shader) {
+
+  for (auto &mesh : model->GetMeshIDs()) {
+    auto it = meshes.find(mesh);
+    if (it != meshes.end()) {
+      it->second.SetShader(shader);
+    } else {
+      SDL_Log("ERROR, COULD NOT ASSIGN SHADER\n");
+      // Optionally log a warning: mesh ID not found
+    }
+  }
+}
 
 /*
  *
@@ -40,6 +92,7 @@ namespace eHazGraphics {
 
 void AnimatedModelManager::BuildBaseSkeleton() {
 
+  auto &m_BoneMap = processingSkeleton.m_BoneMap;
   for (int i = 0; i < scene->mNumMeshes; i++) {
     aiMesh *curMesh = scene->mMeshes[i];
 
@@ -68,6 +121,8 @@ void AnimatedModelManager::BuildBaseSkeleton() {
 }
 
 void AnimatedModelManager::SetParentHierarchy(aiNode *node) {
+
+  auto &m_BoneMap = processingSkeleton.m_BoneMap;
   if (m_BoneMap.contains(node->mName.data)) {
     int childJointIndex = m_BoneMap[node->mName.data];
     Joint &childJoint = processingSkeleton.m_Joints[childJointIndex];
@@ -113,6 +168,7 @@ void AnimatedModelManager::ComputeGlobalBindTransforms(
   glm::mat4 local = convertAssimpMatrixToGLM(node->mTransformation);
   glm::mat4 global = parentGlobal * local;
 
+  auto &m_BoneMap = processingSkeleton.m_BoneMap;
   auto it = m_BoneMap.find(node->mName.C_Str());
   if (it != m_BoneMap.end()) {
     int idx = it->second;
@@ -142,7 +198,7 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
   if (loadedModels.contains(hashedPath)) {
     return loadedModels[hashedPath];
   }
-
+  Assimp::Importer importer;
   scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
                 aiProcess_CalcTangentSpace | aiProcess_PopulateArmatureData |
@@ -175,14 +231,19 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
     }
   }
 
-  skeletons.push_back(std::make_shared<Skeleton>(processingSkeleton));
+  // SkeletonID skeletonID = computeHash(path);
+
+  skeletons.emplace(hashedPath, std::make_shared<Skeleton>(processingSkeleton));
 
   std::shared_ptr<AnimatedModel> model = std::make_unique<AnimatedModel>();
-  model->SetSkeleton(skeletons[skeletons.size() - 1]);
+  model->SetSkeleton(skeletons[hashedPath]);
 
-  animators.push_back(std::make_shared<Animator>());
-  model->SetAnimatorID(animators.size() - 1);
-  animators[animators.size() - 1]->SetSkeleton(model->GetSkeleton());
+  AnimatorID animatorID = hashedPath;
+
+  animators.emplace(animatorID, std::make_shared<Animator>());
+
+  model->SetAnimatorID(animatorID);
+  animators[animatorID]->SetSkeleton(model->GetSkeleton());
 
   for (int i = 0; i < processingSkeleton.m_Joints.size(); ++i) {
 
@@ -234,7 +295,11 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
     model->AddMesh(mesh);
   }
-  loadedModels[hashedPath] = model;
+  model->SetID(hashedPath);
+  loadedModels.emplace(hashedPath, model);
+  // m_BoneMap.clear();
+  importer.FreeScene();
+
   return model;
 }
 
@@ -242,12 +307,13 @@ std::vector<MeshID> AnimatedModelManager::processNode(aiNode *node) {
   std::vector<MeshID> meshIDs;
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-    maxID += 1;
+    HashedString t_hsID = computeHash(mesh->mName.data);
+    // maxID += 1;
     // meshes[maxID] = processMesh(mesh, scene);
 
-    meshes.try_emplace(maxID, processMesh(mesh));
-
-    meshIDs.push_back(maxID);
+    meshes.try_emplace(t_hsID, processMesh(mesh));
+    meshes[t_hsID].SetID(t_hsID);
+    meshIDs.push_back(t_hsID);
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -265,6 +331,7 @@ std::vector<MeshID> AnimatedModelManager::processNode(aiNode *node) {
 void AnimatedModelManager::PopulateMeshBoneData(aiMesh *mesh) {
   m_CurrentMeshBoneData.clear();
 
+  auto &m_BoneMap = processingSkeleton.m_BoneMap;
   for (unsigned int i = 0; i < mesh->mNumBones; i++) {
     aiBone *curBone = mesh->mBones[i];
     int ehazBoneID = m_BoneMap[curBone->mName.data]; // Fast map lookup
@@ -344,6 +411,9 @@ void AnimatedModelManager::ExtractBoneWeightForVertices(
     std::vector<Vertex> &vertices, aiMesh *mesh) {
   for (int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
     int boneID = -1;
+
+    auto &m_BoneMap = processingSkeleton.m_BoneMap;
+
     std::string boneName = mesh->mBones[boneIndex]->mName.C_Str();
     if (m_BoneMap.find(boneName) == m_BoneMap.end()) {
       /*  BoneInfo newBoneInfo;
@@ -406,7 +476,7 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
     vector.x = mesh->mVertices[i].x;
     vector.y = mesh->mVertices[i].y;
     vector.z = mesh->mVertices[i].z;
-    vertex.Postion = vector;
+    vertex.Position = vector;
 
     vector.x = mesh->mNormals[i].x;
     vector.y = mesh->mNormals[i].y;
@@ -525,8 +595,9 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
         vertex.boneWeights[i] /= sum;
     }
   }
+  Mesh finalMesh = Mesh({vertices, indices}, ShaderComboID());
 
-  return Mesh({vertices, indices}, ShaderComboID());
+  return finalMesh;
 }
 
 /*
@@ -575,8 +646,8 @@ void AnimatedModelManager::UploadBonesToGPU(
 }
 
 void AnimatedModelManager::Update(float deltaTime) {
-  for (auto &animator : animators) {
-    animator->Update(deltaTime);
+  for (const auto &[key, value] : animators) {
+    value->Update(deltaTime);
   }
 
   // Submit to GPU or instance buffer

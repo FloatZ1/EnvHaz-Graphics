@@ -3,17 +3,17 @@
 
 #include "Animation.hpp"
 #include "DataStructs.hpp"
+#include "Utils/Boost_GLM_Serialization.hpp"
 #include <algorithm>
+#include <boost/serialization/unordered_map.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_float.hpp>
 #include <glm/fwd.hpp>
 #include <glm/gtc/quaternion.hpp>
-
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-
 namespace eHazGraphics {
 
 // --- SKELETON DATA STRUCTURES ---
@@ -30,6 +30,16 @@ struct Joint {
   // glm::mat4 m_FinalShaderMatrix = glm::mat4(
   //   1.0f); // M_Final (M_Root * M_GlobalBone * M_Offset * M_Root_Inv)
   glm::mat4 localBindTransform = glm::mat4(1.0f);
+
+private:
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & m_Name;
+    ar & m_ParentJoint;
+    ar & mOffsetMatrix;
+    ar & localBindTransform;
+  }
 };
 
 struct Skeleton {
@@ -39,6 +49,18 @@ struct Skeleton {
 
   glm::mat4 m_InverseRoot = glm::mat4(1.0f);
   glm::mat4 m_RootTransform = glm::mat4(1.0f);
+  std::unordered_map<std::string, int> m_BoneMap;
+
+private:
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & m_Joints;
+    ar & m_RootJointIndecies;
+    ar & m_InverseRoot;
+    ar & m_RootTransform;
+    ar & m_BoneMap;
+  }
 };
 
 // --- ANIMATION SOURCE STRUCTURES ---
