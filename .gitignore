@@ -3,7 +3,7 @@
 build/*
 .cache/*
 lib/dependencies/*
-dependencies/*
+
 
 # Compiled Object files
 *.slo

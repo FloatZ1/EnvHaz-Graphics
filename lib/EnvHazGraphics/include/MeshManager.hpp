@@ -25,6 +25,17 @@ namespace eHazGraphics {
 
 class MeshManager {
 public:
+  void ClearEverything() {
+
+    loadedModels.clear();
+    submittedModels.clear();
+    meshes.clear();
+
+    meshTransforms.clear();
+    meshTransformRanges.clear();
+    meshLocations.clear();
+  }
+
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
   std::shared_ptr<Model> LoadModel(std::string &path);
 

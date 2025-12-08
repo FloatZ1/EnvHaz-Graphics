@@ -158,12 +158,12 @@ int main() {
   auto model = rend.p_AnimatedModelManager->GetModel(modelID);
 
   AnimationID animationID;
-  rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
-                                             animationID);
+  // rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
+  //                                            animationID);
   auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
-  int skelAnimID = anim->AddAnimation(
-      rend.p_AnimatedModelManager->GetAnimation(animationID));
+  // int skelAnimID = anim->AddAnimation(
+  //    rend.p_AnimatedModelManager->GetAnimation(animationID));
 
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
   rend.p_AnimatedModelManager->SetModelShader(model, shader);
