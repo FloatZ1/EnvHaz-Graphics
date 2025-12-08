@@ -50,6 +50,34 @@ struct Skeleton {
   glm::mat4 m_InverseRoot = glm::mat4(1.0f);
   glm::mat4 m_RootTransform = glm::mat4(1.0f);
   std::unordered_map<std::string, int> m_BoneMap;
+  void ApplyBindPose() {
+    // Ensure finalMatrices has the right size
+    finalMatrices.resize(m_Joints.size());
+
+    // Lambda to recursively update a joint
+    std::function<void(int, const glm::mat4 &)> updateJoint;
+    updateJoint = [&](int jointIndex, const glm::mat4 &parentTransform) {
+      Joint &joint = m_Joints[jointIndex];
+
+      // Global transform = parent * local bind
+      joint.m_GlobalTransform = parentTransform * joint.localBindTransform;
+
+      // Final matrix = global * offset
+      finalMatrices[jointIndex] = joint.m_GlobalTransform * joint.mOffsetMatrix;
+
+      // Recurse to children
+      for (size_t i = 0; i < m_Joints.size(); ++i) {
+        if (m_Joints[i].m_ParentJoint == jointIndex) {
+          updateJoint(i, joint.m_GlobalTransform);
+        }
+      }
+    };
+
+    // Apply to all root joints
+    for (int rootIndex : m_RootJointIndecies) {
+      updateJoint(rootIndex, glm::mat4(1.0f));
+    }
+  }
 
 private:
   friend class boost::serialization::access;
@@ -122,7 +150,7 @@ public:
 
   int CreateAnimationLayer();
 
-  // Assigns an Animation (or BlendSpace) asset to a layer
+  // Assigns an Animat ion (or BlendSpace) asset to a layer
   void SetLayerSource(int layerIndex, std::shared_ptr<Animation> source);
 
   // === 3. Runtime Control ===

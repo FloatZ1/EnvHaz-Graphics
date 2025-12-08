@@ -104,6 +104,7 @@ void Animator::Update(float deltaTime) {
     return;
   }
   if (layers.empty() || !layers[0].activeSource) {
+    skeleton->ApplyBindPose();
     return;
   }
 
