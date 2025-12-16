@@ -4,6 +4,7 @@
 #include "BitFlags.hpp"
 #include <DataStructs.hpp>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_stdinc.h>
 #include <cstddef>
 #include <cstdint>
 #include <glad/glad.h>
@@ -96,7 +97,11 @@ public:
 
     if (trippleBuffer) {
       for (int i = 0; i < 3; i++) {
-        glNamedBufferSubData(BufferSlots[i], 0, slotFullSize[i], nullptr);
+
+        waitForSlotFence(i);
+        SDL_memset(slots[i], 0, slotFullSize[i]);
+        allocations.clear();
+        freeAllocationIDs.clear();
       }
     } else {
       glNamedBufferSubData(BufferSlots[0], 0, slotFullSize[0], nullptr);
