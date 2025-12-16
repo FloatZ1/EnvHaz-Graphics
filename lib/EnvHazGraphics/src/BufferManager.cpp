@@ -267,6 +267,10 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
 }
 
 void StaticBuffer::ClearBuffer() {
+
+  glNamedBufferSubData(VertexBufferID, 0, VertexBufferSize, nullptr);
+  glNamedBufferSubData(IndexBufferID, 0, IndexBufferSize, nullptr);
+
   VertexSizeOccupied = 0;
   IndexSizeOccupied = 0;
   numOfOccupiedVerts = 0;

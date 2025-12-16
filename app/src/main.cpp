@@ -158,8 +158,8 @@ int main() {
   // auto model = rend.p_AnimatedModelManager->GetModel(modelID);
 
   AnimationID animationID;
-  // rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
-  //                                            animationID);
+  rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
+                                             animationID);
   auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
   // int skelAnimID = anim->AddAnimation(

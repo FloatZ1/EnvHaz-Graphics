@@ -94,6 +94,14 @@ public:
 
   void ClearBuffer() {
 
+    if (trippleBuffer) {
+      for (int i = 0; i < 3; i++) {
+        glNamedBufferSubData(BufferSlots[i], 0, slotFullSize[i], nullptr);
+      }
+    } else {
+      glNamedBufferSubData(BufferSlots[0], 0, slotFullSize[0], nullptr);
+    }
+
     slotOccupiedSize[0] = 0;
     slotOccupiedSize[1] = 0;
     slotOccupiedSize[2] = 0;
