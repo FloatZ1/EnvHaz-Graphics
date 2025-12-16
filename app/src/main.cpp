@@ -173,26 +173,6 @@ int main() {
   position =
       glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   position = glm::scale(position, glm::vec3(0.3f));
-  // model->SetPositionMat4(position);
-
-  /* rend.p_AnimatedModelManager->SetModelShader(model, shader);
-   // cube.SetPositionMat4(model);
-
-   // rend.p_meshManager->SetModelShader(cube, shader);
-
-   // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data),
-   // TypeFlags::BUFFER_INSTANCE_DATA);
-
-   // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
-    */
-  // rend.SubmitAnimatedModel(model, position);
-
-  // auto ranges = rend.p_renderQueue->SubmitRenderCommands();
-
-  // glm::mat4 test(1.0f);
-  // test[2][2] = 69.0f;
-
-  // animation stuff here, adding into animator
 
   const auto &animationClip =
       rend.p_AnimatedModelManager->GetAnimation(animationID);
