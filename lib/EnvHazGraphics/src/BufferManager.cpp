@@ -275,6 +275,9 @@ void StaticBuffer::ClearBuffer() {
   IndexSizeOccupied = 0;
   numOfOccupiedVerts = 0;
   numOfOccupiedIndecies = 0;
+
+  allocations.clear();
+  freeAllocationIDs.clear();
 }
 
 void StaticBuffer::BindBuffer() {
