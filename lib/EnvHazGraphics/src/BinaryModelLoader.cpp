@@ -183,7 +183,7 @@ void MeshManager::ValidateLoadedFile(ModelID model) {
       glm::mat4 relMat = mesh.GetRelativeMatrix();
       meshTransforms.emplace(meshID, relMat);
 
-      BufferRange relMatRange = bufferManager->InsertNewDynamicData(
+      SBufferRange relMatRange = bufferManager->InsertNewDynamicData(
           &relMat, sizeof(relMat), TypeFlags::BUFFER_STATIC_MATRIX_DATA);
 
       meshTransformRanges.emplace(meshID, relMatRange);

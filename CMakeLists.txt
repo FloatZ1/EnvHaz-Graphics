@@ -9,7 +9,7 @@ project(EnvHazGraphics)
  set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_C_COMPILER clang)
 
-
+ add_compile_options(-w) 
 
 set(CMAKE_CXX_STANDARD 20)
  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

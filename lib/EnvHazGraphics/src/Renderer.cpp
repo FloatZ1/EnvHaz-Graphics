@@ -208,14 +208,14 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   p_bufferManager = std::make_unique<BufferManager>();
   p_AnimatedModelManager = std::make_unique<AnimatedModelManager>();
 
-  p_renderQueue->Initialize();
+  p_bufferManager->Initialize();
   p_shaderManager->Initialize();
   p_meshManager->Initialize(p_bufferManager.get());
   p_AnimatedModelManager->Initialize(p_bufferManager.get());
 
   p_materialManager->Initialize();
-  p_bufferManager->Initialize();
 
+  p_renderQueue->Initialize(p_bufferManager.get());
   std::string ScreenRenderVS =
       "//@@start@@ ScreenRenderVS shader @@end@@\n"
       "#version 460 core\n"
@@ -270,7 +270,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
                                    glm::mat4 position) {
 
-  std::vector<BufferRange> instanceRanges;
+  std::vector<SBufferRange> instanceRanges;
   std::vector<InstanceData> instances;
 
   for (auto &mesh : model->GetMeshIDs()) {
@@ -298,20 +298,24 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
     auto &animator =
         p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
-    uint32_t matID = animator->GetGPULocation().offset / sizeof(glm::mat4);
+    size_t animatorMatrixOffset =
+        p_bufferManager->GetAllocation(animator->GetGPULocation()).offset;
+
+    uint32_t matID = animatorMatrixOffset / sizeof(glm::mat4);
 
     unsigned int numJoints = model->GetSkeleton()->m_Joints.size();
 
-    unsigned int jointLocation =
-        animator->GetGPULocation().offset / sizeof(glm::mat4);
+    unsigned int jointLocation = animatorMatrixOffset / sizeof(glm::mat4);
 
     InstanceData instData{position, model->GetMaterialID(), matID, numJoints,
                           jointLocation};
 
-    auto instanceData = p_bufferManager->InsertNewDynamicData(
+    SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    size_t instanceID = instanceData.offset / sizeof(InstanceData);
+    size_t instanceOffset = p_bufferManager->GetAllocation(instanceData).offset;
+
+    size_t instanceID = instanceOffset / sizeof(InstanceData);
 
     instanceRanges.push_back(instanceData);
     instances.push_back(instData);
@@ -330,7 +334,7 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
                                  glm::mat4 position, TypeFlags dataType) {
 
   // p_bufferManager->ClearBuffer(dataType);
-  std::vector<BufferRange> instanceRanges;
+  std::vector<SBufferRange> instanceRanges;
   std::vector<InstanceData> instances;
 
   for (auto &mesh : model->GetMeshIDs()) {
@@ -356,7 +360,7 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
 
     glm::mat4 meshMat = p_meshManager->GetMeshTransform(mesh);
 
-    BufferRange matLocation;
+    SBufferRange matLocation;
 
     if (p_meshManager->ContainsTransformRange(mesh)) {
 
@@ -368,14 +372,18 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
       p_meshManager->AddTransformRange(mesh, matLocation);
     }
 
-    uint32_t matID = matLocation.offset / sizeof(glm::mat4);
+    size_t matOffset = p_bufferManager->GetAllocation(matLocation).offset;
+
+    uint32_t matID = matOffset / sizeof(glm::mat4);
 
     InstanceData instData{position, model->GetMaterialID(), matID};
 
-    auto instanceData = p_bufferManager->InsertNewDynamicData(
+    SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    size_t instanceID = instanceData.offset / sizeof(InstanceData);
+    size_t instanceOffset = p_bufferManager->GetAllocation(instanceData).offset;
+
+    size_t instanceID = instanceOffset / sizeof(InstanceData);
 
     instanceRanges.push_back(instanceData);
     instances.push_back(instData);
@@ -389,9 +397,9 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
   // model->SetInstances(instances, instanceRanges);
   model->AddInstances(instances, instanceRanges);
 }
-BufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize,
-                                        TypeFlags dataType) {
-  BufferRange rt;
+SBufferRange Renderer::SubmitDynamicData(const void *data, size_t dataSize,
+                                         TypeFlags dataType) {
+  SBufferRange rt;
 
   rt = p_bufferManager->InsertNewDynamicData(data, dataSize, dataType);
   rt.dataType = dataType;
@@ -464,7 +472,7 @@ void Renderer::Destroy() {
   p_materialManager->Destroy();
 }
 
-void Renderer::UpdateDynamicData(const BufferRange &location, const void *data,
+void Renderer::UpdateDynamicData(const SBufferRange &location, const void *data,
                                  const size_t size) {
 
   p_bufferManager->UpdateData(location, data, size);

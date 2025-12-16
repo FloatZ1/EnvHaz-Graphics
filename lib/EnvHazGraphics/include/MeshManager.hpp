@@ -71,12 +71,12 @@ public:
     return meshTransformRanges.contains(mesh);
   }
 
-  void AddTransformRange(const MeshID &mesh, const BufferRange &range) {
+  void AddTransformRange(const MeshID &mesh, const SBufferRange &range) {
 
     meshTransformRanges.try_emplace(mesh, range);
   }
 
-  const BufferRange GetTransformBufferRange(const MeshID &mesh) {
+  const SBufferRange GetTransformBufferRange(const MeshID &mesh) {
 
     return meshTransformRanges[mesh];
   }
@@ -149,7 +149,7 @@ private:
   std::unordered_map<MeshID, Mesh> meshes;
   // std::unordered_map<std::string, MeshID> meshPaths;
   std::unordered_map<MeshID, glm::mat4> meshTransforms;
-  std::unordered_map<MeshID, BufferRange> meshTransformRanges;
+  std::unordered_map<MeshID, SBufferRange> meshTransformRanges;
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
 
   std::mutex mapMutex;

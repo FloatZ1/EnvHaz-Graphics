@@ -13,18 +13,27 @@
 #include <vector>
 
 namespace eHazGraphics {
+constexpr uint32_t INVALID_ALLOCATION = UINT32_MAX;
 
 #define MBsize(size) ((size) * 1024 * 1024)
+struct SBufferHandle {
+  uint32_t bufferID = -1;
+  GLuint slot = -1;
+  uint32_t allocationID = INVALID_ALLOCATION;
+  uint32_t generation = 0;
+};
 
-struct BufferRange {
-  int OwningBuffer;
-  int slot; // if slot is -1 we assume its in the static buffer;
-  size_t size;
+struct SAllocation {
+  size_t offset = 0;
+  size_t size = 0;
+  uint32_t generation = 0;
+  bool alive = false;
+};
 
-  size_t offset;
-  unsigned int count;
-
+struct SBufferRange {
+  SBufferHandle handle;
   TypeFlags dataType;
+  uint32_t count;
 };
 
 class CopyDataPtr {
@@ -51,7 +60,7 @@ typedef eHazGraphics_Utils::HashedString AnimatorID;
 
 typedef eHazGraphics_Utils::HashedString AnimationID;
 
-using VertexIndexInfoPair = std::pair<BufferRange, BufferRange>;
+using VertexIndexInfoPair = std::pair<SBufferRange, SBufferRange>;
 
 struct ShaderComboID {
   ShaderComboID() = default;

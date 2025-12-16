@@ -57,12 +57,12 @@ public:
   void SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
                            glm::mat4 position);
 
-  BufferRange
+  SBufferRange
   SubmitDynamicData(const void *data, size_t dataSize,
                     TypeFlags dataType); // same, require a container later/
                                          // from a octree node or smth
 
-  void UpdateDynamicData(const BufferRange &location, const void *data,
+  void UpdateDynamicData(const SBufferRange &location, const void *data,
                          const size_t size);
 
   void PollInputEvents();

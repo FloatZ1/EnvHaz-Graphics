@@ -143,8 +143,8 @@ private:
 
   Mesh processMesh(aiMesh *mesh);
 
-  void UploadBonesToGPU(BufferRange &range,
-                        std::vector<glm::mat4> finalMatrices);
+  void UploadBonesToGPU(SBufferRange &range,
+                        const std::vector<glm::mat4> &finalMatrices);
 
   void BuildBaseSkeleton();
 

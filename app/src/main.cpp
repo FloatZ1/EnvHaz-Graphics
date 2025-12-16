@@ -139,7 +139,7 @@ int main() {
 
   auto mat = rend.p_materialManager->SubmitMaterials();
 
-  BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
+  SBufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
       mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
       TypeFlags::BUFFER_TEXTURE_DATA);
 
@@ -151,11 +151,11 @@ int main() {
   std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
   // std::string path = RESOURCES_PATH "cube.obj";
   // Model cube = rend.p_meshManager->LoadModel(path);
-  // auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+  auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
 
-  ModelID modelID =
-      rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
-  auto model = rend.p_AnimatedModelManager->GetModel(modelID);
+  // ModelID modelID =
+  //     rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
+  // auto model = rend.p_AnimatedModelManager->GetModel(modelID);
 
   AnimationID animationID;
   // rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
@@ -185,9 +185,9 @@ int main() {
 
    // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
     */
-  rend.SubmitAnimatedModel(model, position);
+  // rend.SubmitAnimatedModel(model, position);
 
-  auto ranges = rend.p_renderQueue->SubmitRenderCommands();
+  // auto ranges = rend.p_renderQueue->SubmitRenderCommands();
 
   // glm::mat4 test(1.0f);
   // test[2][2] = 69.0f;
@@ -218,9 +218,14 @@ int main() {
 
   camData deta{camera.GetViewMatrix(), projection1};
 
-  BufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
-                                             TypeFlags::BUFFER_CAMERA_DATA);
+  rend.UpdateRenderer(deltaTime);
 
+  SBufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
+                                              TypeFlags::BUFFER_CAMERA_DATA);
+  std::vector<DrawRange> ranges;
+
+  rend.SubmitAnimatedModel(model, position);
+  ranges = rend.p_renderQueue->SubmitRenderCommands();
   // rend.p_bufferManager->EndWritting();
 
   int frameNum = 0;

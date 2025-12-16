@@ -161,9 +161,9 @@ public:
 
   // === 4. Accessors/Mutators ===
 
-  void SetGPULocation(BufferRange &range) { GPUlocation = range; }
+  void SetGPULocation(SBufferRange &range) { GPUlocation = range; }
 
-  BufferRange &GetGPULocation() { return GPUlocation; }
+  SBufferRange &GetGPULocation() { return GPUlocation; }
 
   void SetSkeleton(std::shared_ptr<Skeleton> Skeleton) {
     skeleton = Skeleton;
@@ -189,7 +189,7 @@ private:
   // --- State ---
   KeyFrame currentPose;
 
-  BufferRange GPUlocation; // where the joints are on the buffer
+  SBufferRange GPUlocation; // where the joints are on the buffer
 };
 
 } // namespace eHazGraphics
