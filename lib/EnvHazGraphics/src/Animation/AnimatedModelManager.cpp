@@ -190,6 +190,9 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
   processingSkeleton.m_Joints.clear();
   processingSkeleton.finalMatrices.clear();
 
+  processingSkeleton.m_BoneMap.clear();
+  processingSkeleton.m_RootJointIndecies.clear();
+
   std::vector<MeshID> r_meshes;
 
   eHazGraphics_Utils::HashedString hashedPath =

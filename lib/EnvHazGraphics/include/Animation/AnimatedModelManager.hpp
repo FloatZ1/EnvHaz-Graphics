@@ -64,6 +64,14 @@ namespace eHazGraphics {
 class AnimatedModelManager {
 public:
   void ClearEverything() {
+
+    for (auto &[id, mesh] : meshes) {
+      mesh.SetResidencyStatus(false);
+    }
+    for (auto &[id, model] : loadedModels) {
+      model->ClearInstances();
+    }
+    // call the function from buffer manager to clear the ranges
     meshes.clear();
     loadedModels.clear();
     animators.clear();

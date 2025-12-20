@@ -39,6 +39,11 @@ public:
 
   int GetStaticBufferID() const { return StaticBufferID; }
 
+  void RemoveItem(SBufferRange range) {
+
+    freeAllocationIDs.push_back(range.handle.allocationID);
+  }
+
   // Can be called manually or wait for the object to be destroyed
   void Destroy();
 
@@ -49,10 +54,35 @@ public:
   }
 
 private:
-  uint32_t AllocateID() {
+  uint32_t AllocateID(size_t size) {
     if (freeAllocationIDs.size() > 0) {
-      return freeAllocationIDs[0];
+
+      for (int i = 0; i < freeAllocationIDs.size(); i++) {
+
+        uint32_t l_checkID = freeAllocationIDs[i];
+        if (allocations[l_checkID].size > size) {
+
+          allocations.push_back(SAllocation());
+          uint32_t l_remainingID = allocations.size();
+
+          SAllocation &l_remainingAllocation = allocations[l_remainingID];
+
+          l_remainingAllocation.alive = false;
+          l_remainingAllocation.generation += 1;
+          l_remainingAllocation.offset = allocations[l_checkID].offset + size;
+          l_remainingAllocation.size =
+              allocations[l_checkID].size - allocations[l_remainingID].size;
+
+          return l_checkID;
+        } else if (allocations[l_checkID].size == size) {
+          return l_checkID;
+        } else {
+          continue;
+        }
+      }
+
     } else {
+
       allocations.push_back(SAllocation());
       return allocations.size() - 1;
     }
@@ -99,14 +129,17 @@ public:
       for (int i = 0; i < 3; i++) {
 
         waitForSlotFence(i);
-        SDL_memset(slots[i], 0, slotFullSize[i]);
-        allocations.clear();
-        freeAllocationIDs.clear();
+        float val = 0.0f;
+        // glClearNamedBufferData(BufferSlots[i], GL_R32F, GL_RED, GL_FLOAT,
+        // &val);
+        //  SDL_memset(slots[i], 0, slotFullSize[i]);
       }
     } else {
-      glNamedBufferSubData(BufferSlots[0], 0, slotFullSize[0], nullptr);
+      // glNamedBufferSubData(BufferSlots[0], 0, slotFullSize[0], nullptr);
     }
 
+    allocations.clear();
+    freeAllocationIDs.clear();
     slotOccupiedSize[0] = 0;
     slotOccupiedSize[1] = 0;
     slotOccupiedSize[2] = 0;
@@ -126,22 +159,58 @@ public:
   void EndWritting();
 
   void Destroy();
+  void RemoveItem(SBufferRange range) {
 
+    freeAllocationIDs.push_back(range.handle.allocationID);
+  }
   ~DynamicBuffer() {
     // Destroy();
   }
 
 private:
-  std::vector<SAllocation> allocations;
-  std::vector<uint32_t> freeAllocationIDs;
-  uint32_t AllocateID() {
+  uint32_t AllocateID(size_t size) {
     if (freeAllocationIDs.size() > 0) {
-      return freeAllocationIDs[0];
+
+      for (int i = 0; i < freeAllocationIDs.size(); i++) {
+
+        uint32_t l_checkID = freeAllocationIDs[i];
+        if (allocations[l_checkID].size > size) {
+
+          allocations.push_back(SAllocation());
+          uint32_t l_remainingID = allocations.size();
+
+          SAllocation &l_remainingAllocation = allocations[l_remainingID];
+
+          l_remainingAllocation.alive = false;
+          l_remainingAllocation.generation += 1;
+          l_remainingAllocation.offset = allocations[l_checkID].offset + size;
+          l_remainingAllocation.size =
+              allocations[l_checkID].size - allocations[l_remainingID].size;
+
+          return l_checkID;
+        } else if (allocations[l_checkID].size == size) {
+          return l_checkID;
+        } else {
+          continue;
+        }
+      }
+
     } else {
-      allocations.push_back(SAllocation());
+
+      SAllocation newAlloc = {.offset = slotOccupiedSize[nextSlot],
+                              .size = size,
+                              .alive = true,
+                              .generation = newAlloc.generation + 1};
+
+      allocations.push_back(newAlloc);
+
       return allocations.size() - 1;
     }
   }
+
+  std::vector<SAllocation> allocations;
+  std::vector<uint32_t> freeAllocationIDs;
+
   GLenum Target = GL_SHADER_STORAGE_BUFFER;
   int DynamicBufferID = 0;
   size_t slotFullSize[3]{0, 0, 0};
@@ -232,7 +301,19 @@ public:
 
     return {};
   }
+  void RemoveRange(SBufferRange range) {
 
+    for (auto &buffer : StaticbufferIDs) {
+      if (buffer->GetStaticBufferID() == range.handle.bufferID) {
+        buffer->RemoveItem(range);
+      }
+    }
+    for (auto &buffer : DynamicBufferIDs) {
+      if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
+        buffer->RemoveItem(range);
+      }
+    }
+  }
   void UpdateData(const SBufferRange &range, const void *data,
                   const size_t size);
 

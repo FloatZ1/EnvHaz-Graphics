@@ -118,38 +118,30 @@ std::vector<DrawRange> RenderQueue::SubmitRenderCommands() {
   size_t requiredSize =
       allCommands.size() * sizeof(DrawElementsIndirectCommand);
 
-  /* if (numCommands == previousNumCommands && bufferLocation.size >=
-   requiredSize)
-   {
-       Renderer::p_bufferManager->UpdateData(bufferLocation, allCommands.data(),
-   requiredSize);
-   }
-   else
-   {
-       Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
-       bufferLocation =
-   Renderer::p_bufferManager->InsertNewDynamicData(allCommands.data(),
-   requiredSize, TypeFlags::BUFFER_DRAW_CALL_DATA); previousNumCommands =
-   numCommands;
-   }*/
-  if (numCommands == previousNumCommands &&
-      bufferManager->GetAllocation(bufferLocation).size > 0) {
-    Renderer::p_bufferManager->UpdateData(
-        bufferLocation, allCommands.data(),
-        allCommands.size() * sizeof(DrawElementsIndirectCommand));
-  } else {
-    bufferLocation = Renderer::p_bufferManager->InsertNewDynamicData(
-        allCommands.data(),
-        allCommands.size() * sizeof(DrawElementsIndirectCommand),
-        TypeFlags::BUFFER_DRAW_CALL_DATA);
-    previousNumCommands = numCommands;
-  }
+  //  if (numCommands == previousNumCommands &&
+  //      bufferManager->GetAllocation(bufferLocation).size > 0) {
+  //    Renderer::p_bufferManager->UpdateData(
+  //        bufferLocation, allCommands.data(),
+  //        allCommands.size() * sizeof(DrawElementsIndirectCommand));
+  //  } else {
+  bufferLocation = Renderer::p_bufferManager->InsertNewDynamicData(
+      allCommands.data(),
+      allCommands.size() * sizeof(DrawElementsIndirectCommand),
+      TypeFlags::BUFFER_DRAW_CALL_DATA);
+  //  previousNumCommands = numCommands;
+  //  }
 
   return drawRange;
 }
 
-void RenderQueue::ClearDynamicCommands() { DynamicCommands.clear(); }
-void RenderQueue::ClearStaticCommnads() { StaticCommands.clear(); }
+void RenderQueue::ClearDynamicCommands() {
+  DynamicCommands.clear();
+  numCommands = 0;
+}
+void RenderQueue::ClearStaticCommnads() {
+  StaticCommands.clear();
+  numCommands = 0;
+}
 void RenderQueue::Destroy() {}
 
 bool RenderQueue::UpdateDynamicCommand(
@@ -163,6 +155,7 @@ bool RenderQueue::UpdateDynamicCommand(
       return true;
     }
   }
+
   return false;
 }
 } // namespace eHazGraphics

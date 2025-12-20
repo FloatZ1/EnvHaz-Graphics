@@ -182,10 +182,11 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
   }
 
 #endif
-
-  glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-  glBufferSubData(GL_ARRAY_BUFFER, VertexSizeOccupied, vertexDataSize,
-                  vertexData);
+  glNamedBufferSubData(VertexBufferID, VertexSizeOccupied, vertexDataSize,
+                       vertexData);
+  /* glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+   glBufferSubData(GL_ARRAY_BUFFER, VertexSizeOccupied, vertexDataSize,
+                   vertexData);*/
 
   VertexSizeOccupied += vertexDataSize;
   numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
@@ -210,31 +211,35 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
                           // since we use the command struct for that
   }
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, IndexSizeOccupied,
-                  processedIndecies.size() * sizeof(GLuint),
-                  processedIndecies.data());
+  glNamedBufferSubData(IndexBufferID, IndexSizeOccupied, indexDataSize,
+                       processedIndecies.data());
+
+  /* glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+   glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, IndexSizeOccupied,
+                   processedIndecies.size() * sizeof(GLuint),
+                   processedIndecies.data());*/
 
   IndexSizeOccupied += processedIndecies.size() * sizeof(GLuint);
-  numOfOccupiedIndecies = IndexSizeOccupied / sizeof(typeof(IndexSizeOccupied));
+  numOfOccupiedIndecies =
+      IndexSizeOccupied / sizeof(typeof(numOfOccupiedIndecies));
   size_t IndexOffset = (IndexSizeOccupied - indexDataSize); // sizeof(GLuint);
 
   SBufferRange vertexRange;
   SBufferRange indexRange;
 
-  uint32_t VallocID = AllocateID();
+  uint32_t VallocID = AllocateID(vertexDataSize);
   allocations[VallocID] = {.offset = vertexOffset,
                            .size = vertexDataSize,
                            .alive = true,
                            .generation = allocations[VallocID].generation + 1};
-  uint32_t IallocID = AllocateID();
+  uint32_t IallocID = AllocateID(indexDataSize);
   allocations[IallocID] = {.offset = IndexOffset,
                            .size = indexDataSize,
                            .alive = true,
                            .generation = allocations[IallocID].generation + 1};
 
   SBufferHandle vHandle = {
-      .bufferID = (uint16_t)StaticBufferID,
+      .bufferID = StaticBufferID,
       .allocationID = VallocID,
       .generation = allocations[VallocID].generation,
       .slot = VertexBufferID,
@@ -247,8 +252,10 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
 
   vertexRange.handle = vHandle;
   vertexRange.count = vertexDataSize / sizeof(Vertex);
+  vertexRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
 
   indexRange.handle = iHandle;
+  indexRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
   indexRange.count = indexDataSize / sizeof(GLuint);
 
   /*  vertexRange.OwningBuffer = StaticBufferID;
@@ -268,8 +275,8 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
 
 void StaticBuffer::ClearBuffer() {
 
-  glNamedBufferSubData(VertexBufferID, 0, VertexBufferSize, nullptr);
-  glNamedBufferSubData(IndexBufferID, 0, IndexBufferSize, nullptr);
+  // glNamedBufferSubData(VertexBufferID, 0, VertexBufferSize, nullptr);
+  // glNamedBufferSubData(IndexBufferID, 0, IndexBufferSize, nullptr);
 
   VertexSizeOccupied = 0;
   IndexSizeOccupied = 0;
@@ -489,7 +496,7 @@ SBufferRange DynamicBuffer::BeginWritting() {
   }
 
   // Allocate a new SAllocation for this write
-  uint32_t allocID = AllocateID();
+  uint32_t allocID = AllocateID(0);
   SAllocation &alloc = allocations[allocID];
   alloc.offset = 0; // start at beginning of slot
   alloc.size = slotFullSize[nextSlot];
@@ -763,12 +770,12 @@ SBufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
   }
 
   // Allocate a new SAllocation entry
-  uint32_t allocID = AllocateID();
+  uint32_t allocID = AllocateID(size);
   SAllocation &alloc = allocations[allocID];
-  alloc.offset = slotOccupiedSize[i]; // byte offset
-  alloc.size = size;
-  alloc.alive = true;
-  alloc.generation++;
+  //  alloc.offset = slotOccupiedSize[i]; // byte offset
+  //  alloc.size = size;
+  //  alloc.alive = true;
+  //  alloc.generation++;
 
   // Prepare the buffer handle
   SBufferHandle handle{.bufferID = static_cast<uint16_t>(DynamicBufferID),
