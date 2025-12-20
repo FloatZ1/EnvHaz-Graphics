@@ -37,13 +37,13 @@ public:
       model->ClearInstances();
     }
     // call the function from buffer manager to clear the ranges
-    loadedModels.clear();
-    submittedModels.clear();
-    meshes.clear();
-
     meshTransforms.clear();
     meshTransformRanges.clear();
     meshLocations.clear();
+    meshes.clear();
+
+    submittedModels.clear();
+    loadedModels.clear();
   }
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT

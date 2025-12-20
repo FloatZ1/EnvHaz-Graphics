@@ -19,6 +19,7 @@ void MeshManager::EraseMesh(MeshID mesh) {
   // TODO: maybe find a way to clear the bufferManager buffer, but that could
   // create problems since meshes are different sizes, so preloading is best
 
+  meshes[mesh].SetResidencyStatus(false);
   VertexIndexInfoPair &meshLoc = meshLocations[mesh];
 
   bufferManager->RemoveRange(meshLoc.first);

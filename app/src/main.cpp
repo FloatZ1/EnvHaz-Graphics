@@ -153,25 +153,25 @@ int main() {
   // Model cube = rend.p_meshManager->LoadModel(path);
   auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
 
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+  /*  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
 
-  rend.p_AnimatedModelManager->ClearEverything();
+  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
 
   path = RESOURCES_PATH "animated/Capoeira.glb";
 
   model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
 
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+  /*rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
   rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
   rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
   rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
 
-  rend.p_AnimatedModelManager->ClearEverything();
+  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
   path = RESOURCES_PATH "animated/rigged_sonic.glb";
 
   model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
