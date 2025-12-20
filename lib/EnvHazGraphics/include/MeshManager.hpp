@@ -28,6 +28,10 @@ public:
   void ClearEverything() {
     for (auto &[id, mesh] : meshes) {
       mesh.SetResidencyStatus(false);
+      VertexIndexInfoPair &meshLoc = meshLocations[id];
+
+      bufferManager->RemoveRange(meshLoc.first);
+      bufferManager->RemoveRange(meshLoc.second);
     }
     for (auto &[id, model] : loadedModels) {
       model->ClearInstances();
@@ -44,6 +48,16 @@ public:
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
   std::shared_ptr<Model> LoadModel(std::string &path);
+
+  void EraseModel(ModelID modelID) {
+    std::shared_ptr<Model> &model = loadedModels[modelID];
+
+    for (auto &meshID : model->GetMeshIDs()) {
+      EraseMesh(meshID);
+    }
+
+    loadedModels.erase(modelID);
+  }
 
   void EraseMesh(MeshID mesh);
 

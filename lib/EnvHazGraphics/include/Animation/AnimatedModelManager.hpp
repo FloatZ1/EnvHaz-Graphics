@@ -67,6 +67,10 @@ public:
 
     for (auto &[id, mesh] : meshes) {
       mesh.SetResidencyStatus(false);
+      VertexIndexInfoPair &meshLoc = meshLocations[id];
+
+      bufferManager->RemoveRange(meshLoc.first);
+      bufferManager->RemoveRange(meshLoc.second);
     }
     for (auto &[id, model] : loadedModels) {
       model->ClearInstances();
@@ -78,6 +82,32 @@ public:
     animations.clear();
     meshLocations.clear();
     submittedAnimatedModels.clear();
+  }
+
+  void EraseMesh(MeshID mesh) {
+    meshes[mesh].SetResidencyStatus(false);
+
+    VertexIndexInfoPair &meshLoc = meshLocations[mesh];
+
+    bufferManager->RemoveRange(meshLoc.first);
+    bufferManager->RemoveRange(meshLoc.second);
+
+    meshes.erase(mesh);
+
+    meshLocations.erase(mesh);
+  }
+
+  void RemoveModel(ModelID modelID) {
+
+    std::shared_ptr<AnimatedModel> &model = loadedModels[modelID];
+
+    for (auto &meshID : model->GetMeshIDs()) {
+      EraseMesh(meshID);
+    }
+
+    AnimatorID animatorID = model->GetAnimatorID();
+    skeletons.erase(modelID);
+    loadedModels.erase(modelID);
   }
 
   void Initialize(BufferManager *bufferManager);
