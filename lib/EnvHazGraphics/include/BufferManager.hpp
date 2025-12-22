@@ -5,11 +5,15 @@
 #include <DataStructs.hpp>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
+#include <algorithm>
+#include <alloca.h>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <glad/glad.h>
 
 #include <optional>
+#include <ratio>
 #include <vector>
 
 #include "DataStructs.hpp"
@@ -31,7 +35,13 @@ public:
                                        const GLuint *indexData,
                                        size_t indexDataSize);
 
-  const SAllocation &GetAllocationData(uint32_t ID) { return allocations[ID]; }
+  const SAllocation &GetAllocationData(SBufferRange &range) {
+    if (range.handle.slot == VertexBufferID)
+
+      return vertexAllocations[range.handle.allocationID];
+    else if (range.handle.slot == IndexBufferID)
+      return indexAllocations[range.handle.allocationID];
+  }
 
   void ClearBuffer();
 
@@ -41,7 +51,17 @@ public:
 
   void RemoveItem(SBufferRange range) {
 
-    freeAllocationIDs.push_back(range.handle.allocationID);
+    if (range.handle.slot == VertexBufferID) {
+      VertexSizeOccupied -= vertexAllocations[range.handle.allocationID].size;
+      numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
+      FreeAllocation(range.handle.allocationID, StaticAllocType::Vertex);
+    }
+    if (range.handle.slot == IndexBufferID) {
+      IndexSizeOccupied -= indexAllocations[range.handle.allocationID].size;
+      numOfOccupiedIndecies = IndexSizeOccupied / sizeof(GLuint);
+      FreeAllocation(range.handle.allocationID, StaticAllocType::Index);
+    }
+    // allocations[range.handle.allocationID].alive = false;
   }
 
   // Can be called manually or wait for the object to be destroyed
@@ -54,42 +74,133 @@ public:
   }
 
 private:
-  uint32_t AllocateID(size_t size) {
-    if (freeAllocationIDs.size() > 0) {
-
-      for (int i = 0; i < freeAllocationIDs.size(); i++) {
-
-        uint32_t l_checkID = freeAllocationIDs[i];
-        if (allocations[l_checkID].size > size) {
-
-          allocations.push_back(SAllocation());
-          uint32_t l_remainingID = allocations.size();
-
-          SAllocation &l_remainingAllocation = allocations[l_remainingID];
-
-          l_remainingAllocation.alive = false;
-          l_remainingAllocation.generation += 1;
-          l_remainingAllocation.offset = allocations[l_checkID].offset + size;
-          l_remainingAllocation.size =
-              allocations[l_checkID].size - allocations[l_remainingID].size;
-
-          return l_checkID;
-        } else if (allocations[l_checkID].size == size) {
-          return l_checkID;
-        } else {
-          continue;
-        }
-      }
-
-    } else {
-
-      allocations.push_back(SAllocation());
-      return allocations.size() - 1;
-    }
+  enum class StaticAllocType { Vertex, Index };
+  inline std::vector<SAllocation> &GetAllocations(StaticAllocType type) {
+    return (type == StaticAllocType::Vertex) ? vertexAllocations
+                                             : indexAllocations;
   }
 
-  std::vector<SAllocation> allocations;
-  std::vector<uint32_t> freeAllocationIDs;
+  inline std::vector<uint32_t> &GetFreeList(StaticAllocType type) {
+    return (type == StaticAllocType::Vertex) ? freeVertexAllocationIDs
+                                             : freeIndexAllocationIDs;
+  }
+
+  void FreeAllocation(uint32_t id, StaticAllocType type) {
+    auto &allocations = GetAllocations(type);
+    auto &freeList = GetFreeList(type);
+
+    SAllocation &a = allocations[id];
+    assert(a.alive);
+
+    a.alive = false;
+    freeList.push_back(id);
+  }
+
+  void CoalesceFreeBlocks(StaticAllocType type) {
+    auto &allocations = GetAllocations(type);
+    auto &freeList = GetFreeList(type);
+
+    if (freeList.size() < 2)
+      return;
+
+    std::sort(freeList.begin(), freeList.end(), [&](uint32_t a, uint32_t b) {
+      return allocations[a].offset < allocations[b].offset;
+    });
+
+    std::vector<uint32_t> newFreeList;
+
+    uint32_t currentID = freeList[0];
+    SAllocation merged = allocations[currentID];
+
+    for (size_t i = 1; i < freeList.size(); ++i) {
+      uint32_t id = freeList[i];
+      auto &next = allocations[id];
+
+      if (merged.offset + merged.size == next.offset) {
+        merged.size += next.size;
+      } else {
+        allocations[currentID] = merged;
+        newFreeList.push_back(currentID);
+
+        currentID = id;
+        merged = next;
+      }
+    }
+
+    allocations[currentID] = merged;
+    newFreeList.push_back(currentID);
+
+    freeList = std::move(newFreeList);
+  }
+
+  size_t ComputeEndOffset(StaticAllocType type) const {
+    const auto &allocations = (type == StaticAllocType::Vertex)
+                                  ? vertexAllocations
+                                  : indexAllocations;
+
+    size_t end = 0;
+    for (const auto &a : allocations) {
+      if (a.alive)
+        end = std::max(end, a.offset + a.size);
+    }
+    return end;
+  }
+
+  uint32_t AllocateID(size_t size, StaticAllocType type) {
+    auto &allocations = GetAllocations(type);
+    auto &freeList = GetFreeList(type);
+
+    CoalesceFreeBlocks(type);
+
+    for (size_t i = 0; i < freeList.size(); ++i) {
+      uint32_t id = freeList[i];
+      SAllocation &freeAlloc = allocations[id];
+
+      if (freeAlloc.size < size)
+        continue;
+
+      // Exact fit
+      if (freeAlloc.size == size) {
+        freeAlloc.alive = true;
+        freeAlloc.generation++;
+        freeList.erase(freeList.begin() + i);
+        return id;
+      }
+
+      // Split block
+      SAllocation remainder;
+      remainder.alive = false;
+      remainder.generation = 0;
+      remainder.offset = freeAlloc.offset + size;
+      remainder.size = freeAlloc.size - size;
+
+      allocations.push_back(remainder);
+      freeList.push_back((uint32_t)allocations.size() - 1);
+
+      freeAlloc.size = size;
+      freeAlloc.alive = true;
+      freeAlloc.generation++;
+
+      freeList.erase(freeList.begin() + i);
+      return id;
+    }
+
+    // No free block fits → append
+    SAllocation alloc;
+    alloc.alive = true;
+    alloc.generation = 1;
+    alloc.offset = ComputeEndOffset(type);
+    alloc.size = size;
+
+    allocations.push_back(alloc);
+    return (uint32_t)allocations.size() - 1;
+  }
+
+  std::vector<SAllocation> vertexAllocations;
+  std::vector<uint32_t> freeVertexAllocationIDs;
+
+  std::vector<SAllocation> indexAllocations;
+  std::vector<uint32_t> freeIndexAllocationIDs;
 
   GLuint VertexBufferID;
   GLuint VertexArrayID;
@@ -99,6 +210,9 @@ private:
   size_t IndexBufferSize = 0;
 
   uint32_t StaticBufferID = 0;
+
+  std::vector<SBufferRange> allocatedVertexRanges;
+  std::vector<SBufferRange> allocatedIndexRanges;
 
   size_t VertexSizeOccupied = 0;
   size_t IndexSizeOccupied = 0;
@@ -145,7 +259,7 @@ public:
     slotOccupiedSize[2] = 0;
   }
   const SAllocation &GetAllocationData(uint32_t ID) { return allocations[ID]; }
-  SBufferRange BeginWritting();
+  void BeginWritting();
 
   SBufferRange InsertNewData(const void *data, size_t size, TypeFlags type);
 
@@ -160,6 +274,17 @@ public:
 
   void Destroy();
   void RemoveItem(SBufferRange range) {
+
+    if (slotFullSize[0] == slotFullSize[1] == slotFullSize[2]) {
+
+      for (int i = 0; i < 3; i++) {
+        slotOccupiedSize[i] -= allocations[range.handle.allocationID].size;
+      }
+
+    } else {
+      slotOccupiedSize[range.handle.slot] -=
+          allocations[range.handle.allocationID].size;
+    }
 
     freeAllocationIDs.push_back(range.handle.allocationID);
   }
