@@ -22,8 +22,7 @@ void MeshManager::EraseMesh(MeshID mesh) {
   meshes[mesh].SetResidencyStatus(false);
   VertexIndexInfoPair &meshLoc = meshLocations[mesh];
 
-  bufferManager->RemoveRange(meshLoc.first);
-  bufferManager->RemoveRange(meshLoc.second);
+  bufferManager->RemoveStaicRange(meshLoc);
 
   bufferManager->RemoveRange(meshTransformRanges[mesh]);
 

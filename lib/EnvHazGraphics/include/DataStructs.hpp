@@ -18,7 +18,7 @@ constexpr uint32_t INVALID_ALLOCATION = UINT32_MAX;
 #define MBsize(size) ((size) * 1024 * 1024)
 struct SBufferHandle {
   uint32_t bufferID = -1;
-  GLuint slot = -1;
+  SlotType slot = SlotType::SLOT_NONE;
   uint32_t allocationID = INVALID_ALLOCATION;
   uint32_t generation = 0;
 };
@@ -273,11 +273,11 @@ struct PBRMaterial {
 };
 
 struct DrawElementsIndirectCommand {
-  unsigned int count;
-  unsigned int instanceCount;
-  unsigned int firstIndex;
-  unsigned int baseVertex;
-  unsigned int baseInstance;
+  uint32_t count;
+  uint32_t instanceCount;
+  uint32_t firstIndex;
+  uint32_t baseVertex;
+  uint32_t baseInstance;
 
   bool operator==(const DrawElementsIndirectCommand &other) const {
     return count == other.count && instanceCount == other.instanceCount &&

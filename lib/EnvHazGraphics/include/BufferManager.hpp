@@ -3,6 +3,8 @@
 
 #include "BitFlags.hpp"
 #include <DataStructs.hpp>
+#include <StaticBuffer.hpp>
+
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
 #include <algorithm>
@@ -14,213 +16,12 @@
 
 #include <optional>
 #include <ratio>
+#include <regex>
 #include <vector>
 
 #include "DataStructs.hpp"
 
 namespace eHazGraphics {
-
-class StaticBuffer {
-public:
-  StaticBuffer();
-  StaticBuffer(size_t initialVertexBufferSize, size_t initialIndexBufferSize,
-               int StaticBufferID);
-
-  void ResizeBuffer();
-
-  // inserts data into the vertex and index buffer and returns the buffer ranges
-  // for them in the order of <VertexRange, IndexRange>
-  VertexIndexInfoPair InsertIntoBuffer(const Vertex *vertexData,
-                                       size_t vertexDataSize,
-                                       const GLuint *indexData,
-                                       size_t indexDataSize);
-
-  const SAllocation &GetAllocationData(SBufferRange &range) {
-    if (range.handle.slot == VertexBufferID)
-
-      return vertexAllocations[range.handle.allocationID];
-    else if (range.handle.slot == IndexBufferID)
-      return indexAllocations[range.handle.allocationID];
-  }
-
-  void ClearBuffer();
-
-  void BindBuffer();
-
-  int GetStaticBufferID() const { return StaticBufferID; }
-
-  void RemoveItem(SBufferRange range) {
-
-    if (range.handle.slot == VertexBufferID) {
-      VertexSizeOccupied -= vertexAllocations[range.handle.allocationID].size;
-      numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
-      FreeAllocation(range.handle.allocationID, StaticAllocType::Vertex);
-    }
-    if (range.handle.slot == IndexBufferID) {
-      IndexSizeOccupied -= indexAllocations[range.handle.allocationID].size;
-      numOfOccupiedIndecies = IndexSizeOccupied / sizeof(GLuint);
-      FreeAllocation(range.handle.allocationID, StaticAllocType::Index);
-    }
-    // allocations[range.handle.allocationID].alive = false;
-  }
-
-  // Can be called manually or wait for the object to be destroyed
-  void Destroy();
-
-  ~StaticBuffer() {
-    // for some reasong the destructor is called right after the object is
-    // initialized, so for now its commented out
-    //  Destroy();
-  }
-
-private:
-  enum class StaticAllocType { Vertex, Index };
-  inline std::vector<SAllocation> &GetAllocations(StaticAllocType type) {
-    return (type == StaticAllocType::Vertex) ? vertexAllocations
-                                             : indexAllocations;
-  }
-
-  inline std::vector<uint32_t> &GetFreeList(StaticAllocType type) {
-    return (type == StaticAllocType::Vertex) ? freeVertexAllocationIDs
-                                             : freeIndexAllocationIDs;
-  }
-
-  void FreeAllocation(uint32_t id, StaticAllocType type) {
-    auto &allocations = GetAllocations(type);
-    auto &freeList = GetFreeList(type);
-
-    SAllocation &a = allocations[id];
-    assert(a.alive);
-
-    a.alive = false;
-    freeList.push_back(id);
-  }
-
-  void CoalesceFreeBlocks(StaticAllocType type) {
-    auto &allocations = GetAllocations(type);
-    auto &freeList = GetFreeList(type);
-
-    if (freeList.size() < 2)
-      return;
-
-    std::sort(freeList.begin(), freeList.end(), [&](uint32_t a, uint32_t b) {
-      return allocations[a].offset < allocations[b].offset;
-    });
-
-    std::vector<uint32_t> newFreeList;
-
-    uint32_t currentID = freeList[0];
-    SAllocation merged = allocations[currentID];
-
-    for (size_t i = 1; i < freeList.size(); ++i) {
-      uint32_t id = freeList[i];
-      auto &next = allocations[id];
-
-      if (merged.offset + merged.size == next.offset) {
-        merged.size += next.size;
-      } else {
-        allocations[currentID] = merged;
-        newFreeList.push_back(currentID);
-
-        currentID = id;
-        merged = next;
-      }
-    }
-
-    allocations[currentID] = merged;
-    newFreeList.push_back(currentID);
-
-    freeList = std::move(newFreeList);
-  }
-
-  size_t ComputeEndOffset(StaticAllocType type) const {
-    const auto &allocations = (type == StaticAllocType::Vertex)
-                                  ? vertexAllocations
-                                  : indexAllocations;
-
-    size_t end = 0;
-    for (const auto &a : allocations) {
-      if (a.alive)
-        end = std::max(end, a.offset + a.size);
-    }
-    return end;
-  }
-
-  uint32_t AllocateID(size_t size, StaticAllocType type) {
-    auto &allocations = GetAllocations(type);
-    auto &freeList = GetFreeList(type);
-
-    CoalesceFreeBlocks(type);
-
-    for (size_t i = 0; i < freeList.size(); ++i) {
-      uint32_t id = freeList[i];
-      SAllocation &freeAlloc = allocations[id];
-
-      if (freeAlloc.size < size)
-        continue;
-
-      // Exact fit
-      if (freeAlloc.size == size) {
-        freeAlloc.alive = true;
-        freeAlloc.generation++;
-        freeList.erase(freeList.begin() + i);
-        return id;
-      }
-
-      // Split block
-      SAllocation remainder;
-      remainder.alive = false;
-      remainder.generation = 0;
-      remainder.offset = freeAlloc.offset + size;
-      remainder.size = freeAlloc.size - size;
-
-      allocations.push_back(remainder);
-      freeList.push_back((uint32_t)allocations.size() - 1);
-
-      freeAlloc.size = size;
-      freeAlloc.alive = true;
-      freeAlloc.generation++;
-
-      freeList.erase(freeList.begin() + i);
-      return id;
-    }
-
-    // No free block fits → append
-    SAllocation alloc;
-    alloc.alive = true;
-    alloc.generation = 1;
-    alloc.offset = ComputeEndOffset(type);
-    alloc.size = size;
-
-    allocations.push_back(alloc);
-    return (uint32_t)allocations.size() - 1;
-  }
-
-  std::vector<SAllocation> vertexAllocations;
-  std::vector<uint32_t> freeVertexAllocationIDs;
-
-  std::vector<SAllocation> indexAllocations;
-  std::vector<uint32_t> freeIndexAllocationIDs;
-
-  GLuint VertexBufferID;
-  GLuint VertexArrayID;
-  GLuint IndexBufferID;
-
-  size_t VertexBufferSize = 0;
-  size_t IndexBufferSize = 0;
-
-  uint32_t StaticBufferID = 0;
-
-  std::vector<SBufferRange> allocatedVertexRanges;
-  std::vector<SBufferRange> allocatedIndexRanges;
-
-  size_t VertexSizeOccupied = 0;
-  size_t IndexSizeOccupied = 0;
-  int numOfOccupiedVerts = 0;
-  int numOfOccupiedIndecies = 0;
-  // Sets the vertex attributes to the currently bound VAO
-  void setVertexAttribPointers();
-};
 
 class DynamicBuffer {
 
@@ -258,6 +59,7 @@ public:
     slotOccupiedSize[1] = 0;
     slotOccupiedSize[2] = 0;
   }
+
   const SAllocation &GetAllocationData(uint32_t ID) { return allocations[ID]; }
   void BeginWritting();
 
@@ -282,7 +84,8 @@ public:
       }
 
     } else {
-      slotOccupiedSize[range.handle.slot] -=
+
+      slotOccupiedSize[GetDynamicSlotID(range.handle.slot)] -=
           allocations[range.handle.allocationID].size;
     }
 
@@ -293,6 +96,41 @@ public:
   }
 
 private:
+  SlotType GetDynamicSlotType(int ID) {
+    switch (ID) {
+    case 0:
+      return SlotType::DYNAMIC_SLOT_1;
+      break;
+    case 1:
+      return SlotType::DYNAMIC_SLOT_2;
+      break;
+    case 2:
+      return SlotType::DYNAMIC_SLOT_3;
+      break;
+    default:
+      return SlotType::SLOT_NONE;
+      break;
+    }
+  }
+
+  int GetDynamicSlotID(SlotType p_type) {
+    switch (p_type) {
+
+    case SlotType::DYNAMIC_SLOT_1:
+      return 0;
+      break;
+
+    case SlotType::DYNAMIC_SLOT_2:
+      return 1;
+      break;
+    case SlotType::DYNAMIC_SLOT_3:
+      return 2;
+      break;
+    case SlotType::SLOT_NONE:
+      return -1;
+    }
+  }
+
   uint32_t AllocateID(size_t size) {
     if (freeAllocationIDs.size() > 0) {
 
@@ -408,31 +246,16 @@ public:
     }
   }
 
-  const SAllocation &GetAllocation(const SBufferRange &range) {
-
+  void RemoveStaicRange(VertexIndexInfoPair range) {
     for (auto &buffer : StaticbufferIDs) {
-
-      if (buffer->GetStaticBufferID() == range.handle.bufferID) {
-        return buffer->GetAllocationData(range.handle.allocationID);
-      }
-    }
-
-    for (auto &buffer : DynamicBufferIDs) {
-
-      if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
-        return buffer->GetAllocationData(range.handle.allocationID);
-      }
-    }
-
-    return {};
-  }
-  void RemoveRange(SBufferRange range) {
-
-    for (auto &buffer : StaticbufferIDs) {
-      if (buffer->GetStaticBufferID() == range.handle.bufferID) {
+      if (buffer->GetStaticBufferID() == range.first.handle.bufferID) {
         buffer->RemoveItem(range);
       }
     }
+  }
+
+  void RemoveRange(SBufferRange range) {
+
     for (auto &buffer : DynamicBufferIDs) {
       if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
         buffer->RemoveItem(range);
@@ -441,6 +264,25 @@ public:
   }
   void UpdateData(const SBufferRange &range, const void *data,
                   const size_t size);
+
+  const SAllocation &GetAllocation(const SBufferRange &range) {
+
+    for (auto &buffer : StaticbufferIDs) {
+
+      if (buffer->GetStaticBufferID() == range.handle.bufferID) {
+
+        return buffer->GetAllocation(range);
+      }
+    }
+
+    for (auto &buffer : DynamicBufferIDs) {
+
+      if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
+
+        return buffer->GetAllocationData(range.handle.allocationID);
+      }
+    }
+  }
 
   void EndWritting();
 
@@ -458,8 +300,8 @@ private:
   DynamicBuffer LightsBuffer;
   DynamicBuffer StaticMatrices;
 
-  StaticBuffer StaticMeshInformation;
-  StaticBuffer TerrainBuffer;
+  CStaticBuffer StaticMeshInformation;
+  CStaticBuffer TerrainBuffer;
   // StaticBuffer StaticMatrices;
   //  Every time a buffer is added update the following functions:
   //  Initialize(), InsertNew*Data() , ClearBuffer() and BitFlags
@@ -470,7 +312,7 @@ private:
   unsigned int numOfDynamicBuffers = 8;
   unsigned int numofStaticBuffers = 2;
 
-  std::vector<StaticBuffer *> StaticbufferIDs;
+  std::vector<CStaticBuffer *> StaticbufferIDs;
   std::vector<DynamicBuffer *> DynamicBufferIDs;
 
   // std::unordered_map<MeshID, >

@@ -1,7 +1,7 @@
+#include "BufferManager.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "glad/glad.h"
-#include <BufferManager.hpp>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
@@ -19,15 +19,13 @@
 
 namespace eHazGraphics {
 
-StaticBuffer::StaticBuffer() {
-  // initialize members if needed
-}
+BufferManager::BufferManager() {}
 
 DynamicBuffer::DynamicBuffer() {
   // initialize members if needed
 }
 
-StaticBuffer::StaticBuffer(size_t initialVertexBufferSize,
+/*StaticBuffer::StaticBuffer(size_t initialVertexBufferSize,
                            size_t initialIndexBufferSize, int StaticBufferID)
     : VertexBufferSize(initialVertexBufferSize),
       IndexBufferSize(initialIndexBufferSize), StaticBufferID(StaticBufferID) {
@@ -56,8 +54,8 @@ StaticBuffer::StaticBuffer(size_t initialVertexBufferSize,
       AllocateID(initialVertexBufferSize, StaticAllocType::Vertex);
   uint32_t indexID = AllocateID(initialIndexBufferSize, StaticAllocType::Index);
 
-  allocations[vertID].alive = false;
-  allocations[indexID].alive = false;
+  vertexAllocations[vertID].alive = false;
+  indexAllocations[indexID].alive = false;
 
   freeVertexAllocationIDs.push_back(vertID);
   freeIndexAllocationIDs.push_back(indexID);
@@ -101,63 +99,56 @@ void StaticBuffer::setVertexAttribPointers() {
 }
 
 void StaticBuffer::ResizeBuffer() {
-  GLuint newBuffer, newIndexBuffer;
-  glGenBuffers(1, &newBuffer);
-  glGenBuffers(1, &newIndexBuffer);
+  GLuint newVB, newIB;
+  glGenBuffers(1, &newVB);
+  glGenBuffers(1, &newIB);
 
-  // bind the buffer to their corresponding targets
-  // glBindVertexArray(VertexArrayID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, newIndexBuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, newBuffer);
-  // calculate their new size
-  //
-  //
+  size_t oldVBSize = VertexBufferSize;
+  size_t oldIBSize = IndexBufferSize;
 
-  assert(VertexSizeOccupied <= VertexBufferSize);
-  assert(IndexSizeOccupied <= IndexBufferSize);
+  VertexBufferSize = std::max(1024UL, VertexBufferSize * 2);
+  IndexBufferSize = std::max(1024UL, IndexBufferSize * 2);
 
-  size_t newVertSize = std::max(1024UL, 2 * VertexBufferSize);
-  VertexBufferSize = newVertSize;
+  glBindBuffer(GL_ARRAY_BUFFER, newVB);
+  glBufferData(GL_ARRAY_BUFFER, VertexBufferSize, nullptr, GL_STATIC_DRAW);
 
-  size_t newIndexSize = std::max(1024UL, 2 * VertexBufferSize);
-  IndexBufferSize = newIndexSize;
-  // allocate the new buffers with their new size
-  glBufferData(GL_ARRAY_BUFFER, newVertSize, nullptr, GL_STATIC_DRAW);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, newIB);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize, nullptr,
+               GL_STATIC_DRAW);
 
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, newIndexSize, nullptr, GL_STATIC_DRAW);
-  // Now we move over the data to the new buffers
-
-  // first the vertex buffer
+  // Copy only live data
+  size_t vertEnd = ComputeEndOffset(StaticAllocType::Vertex);
+  size_t idxEnd = ComputeEndOffset(StaticAllocType::Index);
 
   glBindBuffer(GL_COPY_READ_BUFFER, VertexBufferID);
-  glBindBuffer(GL_COPY_WRITE_BUFFER, newBuffer);
-
-  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0,
-                      VertexSizeOccupied);
-  // then the IndexBuffer
+  glBindBuffer(GL_COPY_WRITE_BUFFER, newVB);
+  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, vertEnd);
 
   glBindBuffer(GL_COPY_READ_BUFFER, IndexBufferID);
-  glBindBuffer(GL_COPY_WRITE_BUFFER, newIndexBuffer);
-
-  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0,
-                      IndexSizeOccupied);
+  glBindBuffer(GL_COPY_WRITE_BUFFER, newIB);
+  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, idxEnd);
 
   glDeleteBuffers(1, &VertexBufferID);
   glDeleteBuffers(1, &IndexBufferID);
 
-  // the attributes, should switch to vertex attribute format, but later.
+  VertexBufferID = newVB;
+  IndexBufferID = newIB;
 
-  VertexBufferID = newBuffer;
-  IndexBufferID = newIndexBuffer;
   glBindVertexArray(VertexArrayID);
-
   glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
   setVertexAttribPointers();
 
-  // also should remove the binds to GL_COPY_READ_BUFFER and write buffer, and
-  // just bind the read buffer to write out to the proper binding to remove
-  // extra binds.
+  // Add new free tail blocks
+  uint32_t vTail =
+      AllocateID(VertexBufferSize - oldVBSize, StaticAllocType::Vertex);
+  vertexAllocations[vTail].alive = false;
+  freeVertexAllocationIDs.push_back(vTail);
+
+  uint32_t iTail =
+      AllocateID(IndexBufferSize - oldIBSize, StaticAllocType::Index);
+  indexAllocations[iTail].alive = false;
+  freeIndexAllocationIDs.push_back(iTail);
 }
 
 VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
@@ -165,116 +156,62 @@ VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
                                                    const GLuint *indexData,
                                                    size_t indexDataSize) {
 
-  // vertexDataSize *= sizeof(Vertex);
-  // indexDataSize *= sizeof(GLuint);
-
-  // bind->set->bind->set
-  bool fits = false;
-  while (!fits) {
-    if (vertexDataSize + VertexSizeOccupied >= VertexBufferSize ||
-        indexDataSize + IndexSizeOccupied >= IndexBufferSize) {
-      ResizeBuffer();
-    } else {
-      fits = true;
-    }
-  }
-  assert(vertexDataSize + VertexSizeOccupied <= VertexBufferSize &&
-         indexDataSize + IndexSizeOccupied <= IndexBufferSize);
-
-#ifdef EHAZ_DEBUG
-  if (glIsBuffer(VertexBufferID)) {
-    SDL_Log("STATIC VERTEX BUFFER EXISTS");
-  }
-  if (glIsBuffer(IndexBufferID)) {
-    SDL_Log("INDEX BUFFER EXISTS");
+  while (ComputeEndOffset(StaticAllocType::Vertex) + vertexDataSize >
+             VertexBufferSize ||
+         ComputeEndOffset(StaticAllocType::Index) + indexDataSize >
+             IndexBufferSize) {
+    ResizeBuffer();
   }
 
-#endif
+  uint32_t vID = AllocateID(vertexDataSize, StaticAllocType::Vertex);
+  const SAllocation &vAlloc = vertexAllocations[vID];
 
-  VertexSizeOccupied += vertexDataSize;
-  numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
-  SBufferRange vertexRange;
-  SBufferRange indexRange;
-  // size_t vertexOffset = (VertexSizeOccupied - vertexDataSize);
-  uint32_t VallocID = AllocateID(vertexDataSize);
-  //  allocations[VallocID] = {.offset = vertexOffset,
-  //                           .size = vertexDataSize,
-  //                           .alive = true,
-  //                           .generation = allocations[VallocID].generation +
-  //                           1};
-
-  SAllocation &vertexAlloc = allocations[VallocID];
-
-  vertexAlloc.alive = true;
-  // vertexAlloc.generation++;
-  vertexAlloc.size = vertexDataSize;
-
-  glNamedBufferSubData(VertexBufferID, vertexAlloc.offset, vertexDataSize,
+  glNamedBufferSubData(VertexBufferID, vAlloc.offset, vertexDataSize,
                        vertexData);
 
-  std::vector<GLuint> processedIndecies;
+  uint32_t iID = AllocateID(indexDataSize, StaticAllocType::Index);
+  const SAllocation &iAlloc = indexAllocations[iID];
 
-  // sizeof(Vertex);
-  for (int i = 0; i < (indexDataSize / sizeof(GLuint)); i++) {
+  glNamedBufferSubData(IndexBufferID, iAlloc.offset, indexDataSize, indexData);
 
-    processedIndecies.push_back((*(indexData + i)) +
-                                vertexAlloc.offset / sizeof(Vertex));
+  SBufferRange vRange;
+  vRange.handle = {StaticBufferID, vID, vertexAllocations[vID].generation,
+                   VertexBufferID};
+  vRange.count = vertexDataSize / sizeof(Vertex);
+  vRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
 
-    // processedIndecies[i] =
-    //   *(indexData + i); //(*(indexData + i) + vertexOffset); //remove the
-    //  index pre-processing
-    //  since we use the command struct for that
-  }
+  SBufferRange iRange;
+  iRange.handle = {StaticBufferID, iID, indexAllocations[iID].generation,
+                   IndexBufferID};
+  iRange.count = indexDataSize / sizeof(GLuint);
+  iRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
 
-  uint32_t IallocID = AllocateID(indexDataSize);
-
-  SAllocation &indexAllocation = allocations[IallocID];
-
-  indexAllocation.alive = true;
-  // indexAllocation.generation++;
-  indexAllocation.size = indexDataSize;
-
-  glNamedBufferSubData(IndexBufferID, indexAllocation.offset, indexDataSize,
-                       processedIndecies.data());
-
-  IndexSizeOccupied += processedIndecies.size() * sizeof(GLuint);
-  numOfOccupiedIndecies += processedIndecies.size();
-
-  SBufferHandle vHandle = {
-      .bufferID = StaticBufferID,
-      .allocationID = VallocID,
-      .generation = allocations[VallocID].generation,
-      .slot = VertexBufferID,
-
-  };
-  SBufferHandle iHandle = {.bufferID = StaticBufferID,
-                           .allocationID = IallocID,
-                           .generation = allocations[IallocID].generation++,
-                           .slot = IndexBufferID};
-
-  vertexRange.handle = vHandle;
-  vertexRange.count = vertexDataSize / sizeof(Vertex);
-  vertexRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
-
-  indexRange.handle = iHandle;
-  indexRange.dataType = TypeFlags::BUFFER_STATIC_MESH_DATA;
-  indexRange.count = indexDataSize / sizeof(GLuint);
-
-  return std::pair<SBufferRange, SBufferRange>(vertexRange, indexRange);
+  return {vRange, iRange};
 }
 
 void StaticBuffer::ClearBuffer() {
-
-  // glNamedBufferSubData(VertexBufferID, 0, VertexBufferSize, nullptr);
-  // glNamedBufferSubData(IndexBufferID, 0, IndexBufferSize, nullptr);
-
   VertexSizeOccupied = 0;
   IndexSizeOccupied = 0;
   numOfOccupiedVerts = 0;
   numOfOccupiedIndecies = 0;
 
-  allocations.clear();
-  freeAllocationIDs.clear();
+  vertexAllocations.clear();
+  indexAllocations.clear();
+  freeVertexAllocationIDs.clear();
+  freeIndexAllocationIDs.clear();
+
+  vertexCursor = 0;
+  indexCursor = 0;
+
+  // Create one big free block for each buffer
+  vertexAllocations.push_back(
+      {.offset = 0, .size = VertexBufferSize, .alive = false, .generation = 0});
+
+  indexAllocations.push_back(
+      {.offset = 0, .size = IndexBufferSize, .alive = false, .generation = 0});
+
+  freeVertexAllocationIDs.push_back(0);
+  freeIndexAllocationIDs.push_back(0);
 }
 
 void StaticBuffer::BindBuffer() {
@@ -292,7 +229,7 @@ void StaticBuffer::BindBuffer() {
   glBindVertexArray(VertexArrayID);
   // glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
   // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-}
+}*/
 
 //----------------STATIC BUFFER IMPLEMENTATION END------------------------------------\\
 
@@ -746,7 +683,7 @@ SBufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
 
   // Prepare the buffer handle
   SBufferHandle handle{.bufferID = static_cast<uint16_t>(DynamicBufferID),
-                       .slot = BufferSlots[i],
+                       .slot = GetDynamicSlotType(i),
                        .allocationID = allocID,
                        .generation = alloc.generation};
 
@@ -971,8 +908,8 @@ void BufferManager::Initialize() {
   AnimationMatrices = DynamicBuffer(MBsize(d_size), 2);
   TextureHandleBuffer = DynamicBuffer(MBsize(d_size), 3);
   ParticleData = DynamicBuffer(MBsize(d_size), 4);
-  StaticMeshInformation = StaticBuffer(MBsize(s_size), MBsize(s_size), 5);
-  TerrainBuffer = StaticBuffer(MBsize(s_size), MBsize(s_size), 6);
+  StaticMeshInformation = CStaticBuffer(MBsize(s_size), MBsize(s_size), 5);
+  TerrainBuffer = CStaticBuffer(MBsize(s_size), MBsize(s_size), 6);
   // StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
   cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 8);
   LightsBuffer = DynamicBuffer(MBsize(d_size), 9);
@@ -1132,7 +1069,5 @@ void BufferManager::EndWritting() {
   }
 }
 void BufferManager::UpdateManager() {}
-
-BufferManager::BufferManager() {}
 
 } // namespace eHazGraphics

@@ -5,6 +5,16 @@
 #include <type_traits>
 namespace eHazGraphics {
 
+enum class SlotType : uint8_t {
+  SLOT_NONE,
+  DYNAMIC_SLOT_1,
+  DYNAMIC_SLOT_2,
+  DYNAMIC_SLOT_3,
+  VERTEX_SLOT,
+  INDEX_SLOT
+
+};
+
 enum class TypeFlags : uint32_t {
 
   BUFFER_ANIMATION_DATA = 1 << 0,
