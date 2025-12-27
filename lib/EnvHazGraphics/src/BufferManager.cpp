@@ -1,11 +1,13 @@
 #include "BufferManager.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
+#include "StaticStack.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <algorithm>
+#include <bits/types/mbstate_t.h>
 #include <cassert>
 
 #include <cstddef>
@@ -908,8 +910,11 @@ void BufferManager::Initialize() {
   AnimationMatrices = DynamicBuffer(MBsize(d_size), 2);
   TextureHandleBuffer = DynamicBuffer(MBsize(d_size), 3);
   ParticleData = DynamicBuffer(MBsize(d_size), 4);
-  StaticMeshInformation = CStaticBuffer(MBsize(s_size), MBsize(s_size), 5);
-  TerrainBuffer = CStaticBuffer(MBsize(s_size), MBsize(s_size), 6);
+  StaticMeshInformation = CGLStaticStack(MBsize(s_size), MBsize(s_size), 5);
+  TerrainBuffer = CGLStaticStack(MBsize(s_size), MBsize(s_size), 6);
+
+  // TODO: ADD the other static allocator
+
   // StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
   cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 8);
   LightsBuffer = DynamicBuffer(MBsize(d_size), 9);
@@ -947,29 +952,33 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(
     size_t indexDataSize, TypeFlags type = TypeFlags::BUFFER_STATIC_MESH_DATA) {
   // for now only use the StaticMeshInformation, later implement seperation
 
-  if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) {
-    return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize,
-                                                  indexData, indexDataSize);
+  if (m_bUseStack) {
+
+    if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) {
+      return StaticMeshInformation.push_back(vertexData, vertexDataSize,
+                                             indexData, indexDataSize);
+    }
+
+    if (type ==
+        TypeFlags::
+            BUFFER_STATIC_TERRAIN_DATA) { // NOTE: this is like this
+                                          // because i dont know how to
+                                          // design the RenderFrame() to
+                                          // account for the different draw
+                                          // indirect commands which are
+                                          // mixed of course i could
+                                          // seperate them, but this should
+                                          // work for now. return
+                                          // TerrainBuffer.InsertIntoBuffer(vertexData,
+                                          // vertexDataSize, indexData,
+                                          // indexDataSize);
+
+      return StaticMeshInformation.push_back(vertexData, vertexDataSize,
+                                             indexData, indexDataSize);
+    }
+  } else {
+    // TODO: IMPLEMENT
   }
-
-  if (type ==
-      TypeFlags::
-          BUFFER_STATIC_TERRAIN_DATA) { // NOTE: this is like this
-                                        // because i dont know how to
-                                        // design the RenderFrame() to
-                                        // account for the different draw
-                                        // indirect commands which are
-                                        // mixed of course i could
-                                        // seperate them, but this should
-                                        // work for now. return
-                                        // TerrainBuffer.InsertIntoBuffer(vertexData,
-                                        // vertexDataSize, indexData,
-                                        // indexDataSize);
-
-    return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize,
-                                                  indexData, indexDataSize);
-  }
-
   return VertexIndexInfoPair();
 }
 SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
@@ -1022,12 +1031,21 @@ void BufferManager::UpdateData(const SBufferRange &range, const void *data,
 void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
 
   if (whichBuffer == TypeFlags::BUFFER_STATIC_MESH_DATA) {
-    StaticMeshInformation.ClearBuffer();
+
+    if (m_bUseStack)
+      StaticMeshInformation.Clear();
+    else {
+      // TODO: IMPLEMENT
+    }
   }
   if (whichBuffer == TypeFlags::BUFFER_STATIC_TERRAIN_DATA) {
     // TerrainBuffer.ClearBuffer();
-    StaticMeshInformation
-        .ClearBuffer(); // check the note in the insert function.
+
+    if (m_bUseStack)
+      StaticMeshInformation.Clear();
+    else {
+      // TODO: IMPLEMENT X2
+    };
   }
   if (whichBuffer == TypeFlags::BUFFER_INSTANCE_DATA) {
     InstanceData.ClearBuffer();

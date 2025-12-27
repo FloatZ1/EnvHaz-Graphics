@@ -297,9 +297,9 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
 
     auto &animator =
         p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
-
+    // TODO: ADD CHECKS FOR NULLOPT and for the static asw
     size_t animatorMatrixOffset =
-        p_bufferManager->GetAllocation(animator->GetGPULocation()).offset;
+        p_bufferManager->GetAllocation(animator->GetGPULocation())->offset;
 
     uint32_t matID = animatorMatrixOffset / sizeof(glm::mat4);
 
@@ -313,7 +313,8 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
     SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    size_t instanceOffset = p_bufferManager->GetAllocation(instanceData).offset;
+    size_t instanceOffset =
+        p_bufferManager->GetAllocation(instanceData)->offset;
 
     size_t instanceID = instanceOffset / sizeof(InstanceData);
 
@@ -372,7 +373,7 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
       p_meshManager->AddTransformRange(mesh, matLocation);
     }
 
-    size_t matOffset = p_bufferManager->GetAllocation(matLocation).offset;
+    size_t matOffset = p_bufferManager->GetAllocation(matLocation)->offset;
 
     uint32_t matID = matOffset / sizeof(glm::mat4);
 
@@ -381,7 +382,8 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
     SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
 
-    size_t instanceOffset = p_bufferManager->GetAllocation(instanceData).offset;
+    size_t instanceOffset =
+        p_bufferManager->GetAllocation(instanceData)->offset;
 
     size_t instanceID = instanceOffset / sizeof(InstanceData);
 

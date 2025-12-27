@@ -69,7 +69,7 @@ public:
       mesh.SetResidencyStatus(false);
       VertexIndexInfoPair &meshLoc = meshLocations[id];
 
-      bufferManager->RemoveStaicRange(meshLoc);
+      bufferManager->InvalidateStaticRange(meshLoc);
     }
     for (auto &[id, model] : loadedModels) {
       model->ClearInstances();
@@ -88,7 +88,7 @@ public:
 
     VertexIndexInfoPair &meshLoc = meshLocations[mesh];
 
-    bufferManager->RemoveStaicRange(meshLoc);
+    bufferManager->InvalidateStaticRange(meshLoc);
 
     meshes.erase(mesh);
 

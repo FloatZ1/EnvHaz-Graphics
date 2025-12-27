@@ -24,6 +24,8 @@
 #include "Window.hpp"
 namespace eHazGraphics {
 // eHazGAPI
+
+#define EHAZ_DEBUG
 class Renderer {
 
 public:

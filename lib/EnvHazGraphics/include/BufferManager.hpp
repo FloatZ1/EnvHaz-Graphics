@@ -3,7 +3,6 @@
 
 #include "BitFlags.hpp"
 #include <DataStructs.hpp>
-#include <StaticBuffer.hpp>
 
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
@@ -20,6 +19,7 @@
 #include <vector>
 
 #include "DataStructs.hpp"
+#include "StaticStack.hpp"
 
 namespace eHazGraphics {
 
@@ -217,6 +217,10 @@ public:
   void Initialize(); // NOTE: MAKE INITIAL SIZE VARY DEPENDING ON LAST SESSIONS
                      // MOST MEMORY USED IN EACH
 
+  void SetStaticStaticUsage(bool p_value) { m_bUseStack = p_value; };
+
+  bool IsUsingStaticStack() { return m_bUseStack; }
+
   void BeginWritting();
 
   void BindDynamicBuffer(TypeFlags type);
@@ -233,27 +237,24 @@ public:
 
   void BindStaticBuffer(TypeFlags buffer) {
 
-    switch (buffer) {
-    case TypeFlags::BUFFER_STATIC_MESH_DATA:
-      StaticMeshInformation.BindBuffer();
-      break;
-    case TypeFlags::BUFFER_STATIC_TERRAIN_DATA:
-      TerrainBuffer.BindBuffer();
-      break;
-    default:
-      SDL_Log("Failed to bind static buffer, unknown TypeFlag given to "
-              "BindStaticBuffer()\n");
-    }
-  }
-
-  void RemoveStaicRange(VertexIndexInfoPair range) {
-    for (auto &buffer : StaticbufferIDs) {
-      if (buffer->GetStaticBufferID() == range.first.handle.bufferID) {
-        buffer->RemoveItem(range);
+    if (m_bUseStack) {
+      switch (buffer) {
+      case TypeFlags::BUFFER_STATIC_MESH_DATA:
+        StaticMeshInformation.BindBuffer();
+        break;
+      case TypeFlags::BUFFER_STATIC_TERRAIN_DATA:
+        TerrainBuffer.BindBuffer();
+        break;
+      default:
+        SDL_Log("Failed to bind static buffer, unknown TypeFlag given to "
+                "BindStaticBuffer()\n");
       }
+    } else {
+      // TODO: IMPLEMENT
     }
   }
 
+  // Removes a range from the dynamic buffer , i recomend you dont use this
   void RemoveRange(SBufferRange range) {
 
     for (auto &buffer : DynamicBufferIDs) {
@@ -262,19 +263,34 @@ public:
       }
     }
   }
+
+  void InvalidateStaticRange(const VertexIndexInfoPair &p_pair) {
+
+    for (auto &buffer : StaticbufferIDs) {
+      if (buffer->GetStaticStackID() == p_pair.first.handle.bufferID) {
+        buffer->InvalidateRange(p_pair);
+      }
+    }
+  }
+
   void UpdateData(const SBufferRange &range, const void *data,
                   const size_t size);
 
-  const SAllocation &GetAllocation(const SBufferRange &range) {
+  std::optional<SAllocation> GetAllocation(const SBufferRange &range) {
 
-    for (auto &buffer : StaticbufferIDs) {
+    if (m_bUseStack) {
 
-      if (buffer->GetStaticBufferID() == range.handle.bufferID) {
+      for (auto &buffer : StaticbufferIDs) {
 
-        return buffer->GetAllocation(range);
+        if (buffer->GetStaticStackID() == range.handle.bufferID) {
+
+          return buffer->GetAllocation(range);
+        }
       }
-    }
+    } else {
 
+      // TODO: IMPLEMENT
+    }
     for (auto &buffer : DynamicBufferIDs) {
 
       if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
@@ -291,6 +307,8 @@ public:
   void Destroy();
 
 private:
+  bool m_bUseStack = true;
+
   DynamicBuffer InstanceData;
   DynamicBuffer AnimationMatrices;
   DynamicBuffer TextureHandleBuffer;
@@ -300,8 +318,8 @@ private:
   DynamicBuffer LightsBuffer;
   DynamicBuffer StaticMatrices;
 
-  CStaticBuffer StaticMeshInformation;
-  CStaticBuffer TerrainBuffer;
+  CGLStaticStack StaticMeshInformation;
+  CGLStaticStack TerrainBuffer;
   // StaticBuffer StaticMatrices;
   //  Every time a buffer is added update the following functions:
   //  Initialize(), InsertNew*Data() , ClearBuffer() and BitFlags
@@ -312,7 +330,7 @@ private:
   unsigned int numOfDynamicBuffers = 8;
   unsigned int numofStaticBuffers = 2;
 
-  std::vector<CStaticBuffer *> StaticbufferIDs;
+  std::vector<CGLStaticStack *> StaticbufferIDs;
   std::vector<DynamicBuffer *> DynamicBufferIDs;
 
   // std::unordered_map<MeshID, >

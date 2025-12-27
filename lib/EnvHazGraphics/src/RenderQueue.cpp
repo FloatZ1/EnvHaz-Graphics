@@ -22,15 +22,15 @@ int RenderQueue::CreateRenderCommand(const VertexIndexInfoPair &ranges,
   const SBufferRange &vertexRange = ranges.first;
   const SBufferRange &indexRange = ranges.second;
 
-  const SAllocation &vAlloc = bufferManager->GetAllocation(vertexRange);
+  auto vAlloc = bufferManager->GetAllocation(vertexRange);
 
-  const SAllocation &iAlloc = bufferManager->GetAllocation(indexRange);
+  auto iAlloc = bufferManager->GetAllocation(indexRange);
 
   DrawElementsIndirectCommand command{};
   command.count = indexRange.count;
   command.instanceCount = instanceCount;
-  command.firstIndex = iAlloc.offset / sizeof(GLuint);
-  command.baseVertex = vAlloc.offset / sizeof(Vertex);
+  command.firstIndex = iAlloc->offset / sizeof(GLuint);
+  command.baseVertex = vAlloc->offset / sizeof(Vertex);
   command.baseInstance = instanceDataID;
 
   std::pair<DrawElementsIndirectCommand, ShaderComboID> cmd = {command,
