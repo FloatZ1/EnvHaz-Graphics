@@ -8,9 +8,9 @@
 #include <lib_export.hpp>
 #include <map>
 #include <memory>
+#include <platform.hpp>
 #include <string>
 #include <vector>
-#include <platform.hpp>
 // temp
 
 #include "Animation/AnimatedModelManager.hpp"
@@ -26,7 +26,7 @@
 namespace eHazGraphics {
 // eHazGAPI
 
-#define EHAZ_DEBUG
+// #define EHAZ_DEBUG
 class Renderer {
 
 public:
