@@ -1,15 +1,18 @@
 #include "BufferManager.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
+#include "StaticStack.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <algorithm>
+//#include <bits/types/mbstate_t.h>
 #include <cassert>
 
 #include <cstddef>
 
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 
@@ -18,252 +21,14 @@
 
 namespace eHazGraphics {
 
-StaticBuffer::StaticBuffer() {
-  // initialize members if needed
-}
+BufferManager::BufferManager() {}
 
-DynamicBuffer::DynamicBuffer() {
-  // initialize members if needed
-}
 
-StaticBuffer::StaticBuffer(size_t initialVertexBufferSize,
-                           size_t initialIndexBufferSize, int StaticBufferID)
-    : VertexBufferSize(initialVertexBufferSize),
-      IndexBufferSize(initialIndexBufferSize), StaticBufferID(StaticBufferID) {
 
-  // Generate the needed Buffers
-  glGenBuffers(1, &VertexBufferID);
-  glGenBuffers(1, &IndexBufferID);
-  glGenVertexArrays(1, &VertexArrayID);
-
-  // Bind them
-
-  glBindVertexArray(VertexArrayID);
-  glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-
-  // allocate the initial data for the vertex and index buffers
-  glBufferData(GL_ARRAY_BUFFER, initialVertexBufferSize, nullptr,
-               GL_STATIC_DRAW);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, initialIndexBufferSize, nullptr,
-               GL_STATIC_DRAW);
-
-  // set the offsets
-  setVertexAttribPointers();
-
-  // enable the attributes'
-}
-
-void StaticBuffer::Destroy() {
-  SDL_Log("\n\n\nSTATIC BUFFER DESTROYED \n\n\n");
-  glDeleteBuffers(1, &VertexBufferID);
-  glDeleteBuffers(1, &IndexBufferID);
-}
-
-void StaticBuffer::setVertexAttribPointers() {
-
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                        (void *)offsetof(Vertex, Position));
-
-  glEnableVertexAttribArray(0);
-
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                        (void *)offsetof(Vertex, UV));
-
-  glEnableVertexAttribArray(1);
-
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                        (void *)offsetof(Vertex, Normal));
-
-  glEnableVertexAttribArray(2);
-
-  // Skeleton stuff
-
-  glVertexAttribIPointer(3, 4, GL_INT, sizeof(Vertex),
-                         (void *)offsetof(Vertex, boneIDs));
-  // glVertexAttribIPointer(3, 4, GL_INT, GL_FALSE, sizeof(Vertex), (void
-  // *)offsetof(Vertex, boneIDs));
-  glEnableVertexAttribArray(3);
-
-  glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-                        (void *)offsetof(Vertex, boneWeights));
-
-  glEnableVertexAttribArray(4);
-}
-
-void StaticBuffer::ResizeBuffer() {
-  GLuint newBuffer, newIndexBuffer;
-  glGenBuffers(1, &newBuffer);
-  glGenBuffers(1, &newIndexBuffer);
-
-  // bind the buffer to their corresponding targets
-  // glBindVertexArray(VertexArrayID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, newIndexBuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, newBuffer);
-  // calculate their new size
-  //
-  //
-
-  assert(VertexSizeOccupied <= VertexBufferSize);
-  assert(IndexSizeOccupied <= IndexBufferSize);
-
-  size_t newVertSize = std::max(1024UL, 2 * VertexBufferSize);
-  VertexBufferSize = newVertSize;
-
-  size_t newIndexSize = std::max(1024UL, 2 * VertexBufferSize);
-  IndexBufferSize = newIndexSize;
-  // allocate the new buffers with their new size
-  glBufferData(GL_ARRAY_BUFFER, newVertSize, nullptr, GL_STATIC_DRAW);
-
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, newIndexSize, nullptr, GL_STATIC_DRAW);
-  // Now we move over the data to the new buffers
-
-  // first the vertex buffer
-
-  glBindBuffer(GL_COPY_READ_BUFFER, VertexBufferID);
-  glBindBuffer(GL_COPY_WRITE_BUFFER, newBuffer);
-
-  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0,
-                      VertexSizeOccupied);
-  // then the IndexBuffer
-
-  glBindBuffer(GL_COPY_READ_BUFFER, IndexBufferID);
-  glBindBuffer(GL_COPY_WRITE_BUFFER, newIndexBuffer);
-
-  glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0,
-                      IndexSizeOccupied);
-
-  glDeleteBuffers(1, &VertexBufferID);
-  glDeleteBuffers(1, &IndexBufferID);
-
-  // the attributes, should switch to vertex attribute format, but later.
-
-  VertexBufferID = newBuffer;
-  IndexBufferID = newIndexBuffer;
-  glBindVertexArray(VertexArrayID);
-
-  glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-  setVertexAttribPointers();
-
-  // also should remove the binds to GL_COPY_READ_BUFFER and write buffer, and
-  // just bind the read buffer to write out to the proper binding to remove
-  // extra binds.
-}
-
-VertexIndexInfoPair StaticBuffer::InsertIntoBuffer(const Vertex *vertexData,
-                                                   size_t vertexDataSize,
-                                                   const GLuint *indexData,
-                                                   size_t indexDataSize) {
-
-  // vertexDataSize *= sizeof(Vertex);
-  // indexDataSize *= sizeof(GLuint);
-
-  // bind->set->bind->set
-  bool fits = false;
-  while (!fits) {
-    if (vertexDataSize + VertexSizeOccupied >= VertexBufferSize ||
-        indexDataSize + IndexSizeOccupied >= IndexBufferSize) {
-      ResizeBuffer();
-    } else {
-      fits = true;
-    }
-  }
-  assert(vertexDataSize + VertexSizeOccupied <= VertexBufferSize &&
-         indexDataSize + IndexSizeOccupied <= IndexBufferSize);
-
-#ifdef EHAZ_DEBUG
-  if (glIsBuffer(VertexBufferID)) {
-    SDL_Log("STATIC VERTEX BUFFER EXISTS");
-  }
-  if (glIsBuffer(IndexBufferID)) {
-    SDL_Log("INDEX BUFFER EXISTS");
-  }
-
-#endif
-
-  glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-  glBufferSubData(GL_ARRAY_BUFFER, VertexSizeOccupied, vertexDataSize,
-                  vertexData);
-
-  VertexSizeOccupied += vertexDataSize;
-  numOfOccupiedVerts = VertexSizeOccupied / sizeof(Vertex);
-
-  // std::cout << vertexDataSize << " <-vertexDataSize \n";
-
-  // process the indecies since they need to be appended by the count of
-  // vertices in store
-
-  // at some point remove the std::vector here and just send in raw data,
-  // problem is that i want to keep the pointers const in order to have them
-  // pre-loaded and inserted when needed.
-  std::vector<GLuint> processedIndecies(indexDataSize / sizeof(GLuint));
-
-  size_t vertexOffset = (VertexSizeOccupied - vertexDataSize) / sizeof(Vertex);
-  for (int i = 0; i < (indexDataSize / sizeof(GLuint)); i++) {
-
-    processedIndecies[i] =
-        *(indexData + i); //(*(indexData + i) + vertexOffset); //remove the
-                          // index pre-processing
-                          // since we use the command struct for that
-  }
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, IndexSizeOccupied,
-                  processedIndecies.size() * sizeof(GLuint),
-                  processedIndecies.data());
-
-  IndexSizeOccupied += processedIndecies.size() * sizeof(GLuint);
-  numOfOccupiedIndecies = IndexSizeOccupied / sizeof(typeof(IndexSizeOccupied));
-  GLint IndexOffset = (IndexSizeOccupied - indexDataSize) / sizeof(GLuint);
-
-  BufferRange vertexRange;
-  BufferRange indexRange;
-
-  vertexRange.OwningBuffer = StaticBufferID;
-  vertexRange.offset = vertexOffset;
-  vertexRange.size = vertexDataSize;
-  vertexRange.slot = VertexBufferID;
-  vertexRange.count = vertexDataSize / sizeof(GLuint);
-
-  indexRange.OwningBuffer = StaticBufferID;
-  indexRange.offset = IndexOffset;
-  indexRange.size = indexDataSize;
-  indexRange.count = indexDataSize / sizeof(GLuint);
-  indexRange.slot = IndexBufferID;
-
-  return std::pair<BufferRange, BufferRange>(vertexRange, indexRange);
-}
-
-void StaticBuffer::ClearBuffer() {
-  VertexSizeOccupied = 0;
-  IndexSizeOccupied = 0;
-  numOfOccupiedVerts = 0;
-  numOfOccupiedIndecies = 0;
-}
-
-void StaticBuffer::BindBuffer() {
-#ifdef EHAZ_DEBUG
-  if (glIsBuffer(VertexBufferID)) {
-    // SDL_Log("STATIC VERTEX BUFFER EXISTS");
-  }
-  if (glIsBuffer(IndexBufferID)) {
-    // SDL_Log("INDEX BUFFER EXISTS");
-  }
-  if (glIsBuffer(VertexArrayID)) {
-    // SDL_Log("VERTEX ARRAY BUFFER EXISTS");
-  }
-#endif
-  glBindVertexArray(VertexArrayID);
-  // glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-  // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
-}
-
-//----------------STATIC BUFFER IMPLEMENTATION END------------------------------------\\
 
 
 void BufferManager::BindDynamicBuffer(TypeFlags type) {
-  DynamicBuffer *buffer = nullptr;
+  CDynamicBuffer *buffer = nullptr;
 
   switch (type) {
   case TypeFlags::BUFFER_DRAW_CALL_DATA:
@@ -297,10 +62,10 @@ void BufferManager::BindDynamicBuffer(TypeFlags type) {
   }
 
   // Manager decides which slot to use
-  buffer->SetSlot(buffer->GetCurrentSlot());
+  buffer->SetSlot(buffer->GetWriteSlot());
 }
 
-DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID,
+/*DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID,
                              GLenum target, bool trippleBuffer)
     : DynamicBufferID(DynamicBufferID), Target(target),
       trippleBuffer(trippleBuffer) {
@@ -339,9 +104,9 @@ DynamicBuffer::DynamicBuffer(size_t initialBuffersSize, int DynamicBufferID,
   glGetNamedBufferParameteriv(BufferSlots[2], GL_BUFFER_SIZE, &result2);
   SDL_Log("Buffer %u size = %d", BufferSlots[2], result2);
 #endif
-}
+}*/
 
-void DynamicBuffer::Destroy() {
+/*void DynamicBuffer::Destroy() {
 
   for (int i = 0; i < 3; ++i) {
     if (slots[i]) {
@@ -358,9 +123,9 @@ void DynamicBuffer::Destroy() {
     }
     BufferSlots[i] = 0;
   }
-}
+}*/
 
-void DynamicBuffer::SetSlot(int slot) {
+/*void DynamicBuffer::SetSlot(int slot) {
   if (trippleBuffer)
     currentSlot = slot;
   else
@@ -402,7 +167,7 @@ void DynamicBuffer::SetSlot(int slot) {
             Target, currentSlot, BufferSlots[currentSlot], err);
   }
 #endif
-}
+}*/
 
 /*void DynamicBuffer::SetSlot(int slot)
 {
@@ -410,49 +175,48 @@ void DynamicBuffer::SetSlot(int slot) {
 
     glBindBufferBase(Target, binding, BufferSlots[slot]);
 }*/
-void DynamicBuffer::SetBinding(int bindingNum) { binding = bindingNum; }
+//void DynamicBuffer::SetBinding(int bindingNum) { binding = bindingNum; }
 
 // buffer resize logic:
 
-BufferRange DynamicBuffer::BeginWritting() {
-  // Try to find a free slot without stalling
-
-  if (trippleBuffer) {
-
-    for (int i = 0; i < 3; i++) {
+/*void DynamicBuffer::BeginWritting() {
+  // Select a free slot (triple buffering) or stall until one becomes free
+  
+    //allocations.clear();
+    //freeAllocationIDs.clear();
+    if (trippleBuffer) {
+    bool found = false;
+    for (int i = 0; i < 3; ++i) {
       int candidate = (currentSlot + i + 1) % 3;
       if (waitForSlotFence(candidate)) {
         nextSlot = candidate;
-        // set as next slot
-        // slotOccupiedSize[nextSlot] = 0; // reset only because we start
-        // writing fresh
-        return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
+        found = true;
+        break;
       }
     }
 
-    // If none were free, force wait on the oldest slot (rare case)
-    auto max = std::max_element(slotsAge, slotsAge + 3);
-    int oldest = std::distance(slotsAge, max);
+    if (!found) {
+      // No free slot found, force wait on the oldest slot
+      auto max = std::max_element(slotsAge, slotsAge + 3);
+      int oldest = std::distance(slotsAge, max);
 
-    GLenum waitRes = glClientWaitSync(
-        fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9)); // 1s max
-    if (waitRes == GL_TIMEOUT_EXPIRED)
-      SDL_Log(
-          "Warning: GPU still not finished with buffer slot %d, forced wait",
-          oldest);
+      GLenum waitRes = glClientWaitSync(
+          fences[oldest], GL_SYNC_FLUSH_COMMANDS_BIT, GLuint64(1e9));
+      if (waitRes == GL_TIMEOUT_EXPIRED)
+        SDL_Log(
+            "Warning: GPU still not finished with buffer slot %d, forced wait",
+            oldest);
 
-    glDeleteSync(fences[oldest]);
-    fences[oldest] = 0;
-    slotsAge[oldest] = 0;
+      glDeleteSync(fences[oldest]);
+      fences[oldest] = 0;
+      slotsAge[oldest] = 0;
 
-    nextSlot = oldest;
-    // slotOccupiedSize[nextSlot] = 0;
+      nextSlot = oldest;
+    }
   } else {
-
     nextSlot = 0;
     currentSlot = 0;
   }
-  return {DynamicBufferID, nextSlot, slotFullSize[nextSlot], 0};
 }
 
 void DynamicBuffer::ReCreateBuffer(size_t minimumSize) {
@@ -464,7 +228,13 @@ void DynamicBuffer::ReCreateBuffer(size_t minimumSize) {
       continue;
 
     GLuint newBuffer = 0;
+#ifdef PLATFORM_WINDOWS
+    size_t newSize = max(2 * slotFullSize[i], minimumSize);
+#elif defined(PLATFORM_LINUX)
     size_t newSize = std::max(2 * slotFullSize[i], minimumSize);
+#endif // PLATFORM_WINDOWS
+
+    
     if (newSize == 0)
       newSize = 1024; // sanity fallback
 
@@ -540,10 +310,10 @@ void DynamicBuffer::MapAllBufferSlots() {
       shouldResize[i] = true;
     }
   }
-}
+}*/
 
-BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
-                                         TypeFlags type) {
+/*SBufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
+                                          TypeFlags type) {
   // for (unsigned int i = 0; i < 3; i++)
   //{
   unsigned int i = nextSlot;
@@ -615,7 +385,9 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
       }
 
       // prepare return range
-      BufferRange RT;
+
+      SBufferRange RT;
+
       RT.OwningBuffer = DynamicBufferID;
       RT.slot = i;
       RT.offset = slotOccupiedSize[i];
@@ -646,6 +418,84 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
   SDL_Log("InsertNewData: no fitting slot found, forcing resize");
   ReCreateBuffer(size);
   return InsertNewData(data, size, type);
+} */
+
+/*SBufferRange DynamicBuffer::InsertNewData(const void* data, size_t size,
+                                          TypeFlags type) {
+  unsigned int i = nextSlot;
+
+  // Ensure there is enough room in the current slot
+  if (slotFullSize[i] < size + slotOccupiedSize[i]) {
+    SDL_Log("InsertNewData: slot %u too small, marking resize", i);
+    shouldResize[i] = true;
+    ReCreateBuffer(size);
+    return InsertNewData(data, size, type); // retry after resize
+  }
+
+  if (!slots[i]) {
+    SDL_Log("InsertNewData: slots[%u] of buffer %u is not mapped, attempting "
+            "recovery",
+            i, DynamicBufferID);
+    ReCreateBuffer(size);
+    if (!slots[i]) {
+      SDL_Log("InsertNewData: failed to recover buffer slot %u", i);
+      return SBufferRange{};
+    }
+  }
+
+  // Compute byte-based insertion point
+  std::byte *base = static_cast<std::byte *>(slots[i]) + slotOccupiedSize[i];
+  uint32_t count = 1;
+
+  // Copy data according to type
+  switch (type) {
+  case TypeFlags::BUFFER_INSTANCE_DATA:
+    count = size / sizeof(InstanceData);
+    std::memcpy(reinterpret_cast<InstanceData *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_CAMERA_DATA:
+  case TypeFlags::BUFFER_ANIMATION_DATA:
+  case TypeFlags::BUFFER_STATIC_MATRIX_DATA:
+    count = size / sizeof(glm::mat4);
+    std::memcpy(reinterpret_cast<glm::mat4 *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_DRAW_CALL_DATA:
+    count = size / sizeof(DrawElementsIndirectCommand);
+    std::memcpy(reinterpret_cast<DrawElementsIndirectCommand *>(base), data,
+                size);
+    break;
+  case TypeFlags::BUFFER_TEXTURE_DATA:
+    count = size / sizeof(GLuint64);
+    std::memcpy(reinterpret_cast<GLuint64 *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_LIGHT_DATA:
+  case TypeFlags::BUFFER_PARTICLE_DATA:
+  default:
+    std::memcpy(base, data, size);
+    break;
+  }
+
+  // Allocate a new SAllocation entry
+  uint32_t allocID = AllocateID(size);
+  SAllocation &alloc = allocations[allocID];
+  //  alloc.offset = slotOccupiedSize[i]; // byte offset
+  //  alloc.size = size;
+  //  alloc.alive = true;
+  //  alloc.generation++;
+
+  // Prepare the buffer handle
+  SBufferHandle handle{.bufferID = static_cast<uint16_t>(DynamicBufferID),
+                       .slot = GetDynamicSlotType(i),
+                       .allocationID = allocID,
+                       .generation = alloc.generation};
+
+  // Advance the occupied size
+  slotOccupiedSize[i] += size;
+
+  // Prepare and return the SBufferRange
+  SBufferRange range{.handle = handle, .dataType = type, .count = count};
+
+  return range;
 }
 
 // ---------------------- PATCH END -----------------------
@@ -653,7 +503,72 @@ BufferRange DynamicBuffer::InsertNewData(const void *data, size_t size,
 // =====================================END IF PATCH==============================================\\
 
 
-void DynamicBuffer::UpdateOldData(BufferRange range, const void *data,
+void DynamicBuffer::UpdateOldData(SBufferRange range, const void *data,
+                                  size_t size) {
+  const SBufferHandle &handle = range.handle;
+
+  // Validate allocation ID
+  if (handle.allocationID >= allocations.size()) {
+    SDL_Log("UpdateOldData: invalid allocationID %u for buffer %u",
+            handle.allocationID, handle.bufferID);
+    assert(false);
+    return;
+  }
+
+  SAllocation &alloc = allocations[handle.allocationID];
+
+  // Check generation
+  if (alloc.generation != handle.generation || !alloc.alive) {
+    SDL_Log("UpdateOldData: allocation is stale or deleted (allocID=%u, "
+            "generation=%u)",
+            handle.allocationID, handle.generation);
+    assert(false);
+    return;
+  }
+
+  // Validate slot mapping
+  int slotIndex = nextSlot;
+  /*for (int s = 0; s < 3; ++s) {
+    if (BufferSlots[s] == handle.slot) {
+      slotIndex = s;
+      break;
+    }
+  }*/
+  /*if (slotIndex == -1 || !slots[slotIndex]) {
+    SDL_Log("UpdateOldData: slot %u not mapped or invalid", handle.slot);
+    assert(false);
+    return;
+  }
+
+  // Compute byte offset
+  std::byte *base = static_cast<std::byte *>(slots[slotIndex]) + alloc.offset;
+
+  // Copy data according to type
+  switch (range.dataType) {
+  case TypeFlags::BUFFER_INSTANCE_DATA:
+    std::memcpy(reinterpret_cast<InstanceData *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_CAMERA_DATA:
+  case TypeFlags::BUFFER_ANIMATION_DATA:
+  case TypeFlags::BUFFER_STATIC_MATRIX_DATA:
+    std::memcpy(reinterpret_cast<glm::mat4 *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_DRAW_CALL_DATA:
+    std::memcpy(reinterpret_cast<DrawElementsIndirectCommand *>(base), data,
+                size);
+    break;
+  case TypeFlags::BUFFER_TEXTURE_DATA:
+    std::memcpy(reinterpret_cast<GLuint64 *>(base), data, size);
+    break;
+  case TypeFlags::BUFFER_LIGHT_DATA:
+  case TypeFlags::BUFFER_PARTICLE_DATA:
+  default:
+    std::memcpy(base, data, size);
+    break;
+  }
+}*/
+
+/*void DynamicBuffer::UpdateOldData(SBufferRange range, const void *data,
                                   size_t size) {
 
   TypeFlags type = range.dataType;
@@ -704,7 +619,7 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data,
     std::memcpy(base, data, size); // fallback
     break;
   }
-}
+}*/
 
 /*void DynamicBuffer::EndWritting()
 {
@@ -724,7 +639,7 @@ void DynamicBuffer::UpdateOldData(BufferRange range, const void *data,
     }
 }*/
 
-void DynamicBuffer::EndWritting() {
+/*void DynamicBuffer::EndWritting() {
   // Bind the slot that will be used for rendering
   glBindBuffer(Target, BufferSlots[nextSlot]);
 
@@ -737,11 +652,11 @@ void DynamicBuffer::EndWritting() {
   currentSlot = nextSlot;
 
   // Note: slot age already set by SetDownFence
-}
+}*/
 
 // privates:
 
-bool DynamicBuffer::waitForSlotFence(int slot) {
+/*bool DynamicBuffer::waitForSlotFence(int slot) {
   if (fences[slot] == 0)
     return true;
 
@@ -755,7 +670,7 @@ bool DynamicBuffer::waitForSlotFence(int slot) {
   }
 
   return false; // slot still busy
-}
+}*/
 
 /*void DynamicBuffer::SetDownFence()
 {
@@ -770,7 +685,7 @@ bool DynamicBuffer::waitForSlotFence(int slot) {
 }*/
 
 // in class declaration: void SetDownFence(int slot);
-void DynamicBuffer::SetDownFence(int slot) {
+/*void DynamicBuffer::SetDownFence(int slot) {
   if (slot < 0 || slot >= 3)
     return;
 
@@ -781,7 +696,7 @@ void DynamicBuffer::SetDownFence(int slot) {
 
   // update age for the slot we just fenced
   slotsAge[slot] = ++slotTimeline;
-}
+}*/
 
 //-----------------------DYNAMIC BUFFER IMPLEMENTATION END-------------------------------------\\
 
@@ -790,18 +705,21 @@ void BufferManager::Initialize() {
   int d_size = 10;
   int s_size = 16;
 
-  InstanceData = DynamicBuffer(MBsize(d_size), 0);
-  DrawCommandBuffer = DynamicBuffer(MBsize(d_size), 1, GL_DRAW_INDIRECT_BUFFER);
-  AnimationMatrices = DynamicBuffer(MBsize(d_size), 2);
-  TextureHandleBuffer = DynamicBuffer(MBsize(d_size), 3);
-  ParticleData = DynamicBuffer(MBsize(d_size), 4);
-  StaticMeshInformation = StaticBuffer(MBsize(s_size), MBsize(s_size), 5);
-  TerrainBuffer = StaticBuffer(MBsize(s_size), MBsize(s_size), 6);
+  InstanceData = CDynamicBuffer(MBsize(d_size), 0);
+  DrawCommandBuffer = CDynamicBuffer(MBsize(d_size), 1, GL_DRAW_INDIRECT_BUFFER);
+  AnimationMatrices = CDynamicBuffer(MBsize(d_size), 2);
+  TextureHandleBuffer = CDynamicBuffer(MBsize(d_size), 3);
+  ParticleData = CDynamicBuffer(MBsize(d_size), 4);
+  StaticMeshInformation = CGLStaticStack(MBsize(s_size), MBsize(s_size), 5);
+  TerrainBuffer = CGLStaticStack(MBsize(s_size), MBsize(s_size), 6);
+
+  // TODO: ADD the other static allocator
+
   // StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
-  cameraMatrices = DynamicBuffer(2 * sizeof(glm::mat4), 8);
-  LightsBuffer = DynamicBuffer(MBsize(d_size), 9);
+  cameraMatrices = CDynamicBuffer(2 * sizeof(glm::mat4), 8);
+  LightsBuffer = CDynamicBuffer(MBsize(d_size), 9);
   StaticMatrices =
-      DynamicBuffer(MBsize(d_size), 10, GL_SHADER_STORAGE_BUFFER, false);
+      CDynamicBuffer(MBsize(d_size), 10, GL_SHADER_STORAGE_BUFFER, false);
 
   StaticbufferIDs.push_back(&StaticMeshInformation);
   StaticbufferIDs.push_back(&TerrainBuffer);
@@ -834,33 +752,37 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(
     size_t indexDataSize, TypeFlags type = TypeFlags::BUFFER_STATIC_MESH_DATA) {
   // for now only use the StaticMeshInformation, later implement seperation
 
-  if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) {
-    return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize,
-                                                  indexData, indexDataSize);
+  if (m_bUseStack) {
+
+    if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) {
+      return StaticMeshInformation.push_back(vertexData, vertexDataSize,
+                                             indexData, indexDataSize);
+    }
+
+    if (type ==
+        TypeFlags::
+            BUFFER_STATIC_TERRAIN_DATA) { // NOTE: this is like this
+                                          // because i dont know how to
+                                          // design the RenderFrame() to
+                                          // account for the different draw
+                                          // indirect commands which are
+                                          // mixed of course i could
+                                          // seperate them, but this should
+                                          // work for now. return
+                                          // TerrainBuffer.InsertIntoBuffer(vertexData,
+                                          // vertexDataSize, indexData,
+                                          // indexDataSize);
+
+      return StaticMeshInformation.push_back(vertexData, vertexDataSize,
+                                             indexData, indexDataSize);
+    }
+  } else {
+    // TODO: IMPLEMENT
   }
-
-  if (type ==
-      TypeFlags::
-          BUFFER_STATIC_TERRAIN_DATA) { // NOTE: this is like this
-                                        // because i dont know how to
-                                        // design the RenderFrame() to
-                                        // account for the different draw
-                                        // indirect commands which are
-                                        // mixed of course i could
-                                        // seperate them, but this should
-                                        // work for now. return
-                                        // TerrainBuffer.InsertIntoBuffer(vertexData,
-                                        // vertexDataSize, indexData,
-                                        // indexDataSize);
-
-    return StaticMeshInformation.InsertIntoBuffer(vertexData, vertexDataSize,
-                                                  indexData, indexDataSize);
-  }
-
   return VertexIndexInfoPair();
 }
-BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
-                                                TypeFlags type) {
+SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
+                                                 TypeFlags type) {
 
   if (type == TypeFlags::BUFFER_INSTANCE_DATA) {
     return InstanceData.InsertNewData(data, size, type);
@@ -888,46 +810,42 @@ BufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
   }
 
   SDL_Log("DYNAMIC BUFFER INSERTION ERROR: COULD NOT FIND THE DESIRED TYPE!\n");
-  return BufferRange();
+  return SBufferRange();
 }
-void BufferManager::UpdateData(const BufferRange &range, const void *data,
+void BufferManager::UpdateData(SBufferRange &range, const void *data,
                                const size_t size) {
 
-  // this is a stupid ass hack what was i on when i wrote this...
-  // 21:45 10/11/2025 CLEARY ON SOME CRACK ASS COCAINE , WHO THE FUCK WRITES AN
-  // CONDITION LIKE THAT JESUS CHRIST NO WONDER IT WAS RENDERING ONLY EVERYTHIRD
-  // FRAME GOD.
+  const uint16_t bufferID = range.handle.bufferID;
 
-  for (auto &buffer : DynamicBufferIDs) {
-    if (buffer->GetDynamicBufferID() == range.OwningBuffer) {
-      buffer->UpdateOldData(range, data, size);
+  for (CDynamicBuffer *buffer : DynamicBufferIDs) {
+    if (buffer->GetBufferID() == bufferID) {
+      buffer->UpdateRange(&range, data, size);
       return;
     }
   }
 
-  SDL_Log("ERROR: UpdateData(); - dynamic buffer ID not found: %u",
-          range.OwningBuffer);
-}
-void BufferManager::EndWritting() {
-  for (auto &buffer : DynamicBufferIDs) {
-    buffer->EndWritting();
-  }
-}
-void BufferManager::Destroy() {
-  for (auto &buffer : DynamicBufferIDs) {
-    buffer->Destroy();
-  }
+  SDL_Log("ERROR: BufferManager::UpdateData() - DynamicBuffer ID not found: %u",
+          bufferID);
 }
 
 void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
 
   if (whichBuffer == TypeFlags::BUFFER_STATIC_MESH_DATA) {
-    StaticMeshInformation.ClearBuffer();
+
+    if (m_bUseStack)
+      StaticMeshInformation.Clear();
+    else {
+      // TODO: IMPLEMENT
+    }
   }
   if (whichBuffer == TypeFlags::BUFFER_STATIC_TERRAIN_DATA) {
     // TerrainBuffer.ClearBuffer();
-    StaticMeshInformation
-        .ClearBuffer(); // check the note in the insert function.
+
+    if (m_bUseStack)
+      StaticMeshInformation.Clear();
+    else {
+      // TODO: IMPLEMENT X2
+    };
   }
   if (whichBuffer == TypeFlags::BUFFER_INSTANCE_DATA) {
     InstanceData.ClearBuffer();
@@ -955,8 +873,19 @@ void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
   }
 }
 
+void BufferManager::Destroy() {
+  for (auto &buffer : StaticbufferIDs) {
+    buffer->Destroy();
+  }
+  for (auto &buffer : DynamicBufferIDs) {
+    buffer->Destroy();
+  }
+}
+void BufferManager::EndWritting() {
+  for (auto &buffer : DynamicBufferIDs) {
+    buffer->EndWritting();
+  }
+}
 void BufferManager::UpdateManager() {}
-
-BufferManager::BufferManager() {}
 
 } // namespace eHazGraphics

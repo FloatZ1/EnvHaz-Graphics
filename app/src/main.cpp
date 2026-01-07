@@ -124,7 +124,7 @@ struct camData {
   glm::mat4 projection = glm::mat4(1.0f);
 };
 
-int main() {
+int maine() {
 
   eHazGraphics::Renderer rend;
   rend.Initialize();
@@ -139,7 +139,7 @@ int main() {
 
   auto mat = rend.p_materialManager->SubmitMaterials();
 
-  BufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
+  SBufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
       mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
       TypeFlags::BUFFER_TEXTURE_DATA);
 
@@ -151,15 +151,37 @@ int main() {
   std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
   // std::string path = RESOURCES_PATH "cube.obj";
   // Model cube = rend.p_meshManager->LoadModel(path);
-  // auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+  auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
 
-  ModelID modelID =
-      rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
-  auto model = rend.p_AnimatedModelManager->GetModel(modelID);
+  /*  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
+    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
+
+  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
+
+  path = RESOURCES_PATH "animated/Capoeira.glb";
+
+  model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+
+  /*rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
+  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
+  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
+
+  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
+  path = RESOURCES_PATH "animated/rigged_sonic.glb";
+
+  model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
+  // ModelID modelID =
+  //     rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
+  // auto model = rend.p_AnimatedModelManager->GetModel(modelID);
 
   AnimationID animationID;
-  // rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
-  //                                            animationID);
+  rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
+                                             animationID);
   auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
 
   // int skelAnimID = anim->AddAnimation(
@@ -172,27 +194,7 @@ int main() {
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -10.0f));
   position =
       glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-  position = glm::scale(position, glm::vec3(0.3f));
-  // model->SetPositionMat4(position);
-
-  /* rend.p_AnimatedModelManager->SetModelShader(model, shader);
-   // cube.SetPositionMat4(model);
-
-   // rend.p_meshManager->SetModelShader(cube, shader);
-
-   // BufferRange instanceData = rend.SubmitDynamicData(&data, sizeof(data),
-   // TypeFlags::BUFFER_INSTANCE_DATA);
-
-   // rend.SubmitStaticModel(cube, TypeFlags::BUFFER_STATIC_MESH_DATA);
-    */
-  rend.SubmitAnimatedModel(model, position);
-
-  auto ranges = rend.p_renderQueue->SubmitRenderCommands();
-
-  // glm::mat4 test(1.0f);
-  // test[2][2] = 69.0f;
-
-  // animation stuff here, adding into animator
+  position = glm::scale(position, glm::vec3(0.05f));
 
   const auto &animationClip =
       rend.p_AnimatedModelManager->GetAnimation(animationID);
@@ -218,9 +220,14 @@ int main() {
 
   camData deta{camera.GetViewMatrix(), projection1};
 
-  BufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
-                                             TypeFlags::BUFFER_CAMERA_DATA);
+  rend.UpdateRenderer(deltaTime);
 
+  SBufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
+                                              TypeFlags::BUFFER_CAMERA_DATA);
+  std::vector<DrawRange> ranges;
+
+  rend.SubmitAnimatedModel(model, position);
+  ranges = rend.p_renderQueue->SubmitRenderCommands();
   // rend.p_bufferManager->EndWritting();
 
   int frameNum = 0;

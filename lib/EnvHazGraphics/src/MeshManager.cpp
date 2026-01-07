@@ -19,6 +19,13 @@ void MeshManager::EraseMesh(MeshID mesh) {
   // TODO: maybe find a way to clear the bufferManager buffer, but that could
   // create problems since meshes are different sizes, so preloading is best
 
+  meshes[mesh].SetResidencyStatus(false);
+  VertexIndexInfoPair &meshLoc = meshLocations[mesh];
+
+  bufferManager->InvalidateStaticRange(meshLoc);
+
+  //bufferManager->RemoveRange(meshTransformRanges[mesh]);
+
   meshes.erase(mesh);
   meshTransforms.erase(mesh);
   meshTransformRanges.erase(mesh);
@@ -93,9 +100,9 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
     meshes[t_hsID].setRelativeMatrix(relativeMat);
     meshes[t_hsID].SetID(t_hsID);
 
-    AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
-                                  &relativeMat, sizeof(relativeMat),
-                                  TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+   // AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
+   //                               &relativeMat, sizeof(relativeMat),
+   //                              TypeFlags::BUFFER_STATIC_MATRIX_DATA));
 
     meshIDs.push_back(t_hsID);
   }

@@ -24,18 +24,18 @@ public:
   const unsigned int GetMaterialID() const { return materialID; }
   // void SetPositionMat4(glm::mat4 Position) { position = Position; }
   const std::vector<InstanceData> &GetInstances() const { return instanceData; }
-  const std::vector<BufferRange> &GetInstanceRanges() const {
+  const std::vector<SBufferRange> &GetInstanceRanges() const {
     return instanceRanges;
   }
   void SetInstances(const std::vector<InstanceData> &instances,
-                    const std::vector<BufferRange> &InstanceRanges) {
+                    const std::vector<SBufferRange> &InstanceRanges) {
     instanceCount = instances.size();
     instanceRanges = InstanceRanges;
     instanceData = instances;
   }
 
   void AddInstances(std::vector<InstanceData> &instances,
-                    std::vector<BufferRange> &InstanceRanges) {
+                    std::vector<SBufferRange> &InstanceRanges) {
 
     for (int i = 0; i < instances.size(); i++) {
 
@@ -93,7 +93,7 @@ private:
   unsigned int materialID = 0;
 
   std::vector<InstanceData> instanceData;
-  std::vector<BufferRange> instanceRanges;
+  std::vector<SBufferRange> instanceRanges;
 
   unsigned int instanceCount = 1;
 };

@@ -18,14 +18,14 @@ public:
   MeshID GetID() { return ID; }
 
   void SetInstances(const std::vector<InstanceData> &instances,
-                    const std::vector<BufferRange> &InstanceRanges) {
+                    const std::vector<SBufferRange> &InstanceRanges) {
     instanceCount = instances.size();
     instanceRanges = InstanceRanges;
     instanceData = instances;
   }
 
   void AddInstances(std::vector<InstanceData> &instances,
-                    std::vector<BufferRange> &InstanceRanges) {
+                    std::vector<SBufferRange> &InstanceRanges) {
 
     for (int i = 0; i < instances.size(); i++) {
 
@@ -43,7 +43,7 @@ public:
   }
 
   const std::vector<InstanceData> &GetInstances() const { return instanceData; }
-  const std::vector<BufferRange> &GetInstanceRanges() const {
+  const std::vector<SBufferRange> &GetInstanceRanges() const {
     return instanceRanges;
   }
 
@@ -59,7 +59,7 @@ private:
 
   std::vector<MeshID> meshes;
   std::vector<InstanceData> instanceData;
-  std::vector<BufferRange> instanceRanges;
+  std::vector<SBufferRange> instanceRanges;
 
   unsigned int materialID = 0;
   unsigned int instanceCount = 1;

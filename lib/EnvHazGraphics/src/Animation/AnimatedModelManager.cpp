@@ -190,6 +190,9 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
   processingSkeleton.m_Joints.clear();
   processingSkeleton.finalMatrices.clear();
 
+  processingSkeleton.m_BoneMap.clear();
+  processingSkeleton.m_RootJointIndecies.clear();
+
   std::vector<MeshID> r_meshes;
 
   eHazGraphics_Utils::HashedString hashedPath =
@@ -632,16 +635,19 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
  */
 
 void AnimatedModelManager::UploadBonesToGPU(
-    BufferRange &range, std::vector<glm::mat4> finalMatrices) {
+    SBufferRange &range, const std::vector<glm::mat4> &finalMatrices) {
 
-  if (range.OwningBuffer != 2) {
+  const size_t byteSize = finalMatrices.size() * sizeof(glm::mat4);
+
+  // If we don't have a valid allocation yet → allocate
+  if (range.handle.allocationID == INVALID_ALLOCATION) {
+
     range = bufferManager->InsertNewDynamicData(
-        finalMatrices.data(), finalMatrices.size() * sizeof(glm::mat4),
-        TypeFlags::BUFFER_ANIMATION_DATA);
+        finalMatrices.data(), byteSize, TypeFlags::BUFFER_ANIMATION_DATA);
 
   } else {
-    bufferManager->UpdateData(range, finalMatrices.data(),
-                              finalMatrices.size() * sizeof(glm::mat4));
+    // Otherwise, update existing allocation
+    bufferManager->UpdateData(range, finalMatrices.data(), byteSize);
   }
 }
 
@@ -664,6 +670,7 @@ void AnimatedModelManager::Update(float deltaTime) {
     }
 
     auto &animator = animators[model->GetAnimatorID()];
+
     UploadBonesToGPU(
         animator->GetGPULocation(),
         animator->GetFinalMatrices()); // your existing submission logic

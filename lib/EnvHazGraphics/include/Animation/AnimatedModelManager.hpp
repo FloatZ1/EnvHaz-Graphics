@@ -21,7 +21,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <map>
-
+#include <mutex>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -64,12 +64,48 @@ namespace eHazGraphics {
 class AnimatedModelManager {
 public:
   void ClearEverything() {
+
+    for (auto &[id, mesh] : meshes) {
+      mesh.SetResidencyStatus(false);
+      VertexIndexInfoPair &meshLoc = meshLocations[id];
+
+      bufferManager->InvalidateStaticRange(meshLoc);
+    }
+    for (auto &[id, model] : loadedModels) {
+      model->ClearInstances();
+    }
+    // call the function from buffer manager to clear the ranges
     meshes.clear();
     loadedModels.clear();
     animators.clear();
     animations.clear();
     meshLocations.clear();
     submittedAnimatedModels.clear();
+  }
+
+  void EraseMesh(MeshID mesh) {
+    meshes[mesh].SetResidencyStatus(false);
+
+    VertexIndexInfoPair &meshLoc = meshLocations[mesh];
+
+    bufferManager->InvalidateStaticRange(meshLoc);
+
+    meshes.erase(mesh);
+
+    meshLocations.erase(mesh);
+  }
+
+  void RemoveModel(ModelID modelID) {
+
+    std::shared_ptr<AnimatedModel> &model = loadedModels[modelID];
+
+    for (auto &meshID : model->GetMeshIDs()) {
+      EraseMesh(meshID);
+    }
+
+    AnimatorID animatorID = model->GetAnimatorID();
+    skeletons.erase(modelID);
+    loadedModels.erase(modelID);
   }
 
   void Initialize(BufferManager *bufferManager);
@@ -143,8 +179,8 @@ private:
 
   Mesh processMesh(aiMesh *mesh);
 
-  void UploadBonesToGPU(BufferRange &range,
-                        std::vector<glm::mat4> finalMatrices);
+  void UploadBonesToGPU(SBufferRange &range,
+                        const std::vector<glm::mat4> &finalMatrices);
 
   void BuildBaseSkeleton();
 
@@ -161,7 +197,7 @@ private:
 
   */
   // unsigned int maxID = 0;
-
+  
   std::mutex mapMutex;
 
   BufferManager *bufferManager;

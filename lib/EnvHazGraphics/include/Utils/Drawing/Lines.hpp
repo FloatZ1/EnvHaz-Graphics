@@ -5,13 +5,13 @@
 #include <glad/glad.h>
 #include <vector>
 using namespace glm;
-using namespace std;
+//using namespace std;
 namespace eHazGraphics_Utils {
 
 class Line {
   int shaderProgram;
   unsigned int VBO, VAO;
-  vector<float> vertices;
+  std::vector<float> vertices;
   vec3 startPoint;
   vec3 endPoint;
   mat4 MVP;

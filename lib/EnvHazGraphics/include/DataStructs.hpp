@@ -8,23 +8,33 @@
 #include <boost/serialization/access.hpp>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace eHazGraphics {
+constexpr uint32_t INVALID_ALLOCATION = UINT32_MAX;
 
 #define MBsize(size) ((size) * 1024 * 1024)
+struct SBufferHandle {
+  uint32_t bufferID = static_cast<uint32_t>( - 1);
+  SlotType slot = SlotType::SLOT_NONE;
+  uint32_t allocationID = INVALID_ALLOCATION;
+  uint32_t generation = 0;
+};
 
-struct BufferRange {
-  int OwningBuffer;
-  int slot; // if slot is -1 we assume its in the static buffer;
-  size_t size;
+struct SAllocation {
+  size_t offset = 0;
+  size_t size = 0;
+  uint32_t generation = 0;
+  bool alive = false;
+};
 
-  size_t offset;
-  unsigned int count;
-
+struct SBufferRange {
+  SBufferHandle handle;
   TypeFlags dataType;
+  uint32_t count;
 };
 
 class CopyDataPtr {
@@ -41,6 +51,19 @@ private:
   size_t size;
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 typedef eHazGraphics_Utils::HashedString MeshID;
 
 typedef eHazGraphics_Utils::HashedString ModelID;
@@ -51,7 +74,7 @@ typedef eHazGraphics_Utils::HashedString AnimatorID;
 
 typedef eHazGraphics_Utils::HashedString AnimationID;
 
-using VertexIndexInfoPair = std::pair<BufferRange, BufferRange>;
+using VertexIndexInfoPair = std::pair<SBufferRange, SBufferRange>;
 
 struct ShaderComboID {
   ShaderComboID() = default;
@@ -264,11 +287,11 @@ struct PBRMaterial {
 };
 
 struct DrawElementsIndirectCommand {
-  unsigned int count;
-  unsigned int instanceCount;
-  unsigned int firstIndex;
-  unsigned int baseVertex;
-  unsigned int baseInstance;
+  uint32_t count;
+  uint32_t instanceCount;
+  uint32_t firstIndex;
+  uint32_t baseVertex;
+  uint32_t baseInstance;
 
   bool operator==(const DrawElementsIndirectCommand &other) const {
     return count == other.count && instanceCount == other.instanceCount &&

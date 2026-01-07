@@ -26,18 +26,42 @@ namespace eHazGraphics {
 class MeshManager {
 public:
   void ClearEverything() {
+    for (auto &[id, mesh] : meshes) {
+      mesh.SetResidencyStatus(false);
+      VertexIndexInfoPair &meshLoc = meshLocations[id];
 
-    loadedModels.clear();
-    submittedModels.clear();
-    meshes.clear();
+      bufferManager->InvalidateStaticRange(meshLoc);
+    }
+    for (auto &[id, model] : loadedModels) {
+      model->ClearInstances();
+    }
+    // call the function from buffer manager to clear the ranges
+
+   // for (auto&[ID, l_meshTransform] : meshTransformRanges) {
+   //     bufferManager->RemoveRange(l_meshTransform);
+   // }
 
     meshTransforms.clear();
     meshTransformRanges.clear();
     meshLocations.clear();
+    meshes.clear();
+
+    submittedModels.clear();
+    loadedModels.clear();
   }
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
   std::shared_ptr<Model> LoadModel(std::string &path);
+
+  void EraseModel(ModelID modelID) {
+    std::shared_ptr<Model> &model = loadedModels[modelID];
+
+    for (auto &meshID : model->GetMeshIDs()) {
+      EraseMesh(meshID);
+    }
+    
+    loadedModels.erase(modelID);
+  }
 
   void EraseMesh(MeshID mesh);
 
@@ -71,12 +95,12 @@ public:
     return meshTransformRanges.contains(mesh);
   }
 
-  void AddTransformRange(const MeshID &mesh, const BufferRange &range) {
+  void AddTransformRange(const MeshID &mesh, const SBufferRange &range) {
 
     meshTransformRanges.try_emplace(mesh, range);
   }
 
-  const BufferRange GetTransformBufferRange(const MeshID &mesh) {
+  const SBufferRange GetTransformBufferRange(const MeshID &mesh) {
 
     return meshTransformRanges[mesh];
   }
@@ -84,7 +108,10 @@ public:
   void ClearSubmittedModelInstances() {
     for (auto &model : submittedModels) {
       model->ClearInstances();
+      
     }
+    meshTransformRanges.clear();
+    submittedModels.clear();
   }
 
   void AddSubmittedModel(std::shared_ptr<Model> model) {
@@ -110,7 +137,7 @@ public:
     }
   }
 
-  void Update() { UpdateSubmittedMeshes(); }
+  void Update() { /*UpdateSubmittedMeshes();*/ }
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
 
@@ -149,7 +176,7 @@ private:
   std::unordered_map<MeshID, Mesh> meshes;
   // std::unordered_map<std::string, MeshID> meshPaths;
   std::unordered_map<MeshID, glm::mat4> meshTransforms;
-  std::unordered_map<MeshID, BufferRange> meshTransformRanges;
+  std::unordered_map<MeshID, SBufferRange> meshTransformRanges;
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
 
   std::mutex mapMutex;
