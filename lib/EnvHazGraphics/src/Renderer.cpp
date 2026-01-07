@@ -281,7 +281,7 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
     if (m_mesh.isResident() == false) {
       const auto &vertexPair = m_mesh.GetVertexData();
       const auto &indexPair = m_mesh.GetIndexData();
-
+      WaitForGPU();
       range = p_bufferManager->InsertNewStaticData(
           vertexPair.first, vertexPair.second, indexPair.first,
           indexPair.second,
@@ -346,12 +346,16 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
     if (m_mesh.isResident() == false) {
       const auto &vertexPair = m_mesh.GetVertexData();
       const auto &indexPair = m_mesh.GetIndexData();
-
+      WaitForGPU();
       range = p_bufferManager->InsertNewStaticData(
           vertexPair.first, vertexPair.second, indexPair.first,
           indexPair.second, dataType);
       p_meshManager->AddMeshLocation(mesh, range);
       p_meshManager->SetMeshResidency(mesh, true);
+
+     // p_meshManager->AddTransformRange(mesh, p_bufferManager->InsertNewDynamicData(&m_mesh.GetRelativeMatrix(), sizeof(glm::mat4),
+     //     TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+
     } else {
       range = p_meshManager->GetMeshLocation(mesh);
     }
@@ -474,7 +478,7 @@ void Renderer::Destroy() {
   p_materialManager->Destroy();
 }
 
-void Renderer::UpdateDynamicData(const SBufferRange &location, const void *data,
+void Renderer::UpdateDynamicData(SBufferRange &location, const void *data,
                                  const size_t size) {
 
   p_bufferManager->UpdateData(location, data, size);

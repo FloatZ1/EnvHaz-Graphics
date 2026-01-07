@@ -9,9 +9,9 @@ namespace eHazGraphics {
 struct RenderTexture2D_Spec {
   int width = -1;
   int height = -1;
-  GLenum internalFormat = -1;
-  GLenum format = -1;
-  GLenum type = -1;
+  GLenum internalFormat = static_cast<unsigned int>(-1);
+  GLenum format = static_cast<unsigned int>(-1);
+  GLenum type = static_cast<unsigned int>(- 1);
 };
 class RenderTexture2D {
 private:
@@ -88,9 +88,9 @@ public:
 
   void Destroy() {
 
-    SDL_Log(
-        "\n\n==============FRAME BUFFER TEXTURE %i DESTROYED=============\n\n",
-        texture);
+    //SDL_Log(
+     //   "\n\n==============FRAME BUFFER TEXTURE %i DESTROYED=============\n\n",
+     //   texture);
 
     glDeleteTextures(1, &texture);
   }

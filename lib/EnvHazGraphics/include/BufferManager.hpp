@@ -7,7 +7,13 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
 #include <algorithm>
+
+#if defined(_WIN32)
+#include <Windows.h>
+
+#elif defined(__linux__)
 #include <alloca.h>
+#endif
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -20,10 +26,11 @@
 
 #include "DataStructs.hpp"
 #include "StaticStack.hpp"
+#include "DynamicBuffer.hpp"
 
 namespace eHazGraphics {
 
-class DynamicBuffer {
+/*class _DynamicBuffer {
 
 public:
   DynamicBuffer();
@@ -70,7 +77,7 @@ public:
   int GetDynamicBufferID() const { return DynamicBufferID; }
   int GetNextSlot() const { return nextSlot; }
 
-  uint GetCurrentSlot() { return currentSlot; }
+  unsigned int GetCurrentSlot() { return currentSlot; }
 
   void EndWritting();
 
@@ -160,10 +167,16 @@ private:
 
     } else {
 
-      SAllocation newAlloc = {.offset = slotOccupiedSize[nextSlot],
+        SAllocation newAlloc;/* = {.offset = slotOccupiedSize[nextSlot],
                               .size = size,
                               .alive = true,
                               .generation = newAlloc.generation + 1};
+      */
+   /*   newAlloc.offset = slotOccupiedSize[nextSlot];
+      newAlloc.size = size;
+      newAlloc.alive = true;
+      newAlloc.generation = newAlloc.generation + 1;
+
 
       allocations.push_back(newAlloc);
 
@@ -196,7 +209,7 @@ private:
   void SetDownFence(int slot);
   void MapAllBufferSlots();
   bool waitForSlotFence(int slot);
-};
+};*/
 
 class BufferManager {
 
@@ -255,14 +268,7 @@ public:
   }
 
   // Removes a range from the dynamic buffer , i recomend you dont use this
-  void RemoveRange(SBufferRange range) {
-
-    for (auto &buffer : DynamicBufferIDs) {
-      if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
-        buffer->RemoveItem(range);
-      }
-    }
-  }
+  
 
   void InvalidateStaticRange(const VertexIndexInfoPair &p_pair) {
 
@@ -273,7 +279,7 @@ public:
     }
   }
 
-  void UpdateData(const SBufferRange &range, const void *data,
+  void UpdateData(SBufferRange &range, const void *data,
                   const size_t size);
 
   std::optional<SAllocation> GetAllocation(const SBufferRange &range) {
@@ -293,9 +299,9 @@ public:
     }
     for (auto &buffer : DynamicBufferIDs) {
 
-      if (buffer->GetDynamicBufferID() == range.handle.bufferID) {
+      if (buffer->GetBufferID() == range.handle.bufferID) {
 
-        return buffer->GetAllocationData(range.handle.allocationID);
+        return *buffer->GetAllocation(range.handle.allocationID);
       }
     }
   }
@@ -309,14 +315,14 @@ public:
 private:
   bool m_bUseStack = true;
 
-  DynamicBuffer InstanceData;
-  DynamicBuffer AnimationMatrices;
-  DynamicBuffer TextureHandleBuffer;
-  DynamicBuffer ParticleData;
-  DynamicBuffer DrawCommandBuffer;
-  DynamicBuffer cameraMatrices;
-  DynamicBuffer LightsBuffer;
-  DynamicBuffer StaticMatrices;
+  CDynamicBuffer InstanceData;
+  CDynamicBuffer AnimationMatrices;
+  CDynamicBuffer TextureHandleBuffer;
+  CDynamicBuffer ParticleData;
+  CDynamicBuffer DrawCommandBuffer;
+  CDynamicBuffer cameraMatrices;
+  CDynamicBuffer LightsBuffer;
+  CDynamicBuffer StaticMatrices;
 
   CGLStaticStack StaticMeshInformation;
   CGLStaticStack TerrainBuffer;
@@ -331,7 +337,7 @@ private:
   unsigned int numofStaticBuffers = 2;
 
   std::vector<CGLStaticStack *> StaticbufferIDs;
-  std::vector<DynamicBuffer *> DynamicBufferIDs;
+  std::vector<CDynamicBuffer *> DynamicBufferIDs;
 
   // std::unordered_map<MeshID, >
 };

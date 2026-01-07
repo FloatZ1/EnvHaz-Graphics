@@ -4,7 +4,7 @@
 #include "DataStructs.hpp"
 #include "glad/glad.h"
 #include <optional>
-#include <unistd.h>
+#include <platform.hpp>
 #include <vector>
 namespace eHazGraphics {
 

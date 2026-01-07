@@ -3,13 +3,14 @@
 #include "Utils/Drawing/Lines.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+
 #include <cstddef>
 #include <lib_export.hpp>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+#include <platform.hpp>
 // temp
 
 #include "Animation/AnimatedModelManager.hpp"
@@ -64,7 +65,7 @@ public:
                     TypeFlags dataType); // same, require a container later/
                                          // from a octree node or smth
 
-  void UpdateDynamicData(const SBufferRange &location, const void *data,
+  void UpdateDynamicData(SBufferRange &location, const void *data,
                          const size_t size);
 
   void PollInputEvents();
@@ -74,6 +75,23 @@ public:
   void RenderFrame(std::vector<DrawRange> DrawOrder);
 
   void SwapBuffers() { SDL_GL_SwapWindow(p_window->GetWindowPtr()); }
+
+  void EndFrame() {
+    if (m_frameFence)
+      glDeleteSync(m_frameFence);
+
+    m_frameFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  }
+
+  void WaitForGPU() {
+    if (!m_frameFence)
+      return;
+
+    glClientWaitSync(m_frameFence, GL_SYNC_FLUSH_COMMANDS_BIT, UINT64_MAX);
+
+    glDeleteSync(m_frameFence);
+    m_frameFence = nullptr;
+  }
 
   void DisplayFrameBuffer(const FrameBuffer &fbo) {
 
@@ -123,6 +141,7 @@ public:
   void Destroy();
 
 private:
+  GLsync m_frameFence = nullptr;
   int vp_width, vp_height;
   FrameBuffer mainFBO;
   SDL_Event events;

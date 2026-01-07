@@ -21,7 +21,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <map>
-
+#include <mutex>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -197,7 +197,7 @@ private:
 
   */
   // unsigned int maxID = 0;
-
+  
   std::mutex mapMutex;
 
   BufferManager *bufferManager;

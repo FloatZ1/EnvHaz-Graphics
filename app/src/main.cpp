@@ -124,7 +124,7 @@ struct camData {
   glm::mat4 projection = glm::mat4(1.0f);
 };
 
-int main() {
+int maine() {
 
   eHazGraphics::Renderer rend;
   rend.Initialize();

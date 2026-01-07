@@ -36,6 +36,11 @@ public:
       model->ClearInstances();
     }
     // call the function from buffer manager to clear the ranges
+
+   // for (auto&[ID, l_meshTransform] : meshTransformRanges) {
+   //     bufferManager->RemoveRange(l_meshTransform);
+   // }
+
     meshTransforms.clear();
     meshTransformRanges.clear();
     meshLocations.clear();
@@ -54,7 +59,7 @@ public:
     for (auto &meshID : model->GetMeshIDs()) {
       EraseMesh(meshID);
     }
-
+    
     loadedModels.erase(modelID);
   }
 
@@ -103,7 +108,10 @@ public:
   void ClearSubmittedModelInstances() {
     for (auto &model : submittedModels) {
       model->ClearInstances();
+      
     }
+    meshTransformRanges.clear();
+    submittedModels.clear();
   }
 
   void AddSubmittedModel(std::shared_ptr<Model> model) {
@@ -129,7 +137,7 @@ public:
     }
   }
 
-  void Update() { UpdateSubmittedMeshes(); }
+  void Update() { /*UpdateSubmittedMeshes();*/ }
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
 

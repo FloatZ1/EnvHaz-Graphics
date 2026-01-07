@@ -8,6 +8,7 @@
 #include <boost/serialization/access.hpp>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,7 +18,7 @@ constexpr uint32_t INVALID_ALLOCATION = UINT32_MAX;
 
 #define MBsize(size) ((size) * 1024 * 1024)
 struct SBufferHandle {
-  uint32_t bufferID = -1;
+  uint32_t bufferID = static_cast<uint32_t>( - 1);
   SlotType slot = SlotType::SLOT_NONE;
   uint32_t allocationID = INVALID_ALLOCATION;
   uint32_t generation = 0;
@@ -49,6 +50,19 @@ private:
   void *data;
   size_t size;
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 typedef eHazGraphics_Utils::HashedString MeshID;
 
