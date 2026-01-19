@@ -6,6 +6,7 @@
 #include "Utils/Math_Utils.hpp"
 #include "glad/glad.h"
 #include <assimp/mesh.h>
+#include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <memory>
 #include <vector>
@@ -24,7 +25,7 @@ void MeshManager::EraseMesh(MeshID mesh) {
 
   bufferManager->InvalidateStaticRange(meshLoc);
 
-  //bufferManager->RemoveRange(meshTransformRanges[mesh]);
+  // bufferManager->RemoveRange(meshTransformRanges[mesh]);
 
   meshes.erase(mesh);
   meshTransforms.erase(mesh);
@@ -32,8 +33,9 @@ void MeshManager::EraseMesh(MeshID mesh) {
   meshLocations.erase(mesh);
 }
 
-void MeshManager::SetModelShader(std::shared_ptr<Model> model,
-                                 ShaderComboID &shader) {
+void MeshManager::SetModelShader(ModelID modelID, const ShaderComboID &shader) {
+
+  std::shared_ptr<Model> model = GetModel(modelID);
 
   for (auto &mesh : model->GetMeshIDs()) {
     auto it = meshes.find(mesh);
@@ -45,19 +47,42 @@ void MeshManager::SetModelShader(std::shared_ptr<Model> model,
     }
   }
 }
-std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
+AABB MeshManager::GetModelAABB(const aiScene *scene) {
+
+  AABB finalBox;
+  bool first = true;
+
+  for (int i = 0; i < scene->mNumMeshes; i++) {
+    const aiMesh *mesh = scene->mMeshes[i];
+    if (!IsValid(mesh->mAABB))
+      continue;
+
+    AABB currentBox = ConvertAssimpAABB(mesh->mAABB);
+
+    if (first) {
+      finalBox = currentBox;
+      first = false;
+    } else {
+      finalBox = AABB::Combine(currentBox, finalBox);
+    }
+  }
+
+  return finalBox;
+}
+ModelID MeshManager::LoadModel(std::string &path) {
   std::vector<MeshID> temps;
 
   eHazGraphics_Utils::HashedString hashedPath =
       eHazGraphics_Utils::computeHash(path);
 
   if (loadedModels.contains(hashedPath)) {
-    return loadedModels[hashedPath];
+    return hashedPath;
   }
 
   const aiScene *scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
-                /*aiProcess_PreTransformVertices |*/ aiProcess_OptimizeMeshes);
+                /*aiProcess_PreTransformVertices |*/ aiProcess_OptimizeMeshes |
+                aiProcess_GenBoundingBoxes);
 
   if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
       !scene->mRootNode) {
@@ -67,6 +92,10 @@ std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
 
   temps = (processNode(scene->mRootNode, scene));
 
+  // Bounding box processing
+
+  AABB modelAABB = GetModelAABB(scene);
+
   // Model model;
   std::shared_ptr<Model> model = std::make_shared<Model>();
   for (auto mesh : temps) {
@@ -74,10 +103,15 @@ std::shared_ptr<Model> MeshManager::LoadModel(std::string &path) {
   }
   model->SetID(hashedPath);
 
+  model->SetAABB(modelAABB);
+
   importer.FreeScene();
 
   loadedModels.emplace(hashedPath, model);
-  return model;
+
+  modelPaths.emplace(hashedPath, path);
+
+  return hashedPath;
 }
 
 std::vector<MeshID> MeshManager::processNode(aiNode *node,
@@ -100,9 +134,9 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
     meshes[t_hsID].setRelativeMatrix(relativeMat);
     meshes[t_hsID].SetID(t_hsID);
 
-   // AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
-   //                               &relativeMat, sizeof(relativeMat),
-   //                              TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+    // AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
+    //                               &relativeMat, sizeof(relativeMat),
+    //                              TypeFlags::BUFFER_STATIC_MATRIX_DATA));
 
     meshIDs.push_back(t_hsID);
   }

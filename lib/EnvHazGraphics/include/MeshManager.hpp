@@ -37,9 +37,9 @@ public:
     }
     // call the function from buffer manager to clear the ranges
 
-   // for (auto&[ID, l_meshTransform] : meshTransformRanges) {
-   //     bufferManager->RemoveRange(l_meshTransform);
-   // }
+    // for (auto&[ID, l_meshTransform] : meshTransformRanges) {
+    //     bufferManager->RemoveRange(l_meshTransform);
+    // }
 
     meshTransforms.clear();
     meshTransformRanges.clear();
@@ -51,15 +51,24 @@ public:
   }
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
-  std::shared_ptr<Model> LoadModel(std::string &path);
+  ModelID LoadModel(std::string &path);
 
+  std::shared_ptr<Model> GetModel(ModelID p_ModelID) {
+    if (loadedModels.contains(p_ModelID)) {
+      return loadedModels[p_ModelID];
+    }
+
+    return nullptr;
+  }
+
+  AABB GetModelAABB(ModelID model) { return loadedModels[model]->GetAABB(); }
   void EraseModel(ModelID modelID) {
     std::shared_ptr<Model> &model = loadedModels[modelID];
 
     for (auto &meshID : model->GetMeshIDs()) {
       EraseMesh(meshID);
     }
-    
+
     loadedModels.erase(modelID);
   }
 
@@ -70,7 +79,7 @@ public:
     return meshTransforms[mesh];
   }
 
-  void SetModelShader(std::shared_ptr<Model> model, ShaderComboID &shader);
+  void SetModelShader(ModelID modelID, const ShaderComboID &shader);
 
   void SetMeshResidency(MeshID mesh, bool value) {
     meshes[mesh].SetResidencyStatus(value);
@@ -108,7 +117,6 @@ public:
   void ClearSubmittedModelInstances() {
     for (auto &model : submittedModels) {
       model->ClearInstances();
-      
     }
     meshTransformRanges.clear();
     submittedModels.clear();
@@ -116,10 +124,6 @@ public:
 
   void AddSubmittedModel(std::shared_ptr<Model> model) {
     submittedModels.push_back(model);
-  }
-
-  std::shared_ptr<Model> GetModel(ModelID modelID) {
-    return loadedModels[modelID];
   }
 
   void UpdateSubmittedMeshes() {
@@ -140,7 +144,15 @@ public:
   void Update() { /*UpdateSubmittedMeshes();*/ }
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
+  std::string GetModelPath(ModelID p_ModelID) {
 
+    if (modelPaths.contains(p_ModelID)) {
+      return modelPaths[p_ModelID];
+    }
+
+    else
+      return "model has no path";
+  }
   // ModelPackage import and export
 
   void ExportHazModel(std::string exportPath, ModelID modelID);
@@ -154,6 +166,8 @@ public:
   void Destroy(); // TODO: IMPLEMENT
 
 private:
+  AABB GetModelAABB(const aiScene *scene);
+
   static StaticModelPackage LoadSingleModel(const std::string &path);
 
   std::vector<ModelID>
@@ -174,7 +188,7 @@ private:
       loadedModels;
   std::vector<std::shared_ptr<Model>> submittedModels;
   std::unordered_map<MeshID, Mesh> meshes;
-  // std::unordered_map<std::string, MeshID> meshPaths;
+  std::unordered_map<ModelID, std::string> modelPaths;
   std::unordered_map<MeshID, glm::mat4> meshTransforms;
   std::unordered_map<MeshID, SBufferRange> meshTransformRanges;
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;

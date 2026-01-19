@@ -65,6 +65,7 @@ MeshManager::LoadHazModelListLimited(const std::vector<std::string> &paths,
             meshes[mesh.GetID()] = mesh;
           models.push_back(pkg.model.GetID());
           loadedModels[pkg.model.GetID()] = std::make_shared<Model>(pkg.model);
+          modelPaths.emplace(pkg.model.GetID(), "no path haz model");
 
         } catch (const std::exception &e) {
           std::cerr << "Error loading model: " << e.what() << std::endl;
@@ -362,6 +363,9 @@ std::vector<ModelID> AnimatedModelManager::LoadAHazModelListLimited(
           models.push_back(pkg.model.GetID());
           loadedModels[pkg.model.GetID()] =
               std::make_shared<AnimatedModel>(pkg.model);
+
+          m_umModelPaths.emplace(pkg.model.GetID(),
+                                 "no path Animated haz model");
 
         } catch (const std::exception &e) {
           std::cerr << "Error loading animated model: " << e.what()

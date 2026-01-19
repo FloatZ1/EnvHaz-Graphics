@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace eHazGraphics {
 
@@ -39,7 +40,7 @@ public:
     }
   }
 
-  const BitFlag<ShaderManagerFlags> &Type() const { return shaderFlags; }
+  const BitFlag<ShaderManagerFlags> &Flags() const { return shaderFlags; }
 
   std::string GetData() const {
     if (isRaw == false)
@@ -47,6 +48,8 @@ public:
     else
       rawData;
   }
+
+  std::string GetSource() { return shaderSource; }
 
   // add a function later which reads shader metadata from a file and adds the
   // necessary flags
@@ -128,13 +131,19 @@ private:
 class StandartShaderProgramme {
 
 public:
+  StandartShaderProgramme(Shader &p_ComputeShader);
   StandartShaderProgramme(Shader &shader1, Shader &shader2);
-
+  StandartShaderProgramme(Shader &p_VertexShader, Shader &p_GeometryShader,
+                          Shader &p_FragmentShader);
   GLuint GetGLShaderID() const { return progID; }
 
-  const BitFlag<ShaderManagerFlags> GetFlags() const { return shaderFlags; }
+  const BitFlag<ShaderManagerFlags> GetFlags() const { return executionFlags; }
+
+  void SetFlagsFromOther(BitFlag<ShaderManagerFlags> p_replacement);
 
   void UseProgramme();
+
+  void Recompile();
 
   ~StandartShaderProgramme() {
 
@@ -148,10 +157,11 @@ private:
 
   BitFlag<ShaderManagerFlags> executionFlags;
 
-  BitFlag<ShaderManagerFlags> shaderFlags;
   unsigned int progID = 0;
-  unsigned int vertexShader = 0;
-  unsigned int fragmentShader = 0;
+  GLuint computeShader = 0;
+  GLuint vertexShader = 0;
+  GLuint geometryShader = 0;
+  GLuint fragmentShader = 0;
 };
 
 class ShaderManager {
@@ -160,24 +170,53 @@ public:
 
   // well this is a bummer i cant load binary shader programmes like in Vulkan
   // unless i use extensions, When i port all this to vulkan ill remake this
+
+  ShaderID LoadShader(const std::string &p_strPath);
+
   ShaderComboID CreateShaderProgramme(const std::string &vertexShader,
                                       const std::string &fragmentShader,
                                       bool isPath = true);
+  ShaderComboID CreateShaderProgramme(const std::string &p_ComputeShaderPath);
+
+  ShaderComboID CreateShaderProgramme(const std::string &p_VertexShaderPath,
+                                      const std::string &p_FragmentShaderPath,
+                                      const std::string &p_GeometryShaderPath);
+
+  ShaderComboID CreateShaderProgramme(ShaderID p_VertexShaderID,
+                                      ShaderID p_FragmentShaderID);
+
+  ShaderComboID CreateShaderProgramme(ShaderID p_VertexShaderID,
+                                      ShaderID p_FragmentShaderID,
+                                      ShaderID p_GeometryShaderID);
+
+  ShaderComboID CreateShaderProgramme(ShaderID p_ComputeShaderID);
+
+  // TODO: Compute suite
+
+  //
+
+  void SetShaderProgrammeFlags(ShaderComboID p_Programme,
+                               BitFlag<ShaderManagerFlags> p_replacement);
 
   void UseProgramme(const ShaderComboID &ShaderProgrammeID);
+
+  void RecompileProgramme(ShaderComboID p_ID);
+
+  bool isValidID(ShaderComboID p_ID);
+
+  void RemoveShaderProgramme(ShaderComboID p_ID);
 
   void Destroy();
 
 private:
   // Sets the OpenGL flags needed for the shader to work correctly, like for
-  // example enable/disable blending etc.
+  // example enable/disable blending etc.  TODO:
   void SetOpenGLFlags(
       const std::shared_ptr<StandartShaderProgramme> shaderProgramme);
   // mostly done
 
   // convert the paths to HashedString and match them with their shaders
-  std::unordered_map<eHazGraphics_Utils::HashedString, std::shared_ptr<Shader>>
-      LoadedShaders;
+  std::unordered_map<ShaderID, std::shared_ptr<Shader>> LoadedShaders;
   // brain ache, if performance is really tight in the future, hash the two
   // hashesh toghether to create a single value for lookup
   std::unordered_map<ShaderComboID, std::shared_ptr<StandartShaderProgramme>,

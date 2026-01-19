@@ -9,6 +9,10 @@ class Model {
 public:
   void AddMesh(MeshID ID) { meshes.push_back(ID); }
 
+  void SetAABB(const AABB &aabb) { boundingBox = aabb; }
+
+  const AABB &GetAABB() { return boundingBox; }
+
   const std::vector<MeshID> &GetMeshIDs() const { return meshes; }
 
   const unsigned int GetMaterialID() const { return materialID; }
@@ -52,6 +56,7 @@ public:
     ar & ID;
     ar & materialID;
     ar & meshes;
+    ar & boundingBox;
   }
 
 private:
@@ -60,6 +65,8 @@ private:
   std::vector<MeshID> meshes;
   std::vector<InstanceData> instanceData;
   std::vector<SBufferRange> instanceRanges;
+
+  AABB boundingBox;
 
   unsigned int materialID = 0;
   unsigned int instanceCount = 1;

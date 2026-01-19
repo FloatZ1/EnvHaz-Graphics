@@ -39,26 +39,33 @@ enum class TypeFlags : uint32_t {
 };
 
 enum class ShaderManagerFlags : uint32_t {
-  NONE = 0, // no special flags
+  NONE = 0, // No special flags
 
-  DISABLE_DEPTH_TEST = 1 << 0,  // glDisable(GL_DEPTH_TEST)
-  ENABLE_BLEND = 1 << 1,        // glEnable(GL_BLEND)
-  DISABLE_CULL_FACE = 1 << 2,   // glDisable(GL_CULL_FACE)
-  ENABLE_WIREFRAME = 1 << 3,    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-  DISABLE_DEPTH_WRITE = 1 << 4, // glDepthMask(GL_FALSE)
+  // Depth testing
+  DEPTH_TEST_DISABLED = 1 << 0,  // glDisable(GL_DEPTH_TEST)
+  DEPTH_TEST_ENABLED = 1 << 1,   // glEnable(GL_DEPTH_TEST)
+  DEPTH_WRITE_DISABLED = 1 << 2, // glDepthMask(GL_FALSE)
+  DEPTH_WRITE_ENABLED = 1 << 3,  // glDepthMask(GL_TRUE)
+  DEPTH_LESS_EQUAL = 1 << 4,     // glDepthFunc(GL_LEQUAL)
+  DEPTH_LESS = 1 << 5,           // glDepthFunc(GL_LESS)
 
-  // Blending modes
-  BLEND_ALPHA = 1 << 5,    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-  BLEND_ADDITIVE = 1 << 6, // glBlendFunc(GL_ONE, GL_ONE)
+  // Blending
+  BLEND_DISABLED = 1 << 6, // glDisable(GL_BLEND)
+  BLEND_ENABLED = 1 << 7,  // glEnable(GL_BLEND)
+  BLEND_ALPHA = 1 << 8,    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  BLEND_ADDITIVE = 1 << 9, // glBlendFunc(GL_ONE, GL_ONE)
 
-  // Depth comparison tweaks
-  DEPTH_LESS_EQUAL = 1 << 7, // glDepthFunc(GL_LEQUAL)
+  // Face culling
+  CULL_FACE_DISABLED = 1 << 10, // glDisable(GL_CULL_FACE)
+  CULL_FACE_ENABLED = 1 << 11,  // glEnable(GL_CULL_FACE)
+
+  // Wireframe
+  WIREFRAME_DISABLED = 1 << 12, // glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+  WIREFRAME_ENABLED = 1 << 13,  // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
   // Stencil testing
-  ENABLE_STENCIL_TEST = 1 << 8, // glEnable(GL_STENCIL_TEST)
-
-  // Future flags (reserved for later use)
-  RESERVED_1 = 1 << 9
+  STENCIL_TEST_DISABLED = 1 << 14, // glDisable(GL_STENCIL_TEST)
+  STENCIL_TEST_ENABLED = 1 << 15   // glEnable(GL_STENCIL_TEST)
 };
 
 enum class SimpleShapes {
@@ -108,6 +115,8 @@ template <typename Enum> struct BitFlag {
   void UnsetFlagsFrom(const BitFlag &other) { FlagValue &= ~other.FlagValue; }
 
   void CopyFlagsFrom(const BitFlag &other) { FlagValue = other.FlagValue; }
+
+  void SetFlagsFromType(Storage p_Flags);
 
   void KeepCommonFlags(const BitFlag &other) { FlagValue &= other.FlagValue; }
 };

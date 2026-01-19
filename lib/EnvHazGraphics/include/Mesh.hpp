@@ -40,7 +40,7 @@ public:
 
   const GLuint &GetInstanceCount() const { return instances; }
 
-  void SetShader(ShaderComboID &shader) { shaderID = shader; }
+  void SetShader(const ShaderComboID &shader) { shaderID = shader; }
 
   void setRelativeMatrix(const glm::mat4 &mat) { relativeMatrix = mat; }
 

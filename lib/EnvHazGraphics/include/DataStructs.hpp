@@ -18,7 +18,7 @@ constexpr uint32_t INVALID_ALLOCATION = UINT32_MAX;
 
 #define MBsize(size) ((size) * 1024 * 1024)
 struct SBufferHandle {
-  uint32_t bufferID = static_cast<uint32_t>( - 1);
+  uint32_t bufferID = static_cast<uint32_t>(-1);
   SlotType slot = SlotType::SLOT_NONE;
   uint32_t allocationID = INVALID_ALLOCATION;
   uint32_t generation = 0;
@@ -37,6 +37,28 @@ struct SBufferRange {
   uint32_t count;
 };
 
+struct AABB {
+
+  glm::vec3 center;  // Model space
+  glm::vec3 extents; // half size
+
+  static AABB Combine(const AABB &a, const AABB &b) {
+
+    glm::vec3 minA = a.center - a.extents;
+    glm::vec3 maxA = a.center + a.extents;
+    glm::vec3 minB = b.center - b.extents;
+    glm::vec3 maxB = b.center + b.extents;
+
+    glm::vec3 min = glm::min(minA, minB);
+    glm::vec3 max = glm::max(maxA, maxB);
+
+    AABB result;
+    result.center = (min + max) * 0.5f;
+    result.extents = (max - min) * 0.5f;
+    return result;
+  }
+};
+
 class CopyDataPtr {
 
 public:
@@ -51,19 +73,6 @@ private:
   size_t size;
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 typedef eHazGraphics_Utils::HashedString MeshID;
 
 typedef eHazGraphics_Utils::HashedString ModelID;
@@ -74,7 +83,13 @@ typedef eHazGraphics_Utils::HashedString AnimatorID;
 
 typedef eHazGraphics_Utils::HashedString AnimationID;
 
+typedef eHazGraphics_Utils::HashedString MaterialID;
+
+typedef eHazGraphics_Utils::HashedString Texture2DID;
+
 using VertexIndexInfoPair = std::pair<SBufferRange, SBufferRange>;
+
+using ShaderID = eHazGraphics_Utils::HashedString;
 
 struct ShaderComboID {
   ShaderComboID() = default;

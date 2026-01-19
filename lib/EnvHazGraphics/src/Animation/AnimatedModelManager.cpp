@@ -78,6 +78,27 @@ void AnimatedModelManager::SetModelShader(std::shared_ptr<AnimatedModel> &model,
   }
 }
 
+AABB AnimatedModelManager::GetModelAABB(const aiScene *scene) {
+  AABB finalBox;
+  bool first = true;
+
+  for (int i = 0; i < scene->mNumMeshes; i++) {
+    const aiMesh *mesh = scene->mMeshes[i];
+    if (!IsValid(mesh->mAABB))
+      continue;
+
+    AABB currentBox = ConvertAssimpAABB(mesh->mAABB);
+
+    if (first) {
+      finalBox = currentBox;
+      first = false;
+    } else {
+      finalBox = AABB::Combine(currentBox, finalBox);
+    }
+  }
+
+  return finalBox;
+}
 /*
  *
  *
@@ -183,9 +204,7 @@ void AnimatedModelManager::ComputeGlobalBindTransforms(
   for (unsigned int i = 0; i < node->mNumChildren; ++i)
     ComputeGlobalBindTransforms(node->mChildren[i], global);
 }
-
-std::shared_ptr<AnimatedModel>
-AnimatedModelManager::LoadAnimatedModel(std::string path) {
+ModelID AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   processingSkeleton.m_Joints.clear();
   processingSkeleton.finalMatrices.clear();
@@ -199,7 +218,7 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
       eHazGraphics_Utils::computeHash(path);
 
   if (loadedModels.contains(hashedPath)) {
-    return loadedModels[hashedPath];
+    return hashedPath;
   }
   Assimp::Importer importer;
   scene = importer.ReadFile(
@@ -238,9 +257,11 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
 
   skeletons.emplace(hashedPath, std::make_shared<Skeleton>(processingSkeleton));
 
+  AABB modelAABB = GetModelAABB(scene);
+
   std::shared_ptr<AnimatedModel> model = std::make_unique<AnimatedModel>();
   model->SetSkeleton(skeletons[hashedPath]);
-
+  model->SetAABB(modelAABB);
   AnimatorID animatorID = hashedPath;
 
   animators.emplace(animatorID, std::make_shared<Animator>());
@@ -300,10 +321,11 @@ AnimatedModelManager::LoadAnimatedModel(std::string path) {
   }
   model->SetID(hashedPath);
   loadedModels.emplace(hashedPath, model);
+  m_umModelPaths.emplace(hashedPath, path);
   // m_BoneMap.clear();
   importer.FreeScene();
 
-  return model;
+  return hashedPath;
 }
 
 std::vector<MeshID> AnimatedModelManager::processNode(aiNode *node) {

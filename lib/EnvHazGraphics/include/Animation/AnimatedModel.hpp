@@ -15,7 +15,9 @@ class AnimatedModel {
 
 public:
   void SetID(MeshID id) { ID = id; }
+  void SetAABB(const AABB &aabb) { boundingBox = aabb; }
 
+  const AABB &GetAABB() { return boundingBox; }
   MeshID GetID() { return ID; }
   void AddMesh(MeshID ID) { meshes.push_back(ID); }
 
@@ -73,6 +75,7 @@ private:
     ar & skeleton;
     ar & shader;
     ar & ID;
+    ar & boundingBox;
 
     // skip instanceData, instanceRanges, instanceCount → runtime only
   }
@@ -91,6 +94,8 @@ private:
   ShaderComboID shader;
 
   unsigned int materialID = 0;
+
+  AABB boundingBox;
 
   std::vector<InstanceData> instanceData;
   std::vector<SBufferRange> instanceRanges;

@@ -1,11 +1,27 @@
 #ifndef MATH_UTILS_HPP
 #define MATH_UTILS_HPP
+#include <DataStructs.hpp>
+#include <assimp/aabb.h>
 #include <assimp/matrix4x4.h>
 #include <assimp/quaternion.h>
 #include <assimp/vector3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 namespace eHazGraphics_Utils {
+inline bool IsValid(const aiAABB &aabb) noexcept {
+  return (aabb.mMin.x <= aabb.mMax.x && aabb.mMin.y <= aabb.mMax.y &&
+          aabb.mMin.z <= aabb.mMax.z);
+}
+inline eHazGraphics::AABB ConvertAssimpAABB(const aiAABB &aabb) {
+  glm::vec3 min(aabb.mMin.x, aabb.mMin.y, aabb.mMin.z);
+
+  glm::vec3 max(aabb.mMax.x, aabb.mMax.y, aabb.mMax.z);
+
+  eHazGraphics::AABB result;
+  result.center = (min + max) * 0.5f;
+  result.extents = (max - min) * 0.5f;
+  return result;
+}
 
 /**
  * @brief Converts an Assimp aiVector3D to a GLM vec3.

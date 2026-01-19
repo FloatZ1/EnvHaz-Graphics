@@ -28,7 +28,7 @@ if (NOT assimp_FOUND)
     find_package(assimp REQUIRED)
 endif()
 find_package(Boost REQUIRED COMPONENTS serialization)
-
+ find_package(Boost REQUIRED COMPONENTS json)
 # -----------------------------
 # SDL3 (cross-platform)
 # -----------------------------
@@ -83,4 +83,5 @@ target_link_libraries(EnvHazGraphics PUBLIC
     glm::glm
     assimp::assimp
     Boost::serialization
+ Boost::json
 )

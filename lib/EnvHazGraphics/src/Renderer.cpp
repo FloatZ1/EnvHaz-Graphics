@@ -6,6 +6,7 @@
 #include "FrameBuffers/FrameBuffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
+#include "Model.hpp"
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
 #include "Window.hpp"
@@ -267,8 +268,10 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   std::cout << "piss\n\n :)))";
 }
 
-void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
-                                   glm::mat4 position) {
+void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position) {
+
+  std::shared_ptr<AnimatedModel> model =
+      p_AnimatedModelManager->GetModel(modelID);
 
   std::vector<SBufferRange> instanceRanges;
   std::vector<InstanceData> instances;
@@ -331,10 +334,10 @@ void Renderer::SubmitAnimatedModel(std::shared_ptr<AnimatedModel> &model,
 }
 
 // Model& model , TypeFlags dataType
-void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
-                                 glm::mat4 position, TypeFlags dataType) {
+void Renderer::SubmitStaticModel(ModelID modelID, glm::mat4 position,
+                                 TypeFlags dataType) {
 
-  // p_bufferManager->ClearBuffer(dataType);
+  std::shared_ptr<Model> model = p_meshManager->GetModel(modelID);
   std::vector<SBufferRange> instanceRanges;
   std::vector<InstanceData> instances;
 
@@ -353,8 +356,10 @@ void Renderer::SubmitStaticModel(std::shared_ptr<Model> &model,
       p_meshManager->AddMeshLocation(mesh, range);
       p_meshManager->SetMeshResidency(mesh, true);
 
-     // p_meshManager->AddTransformRange(mesh, p_bufferManager->InsertNewDynamicData(&m_mesh.GetRelativeMatrix(), sizeof(glm::mat4),
-     //     TypeFlags::BUFFER_STATIC_MATRIX_DATA));
+      // p_meshManager->AddTransformRange(mesh,
+      // p_bufferManager->InsertNewDynamicData(&m_mesh.GetRelativeMatrix(),
+      // sizeof(glm::mat4),
+      //     TypeFlags::BUFFER_STATIC_MATRIX_DATA));
 
     } else {
       range = p_meshManager->GetMeshLocation(mesh);

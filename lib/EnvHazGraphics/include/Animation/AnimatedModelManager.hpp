@@ -21,8 +21,8 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <map>
-#include <mutex>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -83,6 +83,8 @@ public:
     submittedAnimatedModels.clear();
   }
 
+  AABB GetModelAABB(ModelID model) { return loadedModels[model]->GetAABB(); }
+
   void EraseMesh(MeshID mesh) {
     meshes[mesh].SetResidencyStatus(false);
 
@@ -121,7 +123,7 @@ public:
   void SetModelShader(std::shared_ptr<AnimatedModel> &model,
                       ShaderComboID &shader);
 
-  std::shared_ptr<AnimatedModel> LoadAnimatedModel(std::string path);
+  ModelID LoadAnimatedModel(std::string path);
 
   void LoadAnimation(std::shared_ptr<Skeleton> skeleton, std::string &path,
                      AnimationID &r_AnimationID);
@@ -139,7 +141,10 @@ public:
   }
 
   std::shared_ptr<AnimatedModel> GetModel(ModelID ID) {
-    return loadedModels[ID];
+    if (loadedModels.contains(ID))
+      return loadedModels[ID];
+    else
+      return nullptr;
   }
 
   void AddSubmittedModel(std::shared_ptr<AnimatedModel> model) {
@@ -151,6 +156,16 @@ public:
   std::shared_ptr<Animation> GetAnimation(AnimationID animationID) {
 
     return animations[animationID];
+  }
+
+  std::string GetModelPath(ModelID p_ModelID) {
+
+    if (m_umModelPaths.contains(p_ModelID)) {
+      return m_umModelPaths[p_ModelID];
+    }
+
+    else
+      return "model has no path";
   }
 
   // NOTE: Binary file loading and encoding
@@ -190,14 +205,17 @@ private:
 
   void ExtractBoneWeightForVertices(std::vector<Vertex> &vertices,
                                     aiMesh *mesh);
+
+  AABB GetModelAABB(const aiScene *scene);
+
   /*
 
 
 
 
-  */
+*/
   // unsigned int maxID = 0;
-  
+
   std::mutex mapMutex;
 
   BufferManager *bufferManager;
@@ -208,11 +226,7 @@ private:
       loadedModels;
 
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
-  /* std::vector<std::shared_ptr<AnimatedModel>> submittedAnimatedModels;
-   std::vector<std::shared_ptr<Skeleton>> skeletons; // in da closet
-   std::vector<std::shared_ptr<Animation>> animations;
-   std::vector<std::shared_ptr<Animator>> animators;
-   */
+  std::unordered_map<ModelID, std::string> m_umModelPaths;
   std::vector<std::shared_ptr<AnimatedModel>> submittedAnimatedModels;
   std::unordered_map<ModelID, std::shared_ptr<Skeleton>>
       skeletons; // in da closet

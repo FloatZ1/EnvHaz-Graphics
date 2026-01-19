@@ -4,12 +4,24 @@
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 namespace eHazGraphics {
+
+struct SMaterialSpec {
+
+  uint32_t generation = 0;
+
+  unsigned int albedoID;
+  unsigned int prmID;
+  unsigned int NormalMapID;
+  unsigned int EmissionID;
+  std::string mat_name;
+};
 
 class MaterialManager {
 public:
@@ -35,7 +47,15 @@ public:
                      // optimize dunno.
   std::optional<PBRMaterial> GetMaterial(const std::string &materialName);
 
+  std::string GetMaterialName(uint32_t p_MatName);
+
   void ClearMaterials();
+
+  void DeleteTexture(uint32_t TextureID);
+
+  void ReloadTexture(uint32_t p_TextureID);
+
+  void ReloadMaterial(uint32_t p_MatID, bool p_bReloadTextures = true);
 
   void DeleteMaterial(
       unsigned int MaterialID); // probably shouldnt have this here since
@@ -45,13 +65,16 @@ public:
                   // doesnt handle itself
 private:
   std::vector<PBRMaterial> LoadedPBRMaterials;
-  std::vector<std::unique_ptr<Texture2D>> LoadedTextures;
-  std::vector<unsigned int> freeIndecies;
-  std::unordered_map<eHazGraphics_Utils::HashedString, unsigned int>
-      TexturePaths;
+  std::unordered_map<uint32_t, SMaterialSpec> m_umMaterialSpecs;
 
-  std::unordered_map<eHazGraphics_Utils::HashedString, unsigned int>
-      MaterialNames;
+  std::vector<std::unique_ptr<Texture2D>> LoadedTextures;
+  std::vector<uint32_t> freeTextureIndecies;
+  std::vector<unsigned int> freeIndecies;
+  std::unordered_map<Texture2DID, uint32_t> TexturePaths;
+  std::unordered_map<uint32_t, std::string> m_TexturePathStrings;
+
+  std::unordered_map<MaterialID, uint32_t> MaterialNames;
+  std::unordered_map<uint32_t, std::string> m_MaterialNamesString;
 };
 
 } // namespace eHazGraphics
