@@ -57,6 +57,8 @@ struct AABB {
     result.extents = (max - min) * 0.5f;
     return result;
   }
+
+  bool Contains(const AABB &box);
 };
 
 class CopyDataPtr {
