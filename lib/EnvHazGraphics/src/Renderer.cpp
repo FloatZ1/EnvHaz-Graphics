@@ -9,6 +9,7 @@
 #include "Model.hpp"
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
+#include "Utils/Drawing/DebugDrawer.hpp"
 #include "Window.hpp"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
@@ -112,6 +113,7 @@ std::unique_ptr<BufferManager> Renderer::p_bufferManager = nullptr;
 std::unique_ptr<AnimatedModelManager> Renderer::p_AnimatedModelManager =
     nullptr;
 
+std::unique_ptr<DebugDrawer> Renderer::p_debugDrawer = nullptr;
 bool Renderer::Initialize(int width, int height, std::string tittle,
                           bool fullscreen) {
   r_instance.reset(this);
@@ -217,6 +219,11 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   p_materialManager->Initialize();
 
   p_renderQueue->Initialize(p_bufferManager.get());
+
+  p_debugDrawer = std::make_unique<DebugDrawer>(p_shaderManager.get(),
+                                                p_bufferManager.get());
+
+  ;
   std::string ScreenRenderVS =
       "//@@start@@ ScreenRenderVS shader @@end@@\n"
       "#version 460 core\n"
@@ -301,8 +308,11 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position) {
     auto &animator =
         p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
     // TODO: ADD CHECKS FOR NULLOPT and for the static asw
-    size_t animatorMatrixOffset =
-        p_bufferManager->GetAllocation(animator->GetGPULocation())->offset;
+    size_t animatorMatrixOffset; // =
+    if (auto animationMatrices =
+            p_bufferManager->GetAllocation(animator->GetGPULocation()) ==
+            std::nullopt) {
+    }
 
     uint32_t matID = animatorMatrixOffset / sizeof(glm::mat4);
 
@@ -452,6 +462,8 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
                                 range.count, 0);
   }
 
+  p_debugDrawer->DrawDebug();
+
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
 
   p_bufferManager->BeginWritting();
@@ -459,6 +471,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_renderQueue->ClearDynamicCommands();
   p_renderQueue->ClearStaticCommnads();
   p_meshManager->ClearSubmittedModelInstances();
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
 }
 

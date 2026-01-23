@@ -1,4 +1,5 @@
 #include "DynamicBuffer.hpp"
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <cstring>
 
@@ -7,11 +8,9 @@ namespace eHazGraphics {
 CDynamicBuffer::CDynamicBuffer() {}
 
 CDynamicBuffer::CDynamicBuffer(size_t p_szInitialSize, int p_iDynamicBufferID,
-                               GLenum p_gleTarget, bool p_bTrippleBuffer) {
-  m_szBufferSize = p_szInitialSize;
-  m_uiDynamicBufferID = p_iDynamicBufferID;
-  m_gleTarget = p_gleTarget;
-  m_bUseTrippleBuffering = p_bTrippleBuffer;
+                               GLenum p_gleTarget, bool p_bTrippleBuffer)
+    : m_szBufferSize(p_szInitialSize), m_uiDynamicBufferID(p_iDynamicBufferID),
+      m_gleTarget(p_gleTarget), m_bUseTrippleBuffering(p_bTrippleBuffer) {
 
   if (m_bUseTrippleBuffering) {
 
@@ -105,8 +104,8 @@ SBufferRange CDynamicBuffer::InsertNewData(const T *p_pData, size_t p_szSize,
 SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
                                            TypeFlags p_tfType) {
 
-  if (p_szSize >= m_szBufferSize ||
-      p_szSize + m_szOccupiedSize[GetWriteSlot()] >= m_szBufferSize) {
+  if (p_szSize > m_szBufferSize ||
+      p_szSize + m_szOccupiedSize[GetWriteSlot()] > m_szBufferSize) {
     m_bSlotResizeState = true;
     ResizeBuffer(p_szSize);
   }
@@ -185,12 +184,14 @@ void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
   // #ifdef PLATFORM_WINDOWS
   //		size_t l_newSize = std::max(2 * m_szBufferSize,
   // p_szMinimumSize); #elif defined(PLATFORM_LINUX)
-  size_t l_newSize = std::max(2 * m_szBufferSize, p_szMinimumSize);
+
   // #endif
 
   if (m_bSlotResizeState) {
-    if (m_bUseTrippleBuffering) {
 
+    size_t l_newSize = std::max(2 * m_szBufferSize, p_szMinimumSize);
+    SDL_Log("BUFFER RESIZE CALLED ID:%d", m_uiDynamicBufferID);
+    if (m_bUseTrippleBuffering) {
       for (int i = 0; i < 3; i++) {
 
         WaitForSlotFence(i);
@@ -460,4 +461,10 @@ void CDynamicBuffer::SetSlot(int p_Slot) {
 
 uint32_t CDynamicBuffer::GetWriteSlot() { return m_iNextSlot; }
 
+std::vector<GLuint> CDynamicBuffer::GetGLBufferID() {
+  if (m_bUseTrippleBuffering) {
+    return {m_uiSlotIDs[0], m_uiSlotIDs[1], m_uiSlotIDs[2]};
+  }
+  return {m_uiSlotIDs[0]};
+}
 } // namespace eHazGraphics

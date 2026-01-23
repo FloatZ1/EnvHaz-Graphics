@@ -509,4 +509,81 @@ void ShaderManager::Initialize() {}
 
 void ShaderManager::Destroy() {}
 
+void ShaderManager::setBool(ShaderComboID shader, const std::string &name,
+                            bool value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+
+  glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+}
+void ShaderManager::setInt(ShaderComboID shader, const std::string &name,
+                           int value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+}
+void ShaderManager::setFloat(ShaderComboID shader, const std::string &name,
+                             float value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+}
+void ShaderManager::setVec2(ShaderComboID shader, const std::string &name,
+                            const glm::vec2 &value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform2fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+}
+void ShaderManager::setVec2(ShaderComboID shader, const std::string &name,
+                            float x, float y) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform2f(glGetUniformLocation(ID, name.c_str()), x, y);
+}
+void ShaderManager::setVec3(ShaderComboID shader, const std::string &name,
+                            const glm::vec3 &value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+}
+void ShaderManager::setVec3(ShaderComboID shader, const std::string &name,
+                            float x, float y, float z) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform3f(glGetUniformLocation(ID, name.c_str()), x, y, z);
+}
+void ShaderManager::setVec4(ShaderComboID shader, const std::string &name,
+                            const glm::vec4 &value) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+}
+void ShaderManager::setVec4(ShaderComboID shader, const std::string &name,
+                            float x, float y, float z, float w) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniform4f(glGetUniformLocation(ID, name.c_str()), x, y, z, w);
+}
+void ShaderManager::setMat2(ShaderComboID shader, const std::string &name,
+                            const glm::mat2 &mat) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniformMatrix2fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
+                     &mat[0][0]);
+}
+void ShaderManager::setMat3(ShaderComboID shader, const std::string &name,
+                            const glm::mat3 &mat) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniformMatrix3fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
+                     &mat[0][0]);
+}
+void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
+                            const glm::mat4 &mat) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
+                     &mat[0][0]);
+}
+
 } // namespace eHazGraphics

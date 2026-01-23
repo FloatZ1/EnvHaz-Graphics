@@ -106,6 +106,7 @@ public:
     }
 
     AnimatorID animatorID = model->GetAnimatorID();
+    animators.erase(animatorID);
     skeletons.erase(modelID);
     loadedModels.erase(modelID);
   }
@@ -120,8 +121,7 @@ public:
 
   const Mesh &GetMesh(MeshID id) { return meshes[id]; }
 
-  void SetModelShader(std::shared_ptr<AnimatedModel> &model,
-                      ShaderComboID &shader);
+  void SetModelShader(ModelID modelID, ShaderComboID &shader);
 
   ModelID LoadAnimatedModel(std::string path);
 
