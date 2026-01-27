@@ -24,7 +24,7 @@ using namespace eHazGraphics;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-Camera camera(glm::vec3(0.0f, 0.0f, 0.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
 
 void processInput(Window *c_window, bool &quit, Camera &camera) {
 
@@ -240,6 +240,8 @@ int main() {
     // rend.DefaultFrameBuffer();
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
 
+    rend.SetCameraPosition(camera.Position);
+
     glm::mat4 projection = glm::perspective(
         glm::radians(camera.Zoom),
         (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
@@ -247,8 +249,16 @@ int main() {
 
     camData camcamdata = {camera.GetViewMatrix(), projection};
 
-    rend.p_debugDrawer->SubmitCube({0.0f, 0.0f, 0.0f}, {10.0f, 5.0f, 6.0f},
-                                   {1.0f, 1.0f, 1.0f});
+    rend.p_debugDrawer->SubmitCube({0.0f, 0.0f, -5.0f}, {1.0f, 1.0f, 1.0f},
+                                   {1, 0.5f, 1, 0.1f});
+
+    rend.p_debugDrawer->SubmitCube({0.0f, 2.0f, -3.0f}, {1.0f, 1.0f, 1.0f},
+                                   {1, 0.5f, 1, 0.1f});
+
+    rend.p_debugDrawer->SubmitLine({0, 0, 0}, {10, 10, 10}, 0.1f,
+                                   {1.0f, 0.0f, 1.0f, 1.0f});
+
+    rend.p_debugDrawer->SubmitSphere({1.0f, 1.0f, 1.0f}, 2.0f);
 
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 

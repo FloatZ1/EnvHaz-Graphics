@@ -58,8 +58,8 @@ private:
   GLuint m_uiSlotIDs[3]{0, 0, 0};
   void *m_pSlots[3]{nullptr, nullptr, nullptr};
   size_t m_szBufferSize{0};
-  size_t m_szWriteCursor[3] = {};
-  size_t m_szOccupiedSize[3] = {};
+  size_t m_szWriteCursor = 0; //[3] = {0, 0, 0};
+  size_t m_szOccupiedSize[3] = {0, 0, 0};
   GLsync m_glsFences[3]{0, 0, 0};
 
   int m_iBinding = 0;

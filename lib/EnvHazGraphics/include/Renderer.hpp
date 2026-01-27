@@ -42,6 +42,10 @@ public:
   static std::unique_ptr<BufferManager> p_bufferManager;
   static std::unique_ptr<DebugDrawer> p_debugDrawer;
 
+  glm::vec3 cameraPosition;
+
+  void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }
+
   const SDL_Event &GetEvent() const { return events; }
 
   bool shouldQuit = false;

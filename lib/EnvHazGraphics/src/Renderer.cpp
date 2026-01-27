@@ -19,7 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-// #define EHAZ_DEBUG
+#define EHAZ_DEBUG
 
 #ifdef EHAZ_DEBUG
 
@@ -462,8 +462,6 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
                                 range.count, 0);
   }
 
-  p_debugDrawer->DrawDebug();
-
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
 
   p_bufferManager->BeginWritting();
@@ -473,6 +471,9 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_meshManager->ClearSubmittedModelInstances();
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+
+  p_debugDrawer->DrawDebug(cameraPosition);
 }
 
 void Renderer::UpdateRenderer(float deltatime) {

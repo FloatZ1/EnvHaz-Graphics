@@ -2,9 +2,13 @@
 
 #include "Utils/Drawing/DebugDrawer.hpp"
 #include "DataStructs.hpp"
+#include "StaticStack.hpp"
 #include "glad/glad.h"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/gtc/quaternion.hpp"
+#include <iterator>
 #include <optional>
+#include <sys/stat.h>
 #include <vector>
 
 namespace eHazGraphics {
@@ -21,91 +25,100 @@ DebugDrawer::DebugDrawer(ShaderManager *shaderManager,
   meshShader = shaderManager->CreateShaderProgramme(
       RESOURCES_PATH "debug_shapes.vert", RESOURCES_PATH "debug_shapes.frag");
 
-  glCreateVertexArrays(1, &m_glDebugVAO);
+  std::vector<Vertex> vertices;
 
-  glBindVertexArray(m_glDebugVAO);
-  glBindBuffer(
-      GL_ELEMENT_ARRAY_BUFFER,
-      bufferManager->GetGLBufferID(TypeFlags::BUFFER_DEBUG_SHAPE_DATA)[0]);
+  for (int i = 0; i < sizeof(lineQuadVertices) / sizeof(glm::vec3); i++) {
 
-  SBufferRange lineVertexRange = bufferManager->InsertNewDynamicData(
-      lineQuadVertices, sizeof(lineQuadVertices),
-      TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+    vertices.push_back({.Position = lineQuadVertices[i]});
+  }
 
-  SBufferRange lineIndexRange = bufferManager->InsertNewDynamicData(
-      lineQuadIndices, sizeof(lineQuadIndices),
-      TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+  GLuint cubeVertexOffset = vertices.size();
+  for (int i = 0; i < sizeof(cubeVertices) / sizeof(glm::vec3); i++) {
 
-  SBufferRange cubeVertexRange = bufferManager->InsertNewDynamicData(
-      cubeVertices, sizeof(cubeVertices), TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+    vertices.push_back({.Position = cubeVertices[i]});
+  }
 
-  SBufferRange cubeIndexRange = bufferManager->InsertNewDynamicData(
-      cubeIndices, sizeof(cubeIndices), TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+  GLuint sphereVertexOffset = vertices.size();
 
-  SBufferRange sphereVertexRange = bufferManager->InsertNewDynamicData(
-      sphereVertices, sizeof(sphereVertices),
-      TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+  for (int i = 0; i < sizeof(sphereVertices) / sizeof(glm::vec3); i++) {
 
-  SBufferRange sphereIndexRange = bufferManager->InsertNewDynamicData(
-      sphereIndices, sizeof(sphereIndices), TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
+    vertices.push_back({.Position = sphereVertices[i]});
+  }
 
-  DebugMesh lineMesh{lineVertexRange, lineIndexRange};
+  std::vector<GLuint> indices;
 
-  DebugMesh cubeMesh{cubeVertexRange, cubeIndexRange};
+  indices.insert(indices.end(), std::begin(lineQuadIndices),
+                 std::end(lineQuadIndices));
 
-  DebugMesh sphereMesh{sphereVertexRange, sphereIndexRange};
+  indices.insert(indices.end(), std::begin(cubeIndices), std::end(cubeIndices));
 
-  auto lineVertexAlloc = bufferManager->GetAllocation(lineVertexRange);
+  GLuint sphereIndexOffset = indices.size();
 
-  auto lineIndexAlloc = bufferManager->GetAllocation(lineIndexRange);
+  indices.insert(indices.end(), std::begin(sphereIndices),
+                 std::end(sphereIndices));
 
-  auto cubeVertexAlloc = bufferManager->GetAllocation(cubeVertexRange);
+  staticStack = CGLStaticStack(vertices.size() * sizeof(Vertex),
+                               indices.size() * sizeof(GLuint), -1);
 
-  auto cubeIndexAlloc = bufferManager->GetAllocation(cubeIndexRange);
+  staticStack.push_back(vertices.data(), vertices.size() * sizeof(Vertex),
+                        indices.data(), indices.size() * sizeof(GLuint));
 
-  auto sphereVertexAlloc = bufferManager->GetAllocation(sphereVertexRange);
+  GLuint lineIndexCount = sizeof(lineQuadIndices) / sizeof(GLuint);
+  GLuint cubeIndexCount = sizeof(cubeIndices) / sizeof(GLuint);
+  GLuint sphereIndexCount = sizeof(sphereIndices) / sizeof(GLuint);
 
-  auto sphereIndexAlloc = bufferManager->GetAllocation(sphereIndexRange);
+  GLuint lineVertexOffset = 0;
 
-  lineDrawCommand.indexCount = sizeof(lineQuadIndices) / sizeof(GLuint);
+  lineCommand.count = lineIndexCount;
+  lineCommand.firstIndex = 0;
+  lineCommand.baseVertex = 0;
 
-  lineDrawCommand.indexOffset = lineIndexAlloc.value().offset / sizeof(GLuint);
-  lineDrawCommand.vertexOffset = lineVertexAlloc.value().offset / sizeof(float);
+  cubeCommand.count = cubeIndexCount;
+  cubeCommand.firstIndex = lineIndexCount;
+  cubeCommand.baseVertex = cubeVertexOffset;
 
-  cubeDrawCommand.indexCount = cubeIndexAlloc.value().size / sizeof(GLuint);
-  cubeDrawCommand.indexOffset = cubeIndexAlloc.value().offset / sizeof(GLuint);
-  cubeDrawCommand.vertexOffset = cubeVertexAlloc.value().offset / sizeof(float);
-
-  sphereDrawCommand.indexCount = sphereIndexAlloc.value().size / sizeof(GLuint);
-  sphereDrawCommand.indexOffset =
-      sphereIndexAlloc.value().offset / sizeof(GLuint);
-  sphereDrawCommand.vertexOffset =
-      sphereVertexAlloc.value().offset / sizeof(float);
-
-  debugMeshes = {lineMesh, cubeMesh, sphereMesh};
+  sphereCommand.count = sphereIndexCount;
+  sphereCommand.firstIndex = sphereIndexOffset;
+  sphereCommand.baseVertex = sphereVertexOffset;
 }
 
-void DebugDrawer::SubmitLine(glm::vec3 start, glm::vec3 end, float width,
-                             glm::vec4 color) {
+void DebugDrawer::SubmitLine(const glm::vec3 &start, const glm::vec3 &end,
+                             float thickness, const glm::vec4 &color) {
   glm::vec3 dir = end - start;
   float length = glm::length(dir);
-  if (length < 0.0001f)
-    return; // skip degenerate lines
+  if (length < 1e-6f)
+    return;
 
-  // Model matrix: translate to start, scale along line and width
-  glm::mat4 model = glm::translate(glm::mat4(1.0f), start) *
-                    glm::scale(glm::mat4(1.0f), glm::vec3(length, width, 1.0f));
+  glm::vec3 y = dir / length;
 
-  lineInstances.push_back({model, color});
+  glm::vec3 helper =
+      (glm::abs(y.y) < 0.999f) ? glm::vec3(0, 1, 0) : glm::vec3(1, 0, 0);
+
+  glm::vec3 x = glm::normalize(glm::cross(helper, y));
+  glm::vec3 z = glm::cross(y, x);
+
+  glm::mat4 rotation(1.0f);
+  rotation[0] = glm::vec4(x, 0.0f);
+  rotation[1] = glm::vec4(y, 0.0f);
+  rotation[2] = glm::vec4(z, 0.0f);
+
+  glm::vec3 center = (start + end) * 0.5f;
+
+  glm::vec3 scale(thickness, length * 0.5f, thickness);
+
+  glm::mat4 model = glm::translate(glm::mat4(1.0f), center) * rotation *
+                    glm::scale(glm::mat4(1.0f), scale);
+
+  cubeInstances.push_back({model, color});
 }
 
 void DebugDrawer::SubmitCube(glm::vec3 position, glm::vec3 halfExtents,
-                             glm::vec3 color) {
+                             glm::vec4 color) {
   // Model matrix: translate to position, scale by half-extents
   glm::mat4 model = glm::translate(glm::mat4(1.0f), position) *
                     glm::scale(glm::mat4(1.0f), halfExtents);
 
-  cubeInstances.push_back({model, glm::vec4(color, 1.0f)});
+  cubeInstances.push_back({model, color});
 }
 
 void DebugDrawer::SubmitSphere(glm::vec3 position, float size) {
@@ -117,22 +130,46 @@ void DebugDrawer::SubmitSphere(glm::vec3 position, float size) {
   sphereInstances.push_back({model, glm::vec4(1.0f)});
 }
 uint32_t previousSize = 0;
-void DebugDrawer::DrawDebug() {
-  glDisable(GL_DEPTH_TEST);
-  glDepthMask(GL_FALSE);
+void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
+  //  glDisable(GL_DEPTH_TEST);
+  //  glDepthMask(GL_FALSE);
 
-  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_DATA);
-  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
+  // glDisable(GL_CULL_FACE);
+  // bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT);
+  // bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT);
 
-  lineDrawCommand.instanceCount = lineInstances.size();
-  lineDrawCommand.instanceOffset = 0;
+  staticStack.BindBuffer();
 
-  cubeDrawCommand.instanceCount = cubeInstances.size();
-  cubeDrawCommand.instanceOffset = lineInstances.size();
+  lineCommand.instanceCount = lineInstances.size();
+  lineCommand.baseInstance = 0;
 
-  sphereDrawCommand.instanceCount = sphereInstances.size();
-  sphereDrawCommand.instanceOffset =
-      cubeDrawCommand.instanceOffset + cubeDrawCommand.instanceCount;
+  cubeCommand.instanceCount = cubeInstances.size();
+  cubeCommand.baseInstance = lineInstances.size();
+
+  sphereCommand.instanceCount = sphereInstances.size();
+  sphereCommand.baseInstance =
+      cubeCommand.baseInstance + cubeCommand.instanceCount;
+  std::vector<DrawElementsIndirectCommand> allCommands = {
+      lineCommand, cubeCommand, sphereCommand};
+
+  SBufferRange drawRange = bufferManager->InsertNewDynamicData(
+      allCommands.data(),
+      allCommands.size() * sizeof(DrawElementsIndirectCommand),
+      TypeFlags::BUFFER_DRAW_CALL_DATA);
+
+  glm::vec3 camPos = cameraPos;
+
+  std::sort(cubeInstances.begin(), cubeInstances.end(),
+            [&](const DebugInstance &a, const DebugInstance &b) {
+              glm::vec3 pa = glm::vec3(a.model[3]);
+              glm::vec3 pb = glm::vec3(b.model[3]);
+
+              float da = glm::length(pa - camPos);
+              float db = glm::length(pb - camPos);
+
+              // BACK → FRONT (farther first)
+              return da > db;
+            });
 
   std::vector<DebugInstance> allInstances;
   allInstances.insert(allInstances.end(), lineInstances.begin(),
@@ -154,67 +191,63 @@ void DebugDrawer::DrawDebug() {
   }
 
   previousSize = allInstances.size();
+  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
 
-  glBindVertexArray(m_glDebugVAO);
-
+  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
   // Lines
-
-  // Lines
-  if (lineDrawCommand.instanceCount > 0 && lineDrawCommand.indexCount > 0) {
+  if (lineCommand.instanceCount > 0) {
     shaderManager->UseProgramme(lineShader);
-    // shaderManager->setInt(lineShader, "vertexOffset",
-    //                       lineDrawCommand.vertexOffset);
 
-    glDrawElementsInstancedBaseVertexBaseInstance(
-        GL_TRIANGLES, lineDrawCommand.indexCount, GL_UNSIGNED_INT,
-        (void *)(lineDrawCommand.indexOffset * sizeof(GLuint)),
-        lineDrawCommand.instanceCount,
-        lineDrawCommand.vertexOffset, // baseVertex = 0
-        lineDrawCommand.instanceOffset);
+    GLintptr offset = 0 * sizeof(DrawElementsIndirectCommand);
+
+    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
+                                1, 0);
   }
 
   // Cubes
-  if (cubeDrawCommand.instanceCount > 0 && cubeDrawCommand.indexCount > 0) {
-    shaderManager->UseProgramme(meshShader);
-    // shaderManager->setInt(meshShader, "vertexOffset",
-    //                       cubeDrawCommand.vertexOffset);
+  if (cubeCommand.instanceCount > 0) {
 
-    glDrawElementsInstancedBaseVertexBaseInstance(
-        GL_TRIANGLES, cubeDrawCommand.indexCount, GL_UNSIGNED_INT,
-        (void *)(cubeDrawCommand.indexOffset * sizeof(GLuint)),
-        cubeDrawCommand.instanceCount,
-        cubeDrawCommand.vertexOffset, // baseVertex = 0
-        cubeDrawCommand.instanceOffset);
+    shaderManager->UseProgramme(meshShader);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    GLintptr offset = sizeof(DrawElementsIndirectCommand);
+
+    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
+                                1, 0);
+
+    glDepthMask(GL_TRUE);
   }
 
   // Spheres
-  if (sphereDrawCommand.instanceCount > 0 && sphereDrawCommand.indexCount > 0) {
-    // shaderManager->setInt(meshShader, "vertexOffset",
-    //                       sphereDrawCommand.vertexOffset);
+  if (sphereCommand.instanceCount > 0) {
+
     shaderManager->UseProgramme(meshShader);
-    glDrawElementsInstancedBaseVertexBaseInstance(
-        GL_TRIANGLES, sphereDrawCommand.indexCount, GL_UNSIGNED_INT,
-        (void *)(sphereDrawCommand.indexOffset * sizeof(GLuint)),
-        sphereDrawCommand.instanceCount,
-        sphereDrawCommand.vertexOffset, // baseVertex = 0
-        sphereDrawCommand.instanceOffset);
+    GLintptr offset = 2 * sizeof(DrawElementsIndirectCommand);
+
+    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
+                                1, 0);
   }
 
-  lineDrawCommand.instanceCount = 0;
-  lineDrawCommand.instanceOffset = 0;
+  lineCommand.instanceCount = 0;
+  lineCommand.baseInstance = 0;
 
-  cubeDrawCommand.instanceCount = 0;
-  cubeDrawCommand.instanceOffset = 0;
+  cubeCommand.instanceCount = 0;
+  cubeCommand.baseInstance = 0;
 
-  sphereDrawCommand.instanceCount = 0;
-  sphereDrawCommand.instanceOffset = 0;
+  sphereCommand.instanceCount = 0;
+  sphereCommand.baseInstance = 0;
   lineInstances.clear();
   cubeInstances.clear();
   sphereInstances.clear();
   bufferManager->ClearBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
 
-  glDepthMask(GL_TRUE);
-  glEnable(GL_DEPTH_TEST);
+  //  glDepthMask(GL_TRUE);
+  //  glEnable(GL_DEPTH_TEST);
+
+  // glEnable(GL_CULL_FACE);
 }
 
 } // namespace eHazGraphics
