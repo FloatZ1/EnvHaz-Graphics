@@ -1,6 +1,6 @@
 #ifndef EnvHazGraphics
 #define EnvHazGraphics
-#include "Utils/Drawing/Lines.hpp"
+#include "Utils/Drawing/DebugDrawer.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL.h>
 
@@ -40,6 +40,11 @@ public:
   static std::unique_ptr<MeshManager> p_meshManager;
   static std::unique_ptr<RenderQueue> p_renderQueue;
   static std::unique_ptr<BufferManager> p_bufferManager;
+  static std::unique_ptr<DebugDrawer> p_debugDrawer;
+
+  glm::vec3 cameraPosition;
+
+  void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }
 
   const SDL_Event &GetEvent() const { return events; }
 
@@ -113,26 +118,6 @@ public:
   void UpdateRenderer(float deltaTime);
 
   // future
-
-#ifdef EHAZ_DEBUG_DRAWING
-
-  // NOTE: HACKY ass debugging fix later
-
-  std::map<int, eHazGraphics_Utils::Line> lines;
-
-  int numLines;
-
-  void DrawLine(glm::vec3 start, glm::vec3 end, float width, glm::vec3 color) {}
-
-  void DrawRay(glm::vec3 start, glm::vec3 direction, float radius, float width,
-               glm::vec3 color);
-
-  // TODO: implement
-
-  static void DrawSimpleMesh(glm::vec3 position, SimpleShapes shape,
-                             float dimensions[4]);
-
-#endif
 
   const int &GetViewportWidth() const { return vp_width; }
   const int &GetViewportHeight() const { return vp_height; }

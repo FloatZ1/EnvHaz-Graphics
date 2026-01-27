@@ -191,9 +191,45 @@ public:
 
   ShaderComboID CreateShaderProgramme(ShaderID p_ComputeShaderID);
 
-  // TODO: Compute suite
+  void setBool(ShaderComboID shader, const std::string &name, bool value);
 
-  //
+  // ------------------------------------------------------------------------
+  void setInt(ShaderComboID shader, const std::string &name, int value);
+
+  // ------------------------------------------------------------------------
+  void setFloat(ShaderComboID shader, const std::string &name, float value);
+
+  // ------------------------------------------------------------------------
+  void setVec2(ShaderComboID shader, const std::string &name,
+               const glm::vec2 &value);
+
+  void setVec2(ShaderComboID shader, const std::string &name, float x, float y);
+
+  // ------------------------------------------------------------------------
+  void setVec3(ShaderComboID shader, const std::string &name,
+               const glm::vec3 &value);
+
+  void setVec3(ShaderComboID shader, const std::string &name, float x, float y,
+               float z);
+
+  // ------------------------------------------------------------------------
+  void setVec4(ShaderComboID shader, const std::string &name,
+               const glm::vec4 &value);
+
+  void setVec4(ShaderComboID shader, const std::string &name, float x, float y,
+               float z, float w);
+
+  // ------------------------------------------------------------------------
+  void setMat2(ShaderComboID shader, const std::string &name,
+               const glm::mat2 &mat);
+
+  // ------------------------------------------------------------------------
+  void setMat3(ShaderComboID shader, const std::string &name,
+               const glm::mat3 &mat);
+
+  // ------------------------------------------------------------------------
+  void setMat4(ShaderComboID shader, const std::string &name,
+               const glm::mat4 &mat);
 
   void SetShaderProgrammeFlags(ShaderComboID p_Programme,
                                BitFlag<ShaderManagerFlags> p_replacement);

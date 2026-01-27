@@ -24,7 +24,7 @@ using namespace eHazGraphics;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
 
 void processInput(Window *c_window, bool &quit, Camera &camera) {
 
@@ -124,7 +124,7 @@ struct camData {
   glm::mat4 projection = glm::mat4(1.0f);
 };
 
-int maine() {
+int main() {
 
   eHazGraphics::Renderer rend;
   rend.Initialize();
@@ -159,7 +159,7 @@ int maine() {
     rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
     rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
 
-  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
+  rend.p_AnimatedModelManager->RemoveModel(model);
 
   path = RESOURCES_PATH "animated/Capoeira.glb";
 
@@ -171,7 +171,7 @@ int maine() {
   rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
   rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
 
-  rend.p_AnimatedModelManager->RemoveModel(model->GetID());
+  rend.p_AnimatedModelManager->RemoveModel(model);
   path = RESOURCES_PATH "animated/rigged_sonic.glb";
 
   model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
@@ -180,15 +180,18 @@ int maine() {
   // auto model = rend.p_AnimatedModelManager->GetModel(modelID);
 
   AnimationID animationID;
-  rend.p_AnimatedModelManager->LoadAnimation(model->GetSkeleton(), path,
-                                             animationID);
-  auto &anim = rend.p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
+  rend.p_AnimatedModelManager->LoadAnimation(
+      rend.p_AnimatedModelManager->GetModel(model)->GetSkeleton(), path,
+      animationID);
+  auto &anim = rend.p_AnimatedModelManager->GetAnimator(
+      rend.p_AnimatedModelManager->GetModel(model)->GetAnimatorID());
 
   // int skelAnimID = anim->AddAnimation(
   //    rend.p_AnimatedModelManager->GetAnimation(animationID));
 
   // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
   rend.p_AnimatedModelManager->SetModelShader(model, shader);
+
   glm::mat4 position = glm::mat4(1.0f);
 
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -10.0f));
@@ -234,10 +237,11 @@ int maine() {
   // rend.p_AnimatedModelManager->ExportAHazModel(RESOURCES_PATH "TEST.ahzm",
   //                                            model->GetID());
   while (rend.shouldQuit == false) {
-
     // rend.DefaultFrameBuffer();
     processInput(rend.p_window.get(), rend.shouldQuit, camera);
-    rend.UpdateRenderer(deltaTime);
+
+    rend.SetCameraPosition(camera.Position);
+
     glm::mat4 projection = glm::perspective(
         glm::radians(camera.Zoom),
         (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
@@ -245,20 +249,33 @@ int maine() {
 
     camData camcamdata = {camera.GetViewMatrix(), projection};
 
+    rend.p_debugDrawer->SubmitCube({0.0f, 0.0f, -5.0f}, {1.0f, 1.0f, 1.0f},
+                                   {1, 0.5f, 1, 0.1f});
+
+    rend.p_debugDrawer->SubmitCube({0.0f, 2.0f, -3.0f}, {1.0f, 1.0f, 1.0f},
+                                   {1, 0.5f, 1, 0.1f});
+
+    rend.p_debugDrawer->SubmitLine({0, 0, 0}, {10, 10, 10}, 0.1f,
+                                   {1.0f, 0.0f, 1.0f, 1.0f});
+
+    rend.p_debugDrawer->SubmitSphere({1.0f, 1.0f, 1.0f}, 2.0f);
+
     rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
     rend.SubmitAnimatedModel(model, position);
 
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
+
+    rend.UpdateDynamicData(materials, mat.first.data(),
+                           mat.first.size() * sizeof(PBRMaterial));
     // rend.p_bufferManager->EndWritting();
+    rend.UpdateRenderer(deltaTime);
     rend.RenderFrame(ranges);
 
     // rend.DisplayFrameBuffer(rend.GetMainFBO());
 
     rend.SwapBuffers();
     // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
-    rend.UpdateDynamicData(materials, mat.first.data(),
-                           mat.first.size() * sizeof(PBRMaterial));
 
     frameNum++;
 

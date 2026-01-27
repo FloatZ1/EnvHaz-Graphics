@@ -59,6 +59,15 @@ struct AABB {
   }
 
   bool Contains(const AABB &box);
+
+private:
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & center;
+    ar & extents;
+  }
 };
 
 class CopyDataPtr {
@@ -316,6 +325,12 @@ struct DrawElementsIndirectCommand {
            baseInstance == other.baseInstance;
   }
 };
+typedef struct {
+  uint32_t count;
+  uint32_t primCount;
+  uint32_t first;
+  uint32_t baseInstance;
+} DrawArraysIndirectCommand;
 
 struct InstanceData {
   glm::mat4 worldMat;

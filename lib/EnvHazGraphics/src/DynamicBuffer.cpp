@@ -1,4 +1,6 @@
 #include "DynamicBuffer.hpp"
+#include "glad/glad.h"
+#include <SDL3/SDL_log.h>
 #include <algorithm>
 #include <cstring>
 
@@ -7,11 +9,9 @@ namespace eHazGraphics {
 CDynamicBuffer::CDynamicBuffer() {}
 
 CDynamicBuffer::CDynamicBuffer(size_t p_szInitialSize, int p_iDynamicBufferID,
-                               GLenum p_gleTarget, bool p_bTrippleBuffer) {
-  m_szBufferSize = p_szInitialSize;
-  m_uiDynamicBufferID = p_iDynamicBufferID;
-  m_gleTarget = p_gleTarget;
-  m_bUseTrippleBuffering = p_bTrippleBuffer;
+                               GLenum p_gleTarget, bool p_bTrippleBuffer)
+    : m_szBufferSize(p_szInitialSize), m_uiDynamicBufferID(p_iDynamicBufferID),
+      m_gleTarget(p_gleTarget), m_bUseTrippleBuffering(p_bTrippleBuffer) {
 
   if (m_bUseTrippleBuffering) {
 
@@ -68,7 +68,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const T *p_pData, size_t p_szSize,
   int slot = GetWriteSlot();
 
   std::byte *base = static_cast<std::byte *>(m_pSlots[slot]);
-  T *l_pWriteLocation = reinterpret_cast<T *>(base + m_szWriteCursor[slot]);
+  T *l_pWriteLocation = reinterpret_cast<T *>(base + m_szWriteCursor);
 
   uint32_t count = 1;
 
@@ -80,7 +80,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const T *p_pData, size_t p_szSize,
 
   l_allocation.alive = true;
   l_allocation.generation++;
-  l_allocation.offset = m_szWriteCursor[slot];
+  l_allocation.offset = m_szWriteCursor;
   l_allocation.size = p_szSize;
 
   SBufferHandle handle;
@@ -96,7 +96,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const T *p_pData, size_t p_szSize,
   l_Range.dataType = p_tfType;
   l_Range.handle = handle;
 
-  m_szWriteCursor[slot] += p_szSize;
+  m_szWriteCursor += p_szSize;
   m_szOccupiedSize[slot] += p_szSize;
 
   return l_Range;
@@ -105,8 +105,8 @@ SBufferRange CDynamicBuffer::InsertNewData(const T *p_pData, size_t p_szSize,
 SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
                                            TypeFlags p_tfType) {
 
-  if (p_szSize >= m_szBufferSize ||
-      p_szSize + m_szOccupiedSize[GetWriteSlot()] >= m_szBufferSize) {
+  if (p_szSize > m_szBufferSize ||
+      p_szSize + m_szOccupiedSize[GetWriteSlot()] > m_szBufferSize) {
     m_bSlotResizeState = true;
     ResizeBuffer(p_szSize);
   }
@@ -114,7 +114,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
   int slot = GetWriteSlot();
 
   std::byte *l_pWriteLocation =
-      static_cast<std::byte *>(m_pSlots[slot]) + m_szWriteCursor[slot];
+      reinterpret_cast<std::byte *>(m_pSlots[slot]) + m_szWriteCursor;
   uint32_t count = 1;
 
   switch (p_tfType) {
@@ -141,6 +141,22 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
     std::memcpy(reinterpret_cast<GLuint64 *>(l_pWriteLocation), p_pData,
                 p_szSize);
     break;
+
+  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT:
+
+    count = p_szSize / sizeof(GLuint);
+    std::memcpy(reinterpret_cast<GLuint *>(l_pWriteLocation), p_pData,
+                p_szSize);
+
+    break;
+  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
+
+    count = p_szSize / sizeof(glm::vec3);
+    std::memcpy(reinterpret_cast<glm::vec3 *>(l_pWriteLocation), p_pData,
+                p_szSize);
+
+    break;
+
   case TypeFlags::BUFFER_LIGHT_DATA:
   case TypeFlags::BUFFER_PARTICLE_DATA:
   default:
@@ -153,7 +169,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
 
   l_allocation.alive = true;
   l_allocation.generation++;
-  l_allocation.offset = m_szWriteCursor[slot];
+  l_allocation.offset = m_szWriteCursor;
   l_allocation.size = p_szSize;
 
   SBufferHandle handle;
@@ -167,7 +183,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
   l_Range.dataType = p_tfType;
   l_Range.handle = handle;
 
-  m_szWriteCursor[slot] += p_szSize;
+  m_szWriteCursor += p_szSize;
   m_szOccupiedSize[slot] += p_szSize;
 
   return l_Range;
@@ -185,12 +201,14 @@ void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
   // #ifdef PLATFORM_WINDOWS
   //		size_t l_newSize = std::max(2 * m_szBufferSize,
   // p_szMinimumSize); #elif defined(PLATFORM_LINUX)
-  size_t l_newSize = std::max(2 * m_szBufferSize, p_szMinimumSize);
+
   // #endif
 
   if (m_bSlotResizeState) {
-    if (m_bUseTrippleBuffering) {
 
+    size_t l_newSize = std::max(2 * m_szBufferSize, p_szMinimumSize);
+    SDL_Log("BUFFER RESIZE CALLED ID:%d", m_uiDynamicBufferID);
+    if (m_bUseTrippleBuffering) {
       for (int i = 0; i < 3; i++) {
 
         WaitForSlotFence(i);
@@ -249,7 +267,7 @@ void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
 
 void CDynamicBuffer::ClearBuffer() {
   int slot = m_iNextSlot;
-  m_szWriteCursor[slot] = 0;
+  m_szWriteCursor = 0;
   m_szOccupiedSize[slot] = 0;
   m_Allocations.clear();
 
@@ -309,7 +327,8 @@ void CDynamicBuffer::BeginWritting() {
     m_iNextSlot = 0;
     m_iCurrentSlot = 0;
   }
-  ClearBuffer();
+  if (m_bUseTrippleBuffering)
+    ClearBuffer();
 }
 
 void CDynamicBuffer::EndWritting() {
@@ -460,4 +479,10 @@ void CDynamicBuffer::SetSlot(int p_Slot) {
 
 uint32_t CDynamicBuffer::GetWriteSlot() { return m_iNextSlot; }
 
+std::vector<GLuint> CDynamicBuffer::GetGLBufferID() {
+  if (m_bUseTrippleBuffering) {
+    return {m_uiSlotIDs[0], m_uiSlotIDs[1], m_uiSlotIDs[2]};
+  }
+  return {m_uiSlotIDs[0]};
+}
 } // namespace eHazGraphics

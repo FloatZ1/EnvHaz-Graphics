@@ -1,4 +1,5 @@
 #include "Animation/AnimatedModelManager.hpp"
+#include "Animation/AnimatedModel.hpp"
 #include "Animation/Animation.hpp"
 #include "Animation/Animator.hpp"
 #include "DataStructs.hpp"
@@ -63,10 +64,12 @@ void AnimatedModelManager::ClearSubmittedModelInstances() {
   for (auto &model : submittedAnimatedModels) {
     model->ClearInstances();
   }
+  submittedAnimatedModels.clear();
 }
-void AnimatedModelManager::SetModelShader(std::shared_ptr<AnimatedModel> &model,
+void AnimatedModelManager::SetModelShader(ModelID modelID,
                                           ShaderComboID &shader) {
 
+  std::shared_ptr<AnimatedModel> model = GetModel(modelID);
   for (auto &mesh : model->GetMeshIDs()) {
     auto it = meshes.find(mesh);
     if (it != meshes.end()) {
@@ -662,7 +665,8 @@ void AnimatedModelManager::UploadBonesToGPU(
   const size_t byteSize = finalMatrices.size() * sizeof(glm::mat4);
 
   // If we don't have a valid allocation yet → allocate
-  if (range.handle.allocationID == INVALID_ALLOCATION) {
+
+  if (bufferManager->GetAllocation(range) == std::nullopt) {
 
     range = bufferManager->InsertNewDynamicData(
         finalMatrices.data(), byteSize, TypeFlags::BUFFER_ANIMATION_DATA);

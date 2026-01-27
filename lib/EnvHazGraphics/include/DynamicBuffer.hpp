@@ -2,102 +2,86 @@
 #ifndef EHAZGRAPHICS_DYNAMIC_BUFFER_HPP
 #define EHAZGRAPHICS_DYNAMIC_BUFFER_HPP
 
-#include <glad/glad.h>
-#include <cstdint>
 #include "DataStructs.hpp"
+#include <cstdint>
+#include <glad/glad.h>
 #include <optional>
+#include <vector>
 namespace eHazGraphics {
 
+class CDynamicBuffer {
+public:
+  CDynamicBuffer();
 
-	class CDynamicBuffer
-	{
-	public:
+  CDynamicBuffer(size_t p_szInitialSize, int p_iDynamicBufferID,
+                 GLenum p_gleTarget = GL_SHADER_STORAGE_BUFFER,
+                 bool p_bTrippleBuffer = true);
 
-		CDynamicBuffer();
+  template <typename T>
+  SBufferRange InsertNewData(const T *p_pData, size_t p_szSize,
+                             TypeFlags p_tfType);
 
-		CDynamicBuffer(size_t p_szInitialSize, int p_iDynamicBufferID,
-			GLenum p_gleTarget = GL_SHADER_STORAGE_BUFFER, bool p_bTrippleBuffer = true);
+  SBufferRange InsertNewData(const void *p_pData, size_t p_szSize,
+                             TypeFlags p_tfType);
 
+  void UpdateRange(SBufferRange *p_brRange, const void *p_pData,
+                   size_t p_szDataSize);
 
-		
-		template<typename T>
-		SBufferRange InsertNewData(const T* p_pData, size_t p_szSize, TypeFlags p_tfType);
+  void ResizeBuffer(size_t p_szMinimumSize = 1024UL);
 
+  void ClearBuffer();
 
+  std::optional<SAllocation> GetAllocation(int p_AllocationID);
 
-		SBufferRange InsertNewData(const void* p_pData, size_t p_szSize, TypeFlags p_tfType);
+  void SetBinding(int p_iBinding);
+  void SetSlot(int p_Slot);
+  void BindDynamicBuffer(TypeFlags type);
 
-		void UpdateRange(SBufferRange* p_brRange, const void* p_pData, size_t p_szDataSize);
+  std::vector<GLuint> GetGLBufferID();
 
-		void ResizeBuffer(size_t p_szMinimumSize = 1024UL);
+  uint32_t GetWriteSlot();
+  int GetBufferID();
 
-		void ClearBuffer();
+  void BeginWritting();
 
+  void EndWritting();
 
-		std::optional<SAllocation> GetAllocation(int p_AllocationID);
+  void Destroy();
 
-		void SetBinding(int p_iBinding);
-		void SetSlot(int p_Slot);
-		void BindDynamicBuffer(TypeFlags type);
+private:
+  std::vector<SAllocation> m_Allocations;
 
+  GLenum m_gleTarget = GL_SHADER_STORAGE_BUFFER;
 
+  uint32_t m_uiDynamicBufferID;
 
-		uint32_t GetWriteSlot();
-		int GetBufferID();
+  GLuint m_uiSlotIDs[3]{0, 0, 0};
+  void *m_pSlots[3]{nullptr, nullptr, nullptr};
+  size_t m_szBufferSize{0};
+  size_t m_szWriteCursor = 0; //[3] = {0, 0, 0};
+  size_t m_szOccupiedSize[3] = {0, 0, 0};
+  GLsync m_glsFences[3]{0, 0, 0};
 
+  int m_iBinding = 0;
+  int m_iCurrentSlot = 0;
+  int m_iNextSlot = 0;
 
+  bool m_bSlotResizeState{false};
 
+  bool m_bUseTrippleBuffering = true;
 
-		void BeginWritting();
+  uint64_t m_uiSlotTimeLine = 0;
+  uint64_t m_uiSlotAge[3]{0, 0, 0};
 
-		void EndWritting();
+  uint32_t AllocateID(size_t p_szMinimumSize);
 
-		void Destroy();
+  SlotType GetDynamicSlotType(int p_ID);
+  int GetDynamicSlotID(SlotType p_type);
 
-	private:
-
-
-		std::vector<SAllocation> m_Allocations;
-
-
-
-
-		GLenum m_gleTarget = GL_SHADER_STORAGE_BUFFER;
-
-		uint32_t m_uiDynamicBufferID;
-		
-		GLuint m_uiSlotIDs[3]{ 0,0,0 };
-		void* m_pSlots[3]{ nullptr,nullptr,nullptr };
-		size_t m_szBufferSize{0};
-		size_t m_szWriteCursor[3] = {};
-		size_t m_szOccupiedSize[3] = {};
-		GLsync m_glsFences[3]{ 0,0,0 };
-		
-		int m_iBinding = 0;
-		int m_iCurrentSlot = 0;
-		int m_iNextSlot = 0;
-
-		bool m_bSlotResizeState{false};
-
-		bool m_bUseTrippleBuffering = true;
-
-		uint64_t m_uiSlotTimeLine = 0;
-		uint64_t m_uiSlotAge[3]{ 0,0,0 };
-
-
-		uint32_t AllocateID(size_t p_szMinimumSize);
-		
-		SlotType GetDynamicSlotType(int p_ID);
-		int GetDynamicSlotID(SlotType p_type);
-
-		void SetDownFence(int p_Slot);
-		void MapAllBufferSlots();
-		bool WaitForSlotFence(int p_Slot);
-		
-
-
-
+  void SetDownFence(int p_Slot);
+  void MapAllBufferSlots();
+  bool WaitForSlotFence(int p_Slot);
 };
 
-}
+} // namespace eHazGraphics
 #endif // !EHAZGRAPHICS_DYNAMIC_BUFFER_HPP
