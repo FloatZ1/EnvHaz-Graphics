@@ -221,15 +221,11 @@ int main() {
       (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
       0.1f, 100.0f);
 
-  camData deta{camera.GetViewMatrix(), projection1};
-
   rend.UpdateRenderer(deltaTime);
 
-  SBufferRange camDt = rend.SubmitDynamicData(&deta, sizeof(deta),
-                                              TypeFlags::BUFFER_CAMERA_DATA);
   std::vector<DrawRange> ranges;
 
-  rend.SubmitAnimatedModel(model, position);
+  rend.SubmitAnimatedModel(model, position, 0);
   ranges = rend.p_renderQueue->SubmitRenderCommands();
   // rend.p_bufferManager->EndWritting();
 
@@ -247,7 +243,7 @@ int main() {
         (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
         0.1f, 100.0f);
 
-    camData camcamdata = {camera.GetViewMatrix(), projection};
+    rend.SetViewProjection(camera.GetViewMatrix(), projection);
 
     rend.p_debugDrawer->SubmitCube({0.0f, 0.0f, -5.0f}, {1.0f, 1.0f, 1.0f},
                                    {1, 0.5f, 1, 0.1f});
@@ -260,9 +256,9 @@ int main() {
 
     rend.p_debugDrawer->SubmitSphere({1.0f, 1.0f, 1.0f}, 2.0f);
 
-    rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
+    //  rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
-    rend.SubmitAnimatedModel(model, position);
+    rend.SubmitAnimatedModel(model, position, 0);
 
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
 

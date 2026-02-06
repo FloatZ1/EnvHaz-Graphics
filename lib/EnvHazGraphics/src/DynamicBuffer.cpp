@@ -206,7 +206,7 @@ void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
 
   if (m_bSlotResizeState) {
 
-    size_t l_newSize = std::max(2 * m_szBufferSize, p_szMinimumSize);
+    size_t l_newSize = std::min(2 * m_szBufferSize, p_szMinimumSize);
     SDL_Log("BUFFER RESIZE CALLED ID:%d", m_uiDynamicBufferID);
     if (m_bUseTrippleBuffering) {
       for (int i = 0; i < 3; i++) {
@@ -260,6 +260,7 @@ void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
         l_gluiNewBuffer,
         GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
 
+    m_szBufferSize = l_newSize;
     m_bSlotResizeState = false;
     return;
   }
@@ -343,6 +344,23 @@ void CDynamicBuffer::EndWritting() {
   m_iCurrentSlot = m_iNextSlot;
 }
 
+void CDynamicBuffer::WaitForBuffer() {
+
+  if (m_glsFences[GetWriteSlot()] == 0)
+    return;
+
+  // Flush commands to GPU before waiting
+  GLenum res = glClientWaitSync(m_glsFences[GetWriteSlot()],
+                                GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+
+  if (res == GL_ALREADY_SIGNALED || res == GL_CONDITION_SATISFIED) {
+    glDeleteSync(m_glsFences[GetWriteSlot()]);
+    m_glsFences[GetWriteSlot()] = 0;
+    return;
+  }
+
+  return;
+}
 void CDynamicBuffer::Destroy() {
   for (int i = 0; i < 3; ++i) {
     if (m_pSlots[i]) {

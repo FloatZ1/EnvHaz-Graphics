@@ -69,7 +69,7 @@ AABB MeshManager::GetModelAABB(const aiScene *scene) {
 
   return finalBox;
 }
-ModelID MeshManager::LoadModel(std::string &path) {
+ModelID MeshManager::LoadModel(std::string path) {
   std::vector<MeshID> temps;
 
   eHazGraphics_Utils::HashedString hashedPath =

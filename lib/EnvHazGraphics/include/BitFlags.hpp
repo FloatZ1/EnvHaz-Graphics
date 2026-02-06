@@ -1,6 +1,7 @@
 #ifndef BIT_FLAG_HPP
 #define BIT_FLAG_HPP
 
+#include <boost/serialization/serialization.hpp>
 #include <cstdint>
 #include <type_traits>
 namespace eHazGraphics {
@@ -123,6 +124,14 @@ template <typename Enum> struct BitFlag {
   void SetFlagsFromType(Storage p_Flags);
 
   void KeepCommonFlags(const BitFlag &other) { FlagValue &= other.FlagValue; }
+
+private:
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int version) {
+    ar & FlagValue;
+  }
 };
 
 } // namespace eHazGraphics

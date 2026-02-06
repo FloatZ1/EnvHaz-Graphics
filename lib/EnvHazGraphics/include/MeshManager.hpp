@@ -14,6 +14,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <cstddef>
+#include <cstdio>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -41,6 +42,8 @@ public:
     //     bufferManager->RemoveRange(l_meshTransform);
     // }
 
+    bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+
     meshTransforms.clear();
     meshTransformRanges.clear();
     meshLocations.clear();
@@ -51,7 +54,7 @@ public:
   }
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
-  ModelID LoadModel(std::string &path);
+  ModelID LoadModel(std::string path);
 
   std::shared_ptr<Model> GetModel(ModelID p_ModelID) {
     if (loadedModels.contains(p_ModelID)) {
@@ -164,6 +167,17 @@ public:
   LoadHazModelList(std::vector<StaticModelPackage> &packages);
 
   void Destroy(); // TODO: IMPLEMENT
+
+  bool isLoadedModel(std::string p_strPath) {
+
+    eHazGraphics_Utils::HashedString l_hsHash =
+        eHazGraphics_Utils::computeHash(p_strPath);
+
+    if (loadedModels.contains(l_hsHash))
+      return true;
+
+    return false;
+  }
 
 private:
   AABB GetModelAABB(const aiScene *scene);

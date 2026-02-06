@@ -46,6 +46,8 @@ public:
 
   void EndWritting();
 
+  void WaitForBuffer();
+
   void Destroy();
 
 private:

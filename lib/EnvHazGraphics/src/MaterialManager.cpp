@@ -173,4 +173,32 @@ void MaterialManager::Destroy() {}
 
 void MaterialManager::Initialize() {}
 
+bool MaterialManager::isValidMaterial(std::string p_strPath) {
+  MaterialID l_midHash = eHazGraphics_Utils::computeHash(p_strPath);
+
+  if (MaterialNames.contains(l_midHash))
+    return true;
+
+  return false;
+}
+bool MaterialManager::isValidTexture(std::string p_strPath) {
+
+  Texture2DID l_midHash = eHazGraphics_Utils::computeHash(p_strPath);
+
+  if (TexturePaths.contains(l_midHash))
+    return true;
+
+  return false;
+}
+uint32_t MaterialManager::GetTextureID(std::string p_strPath) {
+
+  Texture2DID l_tidHash = eHazGraphics_Utils::computeHash(p_strPath);
+
+  return TexturePaths[l_tidHash];
+}
+uint32_t MaterialManager::GetMaterialID(std::string p_strName) {
+  MaterialID l_midHash = eHazGraphics_Utils::computeHash(p_strName);
+
+  return MaterialNames[l_midHash];
+}
 } // namespace eHazGraphics

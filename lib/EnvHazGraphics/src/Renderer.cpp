@@ -102,6 +102,10 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id,
 #endif
 
 namespace eHazGraphics {
+struct SCameraData {
+  glm::mat4 view = glm::mat4(1.0f);
+  glm::mat4 projection = glm::mat4(1.0f);
+};
 
 std::unique_ptr<Window> Renderer::p_window = nullptr;
 std::unique_ptr<Renderer> Renderer::r_instance = nullptr;
@@ -223,7 +227,11 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   p_debugDrawer = std::make_unique<DebugDrawer>(p_shaderManager.get(),
                                                 p_bufferManager.get());
 
-  ;
+  SCameraData cameraData{ViewMatrix, ProjectionMatrix};
+
+  m_brCameraData = p_bufferManager->InsertNewDynamicData(
+      &cameraData, sizeof(cameraData), TypeFlags::BUFFER_CAMERA_DATA);
+
   std::string ScreenRenderVS =
       "//@@start@@ ScreenRenderVS shader @@end@@\n"
       "#version 460 core\n"
@@ -275,7 +283,8 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   std::cout << "piss\n\n :)))";
 }
 
-void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position) {
+void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
+                                   uint32_t materialID) {
 
   std::shared_ptr<AnimatedModel> model =
       p_AnimatedModelManager->GetModel(modelID);
@@ -320,7 +329,7 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position) {
 
     unsigned int jointLocation = animatorMatrixOffset / sizeof(glm::mat4);
 
-    InstanceData instData{position, model->GetMaterialID(), matID, numJoints,
+    InstanceData instData{position, materialID, matID, numJoints,
                           jointLocation};
 
     SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
@@ -345,7 +354,7 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position) {
 
 // Model& model , TypeFlags dataType
 void Renderer::SubmitStaticModel(ModelID modelID, glm::mat4 position,
-                                 TypeFlags dataType) {
+                                 uint32_t materialID, TypeFlags dataType) {
 
   std::shared_ptr<Model> model = p_meshManager->GetModel(modelID);
   std::vector<SBufferRange> instanceRanges;
@@ -396,7 +405,7 @@ void Renderer::SubmitStaticModel(ModelID modelID, glm::mat4 position,
 
     uint32_t matID = matOffset / sizeof(glm::mat4);
 
-    InstanceData instData{position, model->GetMaterialID(), matID};
+    InstanceData instData{position, materialID, matID};
 
     SBufferRange instanceData = p_bufferManager->InsertNewDynamicData(
         &instData, sizeof(InstanceData), TypeFlags::BUFFER_INSTANCE_DATA);
@@ -462,21 +471,28 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
                                 range.count, 0);
   }
 
+  // p_bufferManager->WaitForBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+  // p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
 
+  p_debugDrawer->DrawDebug(cameraPosition);
   p_bufferManager->BeginWritting();
+
   ClearRenderCommandBuffer();
   p_renderQueue->ClearDynamicCommands();
   p_renderQueue->ClearStaticCommnads();
   p_meshManager->ClearSubmittedModelInstances();
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
-  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
-
-  p_debugDrawer->DrawDebug(cameraPosition);
 }
 
 void Renderer::UpdateRenderer(float deltatime) {
+
+  SCameraData l_cdCameraMatrices{ViewMatrix, ProjectionMatrix};
+  Renderer::r_instance->UpdateDynamicData(m_brCameraData, &l_cdCameraMatrices,
+                                          sizeof(l_cdCameraMatrices));
+
   PollInputEvents();
   if (events.type == SDL_EVENT_QUIT)
     shouldQuit = true;
