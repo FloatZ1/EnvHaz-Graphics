@@ -244,6 +244,8 @@ public:
 
   void Destroy();
 
+  bool isValidProgrameme(ShaderComboID p_ID);
+
 private:
   // Sets the OpenGL flags needed for the shader to work correctly, like for
   // example enable/disable blending etc.  TODO:

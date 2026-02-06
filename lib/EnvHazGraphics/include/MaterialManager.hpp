@@ -47,6 +47,8 @@ public:
                      // optimize dunno.
   std::optional<PBRMaterial> GetMaterial(const std::string &materialName);
 
+  uint32_t GetTextureID(std::string p_strPath);
+  uint32_t GetMaterialID(std::string p_strPath);
   std::string GetMaterialName(uint32_t p_MatName);
 
   void ClearMaterials();
@@ -63,6 +65,10 @@ public:
 
   void Destroy(); // OPTIONAL: IMPLEMENT , again nothing much to destroy that
                   // doesnt handle itself
+
+  bool isValidMaterial(std::string p_strPath);
+  bool isValidTexture(std::string p_strName);
+
 private:
   std::vector<PBRMaterial> LoadedPBRMaterials;
   std::unordered_map<uint32_t, SMaterialSpec> m_umMaterialSpecs;

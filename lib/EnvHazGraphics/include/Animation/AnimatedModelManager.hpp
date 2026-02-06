@@ -75,6 +75,9 @@ public:
       model->ClearInstances();
     }
     // call the function from buffer manager to clear the ranges
+
+    bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+
     meshes.clear();
     loadedModels.clear();
     animators.clear();
@@ -179,6 +182,16 @@ public:
   LoadAHazModelList(std::vector<AnimatedModelPackage> &packages);
 
   void Destroy();
+  bool isLoadedModel(std::string p_strPath) {
+
+    eHazGraphics_Utils::HashedString l_hsHash =
+        eHazGraphics_Utils::computeHash(p_strPath);
+
+    if (loadedModels.contains(l_hsHash))
+      return true;
+
+    return false;
+  }
 
 private:
   static AnimatedModelPackage LoadSingleModel(const std::string &path);

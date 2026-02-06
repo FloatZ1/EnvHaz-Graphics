@@ -586,4 +586,11 @@ void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
                      &mat[0][0]);
 }
 
+bool ShaderManager::isValidProgrameme(ShaderComboID p_ID) {
+
+  if (LoadedProgrammes.contains(p_ID))
+    return true;
+
+  return false;
+}
 } // namespace eHazGraphics

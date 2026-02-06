@@ -49,7 +49,7 @@ public:
   void Initialize(); // NOTE: MAKE INITIAL SIZE VARY DEPENDING ON LAST SESSIONS
                      // MOST MEMORY USED IN EACH
 
-  void SetStaticStaticUsage(bool p_value) { m_bUseStack = p_value; };
+  void SetStaticBufferUsage(bool p_value = true) { m_bUseStack = p_value; };
 
   bool IsUsingStaticStack() { return m_bUseStack; }
 
@@ -124,6 +124,8 @@ public:
 
     return std::nullopt;
   }
+
+  void WaitForBuffer(TypeFlags buffer);
 
   std::vector<GLuint> GetGLBufferID(TypeFlags Buffer);
 

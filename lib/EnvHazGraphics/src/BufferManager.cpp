@@ -24,6 +24,47 @@ namespace eHazGraphics {
 
 BufferManager::BufferManager() {}
 
+void BufferManager::WaitForBuffer(TypeFlags buffer) {
+
+  switch (buffer) {
+  case TypeFlags::BUFFER_DRAW_CALL_DATA:
+    DrawCommandBuffer.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_INSTANCE_DATA:
+    InstanceData.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_ANIMATION_DATA:
+    AnimationMatrices.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_PARTICLE_DATA:
+    ParticleData.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_TEXTURE_DATA:
+    TextureHandleBuffer.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_CAMERA_DATA:
+    cameraMatrices.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_LIGHT_DATA:
+    LightsBuffer.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_STATIC_MATRIX_DATA:
+    StaticMatrices.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT:
+    DebugShapeIndices.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
+    DebugShapesVertices.WaitForBuffer();
+    break;
+  case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
+    DebugShapeMatrices.WaitForBuffer();
+    break;
+
+  default:
+    SDL_Log("GetGLBufferID: Unknown buffer type %d\n", buffer);
+  }
+}
 std::vector<GLuint> BufferManager::GetGLBufferID(TypeFlags Buffer) {
   std::vector<GLuint> buffer{0};
 
@@ -184,14 +225,14 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(
     size_t indexDataSize, TypeFlags type = TypeFlags::BUFFER_STATIC_MESH_DATA) {
   // for now only use the StaticMeshInformation, later implement seperation
 
-  if (m_bUseStack) {
+  // if (m_bUseStack) {
 
-    if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) {
-      return StaticMeshInformation.push_back(vertexData, vertexDataSize,
-                                             indexData, indexDataSize);
-    }
+  if (type == TypeFlags::BUFFER_STATIC_MESH_DATA) // {
+    return StaticMeshInformation.push_back(vertexData, vertexDataSize,
+                                           indexData, indexDataSize);
+  // }
 
-    if (type ==
+  /*  if (type ==
         TypeFlags::
             BUFFER_STATIC_TERRAIN_DATA) { // NOTE: this is like this
                                           // because i dont know how to
@@ -201,7 +242,8 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(
                                           // mixed of course i could
                                           // seperate them, but this should
                                           // work for now. return
-                                          // TerrainBuffer.InsertIntoBuffer(vertexData,
+                                          //
+  TerrainBuffer.InsertIntoBuffer(vertexData,
                                           // vertexDataSize, indexData,
                                           // indexDataSize);
 
@@ -210,7 +252,7 @@ VertexIndexInfoPair BufferManager::InsertNewStaticData(
     }
   } else {
     // TODO: IMPLEMENT
-  }
+  }                            */
   return VertexIndexInfoPair();
 }
 SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,

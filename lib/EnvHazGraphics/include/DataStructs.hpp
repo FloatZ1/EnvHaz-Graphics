@@ -58,7 +58,20 @@ struct AABB {
     return result;
   }
 
-  bool Contains(const AABB &box);
+  bool Contains(const AABB &other) {
+    glm::vec3 minA = center - extents;
+    glm::vec3 maxA = center + extents;
+    glm::vec3 minB = other.center - other.extents;
+    glm::vec3 maxB = other.center + other.extents;
+
+    return (minB.x >= minA.x && maxB.x <= maxA.x && minB.y >= minA.y &&
+            maxB.y <= maxA.y && minB.z >= minA.z && maxB.z <= maxA.z);
+  }
+
+  bool operator==(const AABB &other) const {
+
+    return (center == other.center && extents == other.extents);
+  }
 
 private:
   friend class boost::serialization::access;

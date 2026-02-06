@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 
 #include <cstddef>
+#include <future>
 #include <lib_export.hpp>
 #include <map>
 #include <memory>
@@ -23,6 +24,7 @@
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
 #include "Window.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 namespace eHazGraphics {
 // eHazGAPI
 
@@ -44,7 +46,18 @@ public:
 
   glm::vec3 cameraPosition;
 
+  glm::mat4 ViewMatrix, ProjectionMatrix;
+
   void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }
+
+  glm::mat4 GetViewMatrix() { return ViewMatrix; }
+  glm::mat4 GetProjection() { return ProjectionMatrix; }
+
+  void SetViewProjection(glm::mat4 view, glm::mat4 projection) {
+
+    ViewMatrix = view;
+    ProjectionMatrix = projection;
+  }
 
   const SDL_Event &GetEvent() const { return events; }
 
@@ -60,9 +73,11 @@ public:
                   bool fullscreen = false);
 
   void SubmitStaticModel(ModelID modelID, glm::mat4 position,
+                         uint32_t materialID,
                          TypeFlags dataType); // require a an object/container
                                               // from which to unwrap everything
-  void SubmitAnimatedModel(ModelID modelID, glm::mat4 position);
+  void SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
+                           uint32_t materialID);
 
   SBufferRange
   SubmitDynamicData(const void *data, size_t dataSize,
@@ -125,6 +140,7 @@ public:
   void Destroy();
 
 private:
+  SBufferRange m_brCameraData;
   GLsync m_frameFence = nullptr;
   int vp_width, vp_height;
   FrameBuffer mainFBO;

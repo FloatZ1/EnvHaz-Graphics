@@ -1,6 +1,5 @@
 
 #version 460 core
-#pragma debug(on)
 
 layout(location = 0) in vec3 aPos;
 

@@ -19,11 +19,64 @@ DebugDrawer::DebugDrawer(ShaderManager *shaderManager,
 
 {
 
-  lineShader = shaderManager->CreateShaderProgramme(
-      RESOURCES_PATH "debug_lines.vert", RESOURCES_PATH "debug_shapes.frag");
+  std::string debugInstanceVertexShader = R"glsl(
+ //@@start@@ Debug shape vertex shader @@end@@
+#version 460 core
+
+layout(location = 0) in vec3 aPos;
+
+// Instance data
+struct DebugInstance {
+    mat4 model;
+    vec4 color;
+};
+layout(std430, binding = 10) readonly buffer InstanceSSBO {
+    DebugInstance instances[];
+};
+
+// Camera uniforms
+struct VP {
+    mat4 view;
+    mat4 projection;
+};
+layout(std430, binding = 5) readonly buffer Camera {
+    VP camMats;
+};
+
+// Output color to fragment shader
+out vec4 vColor;
+
+void main()
+{
+    // Get correct instance
+    uint instanceIndex = gl_BaseInstance + gl_InstanceID;
+    vColor = instances[instanceIndex].color;
+
+    // Transform vertex by model, view, projection
+    gl_Position =
+        camMats.projection *
+            camMats.view *                           
+            instances[instanceIndex].model *
+            vec4(aPos, 1.0);
+}  
+)glsl";
+
+  static const std::string debugInstanceFragmentShader = R"glsl(
+
+ //@@start@@ Debug shape fragment shader @@end@@
+#version 460 core
+
+in vec4 vColor;
+out vec4 FragColor;
+
+void main() {
+    FragColor = vColor;
+}   
+
+)glsl";
 
   meshShader = shaderManager->CreateShaderProgramme(
-      RESOURCES_PATH "debug_shapes.vert", RESOURCES_PATH "debug_shapes.frag");
+      debugInstanceVertexShader, debugInstanceFragmentShader, false);
 
   std::vector<Vertex> vertices;
 
@@ -195,14 +248,14 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
 
   bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
   // Lines
-  if (lineCommand.instanceCount > 0) {
+  /*if (lineCommand.instanceCount > 0) {
     shaderManager->UseProgramme(lineShader);
 
     GLintptr offset = 0 * sizeof(DrawElementsIndirectCommand);
 
     glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
                                 1, 0);
-  }
+  }*/
 
   // Cubes
   if (cubeCommand.instanceCount > 0) {
@@ -242,7 +295,7 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   lineInstances.clear();
   cubeInstances.clear();
   sphereInstances.clear();
-  bufferManager->ClearBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
+  // bufferManager->ClearBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
 
   //  glDepthMask(GL_TRUE);
   //  glEnable(GL_DEPTH_TEST);
