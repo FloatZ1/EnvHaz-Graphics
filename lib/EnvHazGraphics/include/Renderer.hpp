@@ -17,6 +17,7 @@
 #include "Animation/AnimatedModelManager.hpp"
 #include "BitFlags.hpp"
 #include "BufferManager.hpp"
+
 #include "DataStructs.hpp"
 #include "FrameBuffers/FrameBuffer.hpp"
 #include "MaterialManager.hpp"
@@ -29,7 +30,7 @@ namespace eHazGraphics {
 // eHazGAPI
 
 // #define EHAZ_DEBUG
-class Renderer {
+class eHazGAPI Renderer {
 
 public:
   static std::unique_ptr<Renderer> r_instance;

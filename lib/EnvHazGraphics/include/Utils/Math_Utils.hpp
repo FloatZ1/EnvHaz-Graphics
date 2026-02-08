@@ -7,6 +7,11 @@
 #include <assimp/vector3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+#undef max
+
+
+
 namespace eHazGraphics_Utils {
 inline bool IsValid(const aiAABB &aabb) noexcept {
   return (aabb.mMin.x <= aabb.mMax.x && aabb.mMin.y <= aabb.mMax.y &&

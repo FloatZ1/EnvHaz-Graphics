@@ -67,6 +67,12 @@ target_compile_definitions(EnvHazGraphics PUBLIC
 )
 if(WIN32)
     target_compile_definitions(EnvHazGraphics PUBLIC PLATFORM_WINDOWS)
+
+    set_target_properties(EnvHazGraphics PROPERTIES
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
+
+
 elseif(APPLE)
     target_compile_definitions(EnvHazGraphics PUBLIC PLATFORM_MAC)
 elseif(UNIX)

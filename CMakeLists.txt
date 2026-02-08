@@ -6,8 +6,8 @@
 cmake_minimum_required(VERSION 3.19.2)
 project(EnvHazGraphics)
 
- set(CMAKE_CXX_COMPILER clang++)
-set(CMAKE_C_COMPILER clang)
+# set(CMAKE_CXX_COMPILER clang++)
+#set(CMAKE_C_COMPILER clang)
 
  add_compile_options(-w) 
 

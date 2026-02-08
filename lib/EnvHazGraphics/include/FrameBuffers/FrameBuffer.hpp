@@ -116,15 +116,22 @@ public:
     m_height = newHeight;
 
     // update specs
-    for (auto &spec : m_colorSpecs) {
-      spec.width = newWidth;
-      spec.height = newHeight;
-    }
-    m_depthSpec.width = newWidth;
-    m_depthSpec.height = newHeight;
+    for (auto& texture : m_colorTextures) {
+
+        texture.Resize(m_width, m_height);
+
+
+ }
+    // for (auto &spec : m_colorSpecs) {
+   //   spec.width = newWidth;
+   //   spec.height = newHeight;
+   // }
+   // m_depthSpec.width = newWidth;
+   // m_depthSpec.height = newHeight;
 
     // recreate everything
-    CreateTexture();
+   // CreateTexture();
+
     CreateFrameBuffer();
   }
 

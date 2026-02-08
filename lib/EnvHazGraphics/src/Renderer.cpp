@@ -206,6 +206,10 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
               << std::endl;
   }
 
+  const char* version = (const char*)glGetString(GL_VERSION);
+
+
+
   SetViewport(p_window->GetWidth(), p_window->GetHeight());
 
   p_shaderManager = std::make_unique<ShaderManager>();
