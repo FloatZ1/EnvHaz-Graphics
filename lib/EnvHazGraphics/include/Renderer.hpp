@@ -74,11 +74,11 @@ public:
                   bool fullscreen = false);
 
   void SubmitStaticModel(ModelID modelID, glm::mat4 position,
-                         uint32_t materialID,
+                         uint32_t materialID, ShaderComboID usedShader,
                          TypeFlags dataType); // require a an object/container
                                               // from which to unwrap everything
   void SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
-                           uint32_t materialID);
+                           uint32_t materialID, ShaderComboID usedShader);
 
   SBufferRange
   SubmitDynamicData(const void *data, size_t dataSize,

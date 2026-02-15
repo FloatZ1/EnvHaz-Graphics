@@ -1,9 +1,11 @@
 #ifndef BIT_FLAG_HPP
 #define BIT_FLAG_HPP
-
+#include <array>
 #include <boost/serialization/serialization.hpp>
 #include <cstdint>
+#include <string>
 #include <type_traits>
+#include <vector>
 namespace eHazGraphics {
 
 enum class SlotType : uint8_t {
@@ -72,6 +74,30 @@ enum class ShaderManagerFlags : uint32_t {
   STENCIL_TEST_DISABLED = 1 << 14, // glDisable(GL_STENCIL_TEST)
   STENCIL_TEST_ENABLED = 1 << 15   // glEnable(GL_STENCIL_TEST)
 };
+
+static const std::vector<std::string> ShaderManagerFlags_names = {
+    "NONE",
+
+    "DEPTH_TEST_DISABLED",
+    "DEPTH_TEST_ENABLED",
+    "DEPTH_WRITE_DISABLED",
+    "DEPTH_WRITE_ENABLED",
+    "DEPTH_LESS_EQUAL",
+    "DEPTH_LESS",
+
+    "BLEND_DISABLED",
+    "BLEND_ENABLED",
+    "BLEND_ALPHA",
+    "BLEND_ADDITIVE",
+
+    "CULL_FACE_DISABLED",
+    "CULL_FACE_ENABLED",
+
+    "WIREFRAME_DISABLED",
+    "WIREFRAME_ENABLED",
+
+    "STENCIL_TEST_DISABLED",
+    "STENCIL_TEST_ENABLED"};
 
 enum class SimpleShapes {
 

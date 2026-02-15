@@ -13,11 +13,15 @@
 
 namespace eHazGraphics {
 
+DebugDrawer *DebugDrawer::s_Instance = nullptr;
+
 DebugDrawer::DebugDrawer(ShaderManager *shaderManager,
                          BufferManager *bufferManager)
     : shaderManager(shaderManager), bufferManager(bufferManager)
 
 {
+
+  s_Instance = this;
 
   std::string debugInstanceVertexShader = R"glsl(
  //@@start@@ Debug shape vertex shader @@end@@

@@ -19,7 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
-#define EHAZ_DEBUG
+// #define EHAZ_DEBUG
 
 #ifdef EHAZ_DEBUG
 
@@ -206,9 +206,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
               << std::endl;
   }
 
-  const char* version = (const char*)glGetString(GL_VERSION);
-
-
+  const char *version = (const char *)glGetString(GL_VERSION);
 
   SetViewport(p_window->GetWidth(), p_window->GetHeight());
 
@@ -288,7 +286,8 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 }
 
 void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
-                                   uint32_t materialID) {
+                                   uint32_t materialID,
+                                   ShaderComboID usedShader) {
 
   std::shared_ptr<AnimatedModel> model =
       p_AnimatedModelManager->GetModel(modelID);
@@ -322,9 +321,15 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
         p_AnimatedModelManager->GetAnimator(model->GetAnimatorID());
     // TODO: ADD CHECKS FOR NULLOPT and for the static asw
     size_t animatorMatrixOffset; // =
-    if (auto animationMatrices =
-            p_bufferManager->GetAllocation(animator->GetGPULocation()) ==
-            std::nullopt) {
+    if (p_bufferManager->GetAllocation(animator->GetGPULocation()) ==
+        std::nullopt) {
+
+      animatorMatrixOffset = 0;
+
+    } else {
+
+      animatorMatrixOffset =
+          p_bufferManager->GetAllocation(animator->GetGPULocation())->offset;
     }
 
     uint32_t matID = animatorMatrixOffset / sizeof(glm::mat4);
@@ -347,9 +352,8 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
     instanceRanges.push_back(instanceData);
     instances.push_back(instData);
 
-    int cmdID = p_renderQueue->CreateRenderCommand(range, true, instanceID,
-                                                   m_mesh.GetInstanceCount(),
-                                                   m_mesh.GetShaderID());
+    int cmdID = p_renderQueue->CreateRenderCommand(
+        range, true, instanceID, m_mesh.GetInstanceCount(), usedShader);
   }
 
   p_AnimatedModelManager->AddSubmittedModel(model);
@@ -358,7 +362,8 @@ void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
 
 // Model& model , TypeFlags dataType
 void Renderer::SubmitStaticModel(ModelID modelID, glm::mat4 position,
-                                 uint32_t materialID, TypeFlags dataType) {
+                                 uint32_t materialID, ShaderComboID usedShader,
+                                 TypeFlags dataType) {
 
   std::shared_ptr<Model> model = p_meshManager->GetModel(modelID);
   std::vector<SBufferRange> instanceRanges;
@@ -422,9 +427,8 @@ void Renderer::SubmitStaticModel(ModelID modelID, glm::mat4 position,
     instanceRanges.push_back(instanceData);
     instances.push_back(instData);
 
-    int cmdID = p_renderQueue->CreateRenderCommand(range, true, instanceID,
-                                                   m_mesh.GetInstanceCount(),
-                                                   m_mesh.GetShaderID());
+    int cmdID = p_renderQueue->CreateRenderCommand(
+        range, true, instanceID, m_mesh.GetInstanceCount(), usedShader);
   }
 
   p_meshManager->AddSubmittedModel(model);
@@ -480,7 +484,6 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
 
   //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
 
-  p_debugDrawer->DrawDebug(cameraPosition);
   p_bufferManager->BeginWritting();
 
   ClearRenderCommandBuffer();
@@ -489,6 +492,8 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_meshManager->ClearSubmittedModelInstances();
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
+
+  p_debugDrawer->DrawDebug(cameraPosition);
 }
 
 void Renderer::UpdateRenderer(float deltatime) {

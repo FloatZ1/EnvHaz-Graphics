@@ -225,7 +225,7 @@ int main() {
 
   std::vector<DrawRange> ranges;
 
-  rend.SubmitAnimatedModel(model, position, 0);
+  rend.SubmitAnimatedModel(model, position, materialID, shader);
   ranges = rend.p_renderQueue->SubmitRenderCommands();
   // rend.p_bufferManager->EndWritting();
 
@@ -258,7 +258,7 @@ int main() {
 
     //  rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
 
-    rend.SubmitAnimatedModel(model, position, 0);
+    rend.SubmitAnimatedModel(model, position, 0, shader);
 
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
 

@@ -35,6 +35,8 @@ class DebugDrawer {
   };
 
 public:
+  static DebugDrawer *s_Instance;
+
   DebugDrawer(ShaderManager *shaderManager, BufferManager *bufferManager);
 
   void SubmitLine(const glm::vec3 &start, const glm::vec3 &end, float thickness,

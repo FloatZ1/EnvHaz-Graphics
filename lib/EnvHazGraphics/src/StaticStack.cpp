@@ -58,8 +58,8 @@ VertexIndexInfoPair CGLStaticStack::push_back(const Vertex *p_vertexData,
                                               const GLuint *p_IndexData,
                                               size_t p_IndexDataSize) {
 
-  if (m_szVertexOccupiedSize + p_VertexDataSize >= m_szVertexBufferSize ||
-      m_szIndexOccupiedSize + p_IndexDataSize >= m_szIndexBufferSize) {
+  if (m_szVertexOccupiedSize + p_VertexDataSize > m_szVertexBufferSize ||
+      m_szIndexOccupiedSize + p_IndexDataSize > m_szIndexBufferSize) {
     ResizeGLBuffer(p_VertexDataSize, p_IndexDataSize);
   }
 
