@@ -96,6 +96,8 @@ public:
 
   void SwapBuffers() { SDL_GL_SwapWindow(p_window->GetWindowPtr()); }
 
+  void DrawDebug() { p_debugDrawer->DrawDebug(cameraPosition); }
+
   void EndFrame() {
     if (m_frameFence)
       glDeleteSync(m_frameFence);

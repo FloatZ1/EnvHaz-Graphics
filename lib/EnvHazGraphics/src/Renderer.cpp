@@ -493,7 +493,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
 
-  p_debugDrawer->DrawDebug(cameraPosition);
+  // p_debugDrawer->DrawDebug(cameraPosition);
 }
 
 void Renderer::UpdateRenderer(float deltatime) {

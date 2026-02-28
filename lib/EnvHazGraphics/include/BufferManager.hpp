@@ -148,7 +148,7 @@ private:
   CDynamicBuffer LightsBuffer;
   CDynamicBuffer StaticMatrices;
 
-  CDynamicBuffer DebugShapesVertices;
+  CDynamicBuffer DebugShapeDrawCallData;
   CDynamicBuffer DebugShapeIndices;
   CDynamicBuffer DebugShapeMatrices;
 

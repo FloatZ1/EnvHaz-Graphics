@@ -166,6 +166,8 @@ private:
 
 class ShaderManager {
 public:
+  static std::unique_ptr<ShaderManager> s_Instance;
+
   void Initialize();
 
   // well this is a bummer i cant load binary shader programmes like in Vulkan

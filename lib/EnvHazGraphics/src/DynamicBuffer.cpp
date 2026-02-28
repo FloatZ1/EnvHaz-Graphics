@@ -131,6 +131,7 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
                 p_szSize);
     break;
   case TypeFlags::BUFFER_DRAW_CALL_DATA:
+  case TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA:
     count = p_szSize / sizeof(DrawElementsIndirectCommand);
     std::memcpy(
         reinterpret_cast<DrawElementsIndirectCommand *>(l_pWriteLocation),
@@ -146,13 +147,6 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
 
     count = p_szSize / sizeof(GLuint);
     std::memcpy(reinterpret_cast<GLuint *>(l_pWriteLocation), p_pData,
-                p_szSize);
-
-    break;
-  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
-
-    count = p_szSize / sizeof(glm::vec3);
-    std::memcpy(reinterpret_cast<glm::vec3 *>(l_pWriteLocation), p_pData,
                 p_szSize);
 
     break;

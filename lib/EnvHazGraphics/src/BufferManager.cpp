@@ -54,8 +54,8 @@ void BufferManager::WaitForBuffer(TypeFlags buffer) {
   case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT:
     DebugShapeIndices.WaitForBuffer();
     break;
-  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
-    DebugShapesVertices.WaitForBuffer();
+  case TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA:
+    DebugShapeDrawCallData.WaitForBuffer();
     break;
   case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
     DebugShapeMatrices.WaitForBuffer();
@@ -96,8 +96,8 @@ std::vector<GLuint> BufferManager::GetGLBufferID(TypeFlags Buffer) {
   case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT:
     buffer = DebugShapeIndices.GetGLBufferID();
     break;
-  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
-    buffer = DebugShapesVertices.GetGLBufferID();
+  case TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA:
+    buffer = DebugShapeDrawCallData.GetGLBufferID();
     break;
   case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
     buffer = DebugShapeMatrices.GetGLBufferID();
@@ -137,8 +137,8 @@ void BufferManager::BindDynamicBuffer(TypeFlags type) {
   case TypeFlags::BUFFER_STATIC_MATRIX_DATA:
     buffer = &StaticMatrices;
     break;
-  case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT:
-    buffer = &DebugShapesVertices;
+  case TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA:
+    buffer = &DebugShapeDrawCallData;
     break;
   case TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT:
     buffer = &DebugShapeIndices;
@@ -177,8 +177,8 @@ void BufferManager::Initialize() {
   StaticMatrices =
       CDynamicBuffer(MBsize(d_size), 10, GL_SHADER_STORAGE_BUFFER, false);
 
-  DebugShapesVertices =
-      CDynamicBuffer(MBsize(5), 11, GL_SHADER_STORAGE_BUFFER, false);
+  DebugShapeDrawCallData =
+      CDynamicBuffer(MBsize(5), 11, GL_DRAW_INDIRECT_BUFFER);
 
   DebugShapeIndices =
       CDynamicBuffer(MBsize(5), 12, GL_SHADER_STORAGE_BUFFER, false);
@@ -197,7 +197,7 @@ void BufferManager::Initialize() {
   DynamicBufferIDs.push_back(&LightsBuffer);
   DynamicBufferIDs.push_back(&StaticMatrices);
 
-  DynamicBufferIDs.push_back(&DebugShapesVertices);
+  DynamicBufferIDs.push_back(&DebugShapeDrawCallData);
   DynamicBufferIDs.push_back(&DebugShapeIndices);
   DynamicBufferIDs.push_back(&DebugShapeMatrices);
 
@@ -210,7 +210,7 @@ void BufferManager::Initialize() {
   LightsBuffer.SetBinding(6);
   StaticMatrices.SetBinding(7);
 
-  DebugShapesVertices.SetBinding(8);
+  DebugShapeDrawCallData.SetBinding(8);
 
   DebugShapeIndices.SetBinding(9);
   DebugShapeMatrices.SetBinding(10);
@@ -286,8 +286,8 @@ SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
   if (type == TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT) {
     return DebugShapeIndices.InsertNewData(data, size, type);
   }
-  if (type == TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT) {
-    return DebugShapesVertices.InsertNewData(data, size, type);
+  if (type == TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA) {
+    return DebugShapeDrawCallData.InsertNewData(data, size, type);
   }
   if (type == TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA) {
     return DebugShapeMatrices.InsertNewData(data, size, type);
@@ -355,9 +355,9 @@ void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
   if (whichBuffer == TypeFlags::BUFFER_LIGHT_DATA) {
     LightsBuffer.ClearBuffer();
   }
-  if (whichBuffer == TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT ||
+  if (whichBuffer == TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA ||
       whichBuffer == TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT) {
-    DebugShapesVertices.ClearBuffer();
+    DebugShapeDrawCallData.ClearBuffer();
     DebugShapeIndices.ClearBuffer();
   }
   if (whichBuffer == TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA) {

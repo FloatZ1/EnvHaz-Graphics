@@ -195,6 +195,7 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   // bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_DATA_UINT);
   // bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_DATA_FLOAT);
 
+  bufferManager->ClearBuffer(TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA);
   staticStack.BindBuffer();
 
   lineCommand.instanceCount = lineInstances.size();
@@ -212,7 +213,7 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   SBufferRange drawRange = bufferManager->InsertNewDynamicData(
       allCommands.data(),
       allCommands.size() * sizeof(DrawElementsIndirectCommand),
-      TypeFlags::BUFFER_DRAW_CALL_DATA);
+      TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA);
 
   glm::vec3 camPos = cameraPos;
 
@@ -250,7 +251,7 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   previousSize = allInstances.size();
   bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
 
-  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA);
   // Lines
   /*if (lineCommand.instanceCount > 0) {
     shaderManager->UseProgramme(lineShader);
@@ -268,14 +269,16 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
+    //  glEnable(GL_DEPTH_TEST);
+    //  glDepthMask(GL_FALSE);
     GLintptr offset = sizeof(DrawElementsIndirectCommand);
 
     glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
                                 1, 0);
 
-    glDepthMask(GL_TRUE);
+    // glDepthMask(GL_TRUE);
+
+    glDisable(GL_BLEND);
   }
 
   // Spheres

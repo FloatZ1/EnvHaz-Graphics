@@ -8,6 +8,7 @@
 
 namespace eHazGraphics {
 
+std::unique_ptr<ShaderManager> ShaderManager::s_Instance = nullptr;
 void ShaderManager::SetShaderProgrammeFlags(
     ShaderComboID p_Programme, BitFlag<ShaderManagerFlags> p_replacement) {
 
@@ -505,7 +506,7 @@ ShaderComboID ShaderManager::CreateShaderProgramme(ShaderID p_ComputeShaderID) {
   LoadedProgrammes.emplace(l_rID, std::make_unique<StandartShaderProgramme>(
                                       *LoadedShaders[p_ComputeShaderID]));
 }
-void ShaderManager::Initialize() {}
+void ShaderManager::Initialize() { s_Instance.reset(this); }
 
 void ShaderManager::Destroy() {}
 
