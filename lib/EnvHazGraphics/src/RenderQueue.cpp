@@ -101,6 +101,8 @@ std::vector<DrawRange> RenderQueue::SubmitRenderCommands() {
   SortCommandsByShader(sortedCommandPairs);
 
   numCommands = sortedCommandPairs.size();
+  if (numCommands == 0)
+    return std::vector<DrawRange>();
 
   auto fullSize = DynamicCommands.size() + StaticCommands.size();
   allCommands.reserve(fullSize);
