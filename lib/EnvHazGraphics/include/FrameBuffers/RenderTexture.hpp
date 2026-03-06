@@ -11,7 +11,7 @@ struct RenderTexture2D_Spec {
   int height = -1;
   GLenum internalFormat = static_cast<unsigned int>(-1);
   GLenum format = static_cast<unsigned int>(-1);
-  GLenum type = static_cast<unsigned int>(- 1);
+  GLenum type = static_cast<unsigned int>(-1);
 };
 class RenderTexture2D {
 private:
@@ -34,19 +34,23 @@ public:
         break;
       case GL_DEPTH_COMPONENT24:
         t_spec.format = GL_DEPTH_COMPONENT;
-        t_spec.type = GL_FLOAT;
+        t_spec.type = GL_UNSIGNED_INT;
         break;
       case GL_DEPTH24_STENCIL8:
         t_spec.format = GL_DEPTH_STENCIL;
         t_spec.type = GL_UNSIGNED_INT_24_8;
         break;
+      case GL_SRGB8_ALPHA8:
+        t_spec.format = GL_RGBA;
+        t_spec.type = GL_UNSIGNED_BYTE;
+        break;
       }
     }
     glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-    if (!glIsTexture(texture)) SDL_Log("Error: Couldnt create Render Texture");
+    if (!glIsTexture(texture))
+      SDL_Log("Error: Couldnt create Render Texture");
     glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
                        t_spec.height);
-
 
     glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -56,26 +60,26 @@ public:
   GLuint GetTextureID() const { return texture; }
   const RenderTexture2D_Spec &GetSpec() const { return t_spec; }
   void Resize(int newW, int newH) {
-      t_spec.width = newW;
-      t_spec.height = newH;
+    t_spec.width = newW;
+    t_spec.height = newH;
 
-      // Unbind texture and framebuffer
-      glBindFramebuffer(GL_FRAMEBUFFER, 0);
-      glBindTexture(GL_TEXTURE_2D, 0);
+    // Unbind texture and framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-      if (texture)
-          glDeleteTextures(1, &texture);
+    if (texture)
+      glDeleteTextures(1, &texture);
 
-      glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
 
-      glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width, t_spec.height);
+    glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
+                       t_spec.height);
 
-      glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
-
 
   RenderTexture2D(RenderTexture2D &&other) noexcept
       : t_spec(other.t_spec), texture(other.texture) {
@@ -100,9 +104,9 @@ public:
 
   void Destroy() {
 
-    //SDL_Log(
-     //   "\n\n==============FRAME BUFFER TEXTURE %i DESTROYED=============\n\n",
-     //   texture);
+    // SDL_Log(
+    //    "\n\n==============FRAME BUFFER TEXTURE %i
+    //    DESTROYED=============\n\n", texture);
 
     glDeleteTextures(1, &texture);
   }

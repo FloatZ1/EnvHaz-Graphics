@@ -76,8 +76,6 @@ public:
     }
     // call the function from buffer manager to clear the ranges
 
-    bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
-
     meshes.clear();
     loadedModels.clear();
     animators.clear();

@@ -3,6 +3,7 @@
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
 #include <cstddef>
 #include <memory>
@@ -18,6 +19,10 @@ void MaterialManager::ClearMaterials() {
   freeIndecies.clear();
   TexturePaths.clear();
   MaterialNames.clear();
+  m_TexturePathStrings.clear();
+  m_MaterialNamesString.clear();
+  m_umMaterialSpecs.clear();
+  freeTextureIndecies.clear();
 }
 
 unsigned int MaterialManager::LoadTexture(const std::string &path) {
@@ -91,6 +96,8 @@ void MaterialManager::DeleteTexture(uint32_t TextureID) {
 
   if (LoadedTextures.size() - 1 > TextureID) {
 
+    m_TexturePathStrings.erase(TextureID);
+    TexturePaths.erase(TextureID);
     freeTextureIndecies.push_back(TextureID);
   }
 }
@@ -115,6 +122,12 @@ unsigned int MaterialManager::CreatePBRMaterial(unsigned int albedoID,
   newSpec.mat_name = mat_name;
 
   PBRMaterial newMat;
+
+  LoadedTextures[albedoID]->MakeResident();
+  LoadedTextures[prmID]->MakeResident();
+  LoadedTextures[NormalMapID]->MakeResident();
+  LoadedTextures[EmissionID]->MakeResident();
+
   newMat.albedo = LoadedTextures[albedoID]->GetTextureHandle();
   newMat.prm = LoadedTextures[prmID]->GetTextureHandle();
   newMat.NormalMap = LoadedTextures[NormalMapID]->GetTextureHandle();
@@ -128,12 +141,12 @@ unsigned int MaterialManager::CreatePBRMaterial(unsigned int albedoID,
     m_umMaterialSpecs.emplace(index, newSpec);
     return index;
   } else {
-    int index = freeIndecies[0];
+    int index = freeIndecies.back();
     LoadedPBRMaterials[index] = newMat;
-    freeIndecies.erase(freeIndecies.begin());
-    MaterialNames.emplace(h_matName, index);
+    freeIndecies.pop_back();
+    MaterialNames[h_matName] = index;
     newSpec.generation++;
-    m_umMaterialSpecs.emplace(index, newSpec);
+    m_umMaterialSpecs[index] = newSpec;
 
     return index;
   }
@@ -161,7 +174,8 @@ MaterialManager::GetMaterial(const std::string &materialName) {
   return std::nullopt;
 }
 void MaterialManager::DeleteMaterial(unsigned int MaterialID) {
-
+  m_MaterialNamesString.erase(MaterialID);
+  MaterialNames.erase(MaterialID);
   freeIndecies.push_back(MaterialID);
 }
 
@@ -175,6 +189,8 @@ void MaterialManager::Initialize() {}
 
 bool MaterialManager::isValidMaterial(std::string p_strPath) {
   MaterialID l_midHash = eHazGraphics_Utils::computeHash(p_strPath);
+
+  int numNames = MaterialNames.size();
 
   if (MaterialNames.contains(l_midHash))
     return true;

@@ -6,6 +6,7 @@
 #include <StaticStack.hpp>
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <optional>
 
 namespace eHazGraphics {
@@ -320,6 +321,14 @@ void CGLStaticStack::SetVertexAttribPointers() {
                         (void *)offsetof(Vertex, boneWeights));
 
   glEnableVertexAttribArray(4);
+
+  glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                        (void *)offsetof(Vertex, Tangent));
+  glEnableVertexAttribArray(5);
+
+  glVertexAttribPointer(6, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+                        (void *)offsetof(Vertex, Bitangent));
+  glEnableVertexAttribArray(6);
 }
 
 } // namespace eHazGraphics

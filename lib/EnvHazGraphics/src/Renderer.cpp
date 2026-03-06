@@ -4,6 +4,9 @@
 #include "BufferManager.hpp"
 #include "DataStructs.hpp"
 #include "FrameBuffers/FrameBuffer.hpp"
+#include "FrameBuffers/HDR_Buffer.hpp"
+#include "FrameBuffers/HDR_shader_source.hpp"
+#include "FrameBuffers/geometry_buffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
 #include "Model.hpp"
@@ -140,6 +143,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
       SDL_Log("Failed to initialize GLAD");
     }
   }
+  // glEnable(GL_FRAMEBUFFER_SRGB);
 
 #ifdef EHAZ_DEBUG
 
@@ -260,12 +264,22 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   auto dis = p_shaderManager->CreateShaderProgramme(ScreenRenderVS,
                                                     ScreenRenderFS, false);
 
+  m_scidHDRshader = p_shaderManager->CreateShaderProgramme(
+      g_strHDRVertexSourceCode, g_strHDRFragmentSourceCode, false);
+
+  m_scidToneShader = p_shaderManager->CreateShaderProgramme(
+      g_strToneVertexSourceCode, g_strToneFragmentSourceCode, false);
+
   mainFBO.SetDisplayShader(dis);
 
   std::vector<RenderTexture2D_Spec> colors = {
       {p_window->GetWidth(), p_window->GetHeight(),
        GL_RGBA16F} // HDR color buffer
   };
+
+  m_gbGeometryBuffer = new CGeometryBuffer(
+      p_window->GetWidth(), p_window->GetHeight(), m_scidHDRshader);
+  m_bHDRBuffer = new CHDRBuffer(p_window->GetWidth(), p_window->GetHeight());
 
   RenderTexture2D_Spec depth;
   depth.width = colors[0].width;
@@ -282,7 +296,6 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   assert(p_window && "Window is not initialized");
 
   return success;
-  std::cout << "piss\n\n :)))";
 }
 
 void Renderer::SubmitAnimatedModel(ModelID modelID, glm::mat4 position,
@@ -450,7 +463,7 @@ void Renderer::PollInputEvents() { SDL_PollEvent(&events); }
 void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
 
   p_bufferManager->EndWritting();
-  glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
   glEnable(GL_DEPTH_TEST);
   // glDisable(GL_CULL_FACE);
@@ -491,6 +504,8 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_renderQueue->ClearStaticCommnads();
   p_meshManager->ClearSubmittedModelInstances();
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
 
   // p_debugDrawer->DrawDebug(cameraPosition);
@@ -547,6 +562,31 @@ void Renderer::SetFrameBuffer(const FrameBuffer &fbo) {
 void Renderer::DefaultFrameBuffer() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   SetViewport(p_window->GetWidth(), p_window->GetHeight());
+}
+
+void Renderer::RenderLightingPass() {
+  glDisable(GL_DEPTH_TEST);
+  BindHDRBuffer();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  BindGeometryBufferTextures(4);
+  p_shaderManager->UseProgramme(m_scidHDRshader);
+
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glEnable(GL_DEPTH_TEST);
+}
+void Renderer::RenderHDRToScreen() {
+
+  glDisable(GL_DEPTH_TEST);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  p_shaderManager->UseProgramme(m_scidToneShader);
+
+  m_bHDRBuffer->BindColor(0); // bind HDR color to slot 0
+
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glEnable(GL_DEPTH_TEST);
 }
 
 } // namespace eHazGraphics

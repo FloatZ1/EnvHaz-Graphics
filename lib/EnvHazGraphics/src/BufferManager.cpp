@@ -262,6 +262,9 @@ SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
     return InstanceData.InsertNewData(data, size, type);
   }
   if (type == TypeFlags::BUFFER_STATIC_MATRIX_DATA) {
+
+    // SDL_Log("Staic data inserted\n");
+
     return StaticMatrices.InsertNewData(data, size, type);
   }
   if (type == TypeFlags::BUFFER_ANIMATION_DATA) {
@@ -348,6 +351,10 @@ void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
   }
   if (whichBuffer == TypeFlags::BUFFER_DRAW_CALL_DATA) {
     DrawCommandBuffer.ClearBuffer();
+  }
+  if (whichBuffer == TypeFlags::BUFFER_STATIC_MATRIX_DATA) {
+
+    StaticMatrices.ClearBuffer();
   }
   if (whichBuffer == TypeFlags::BUFFER_CAMERA_DATA) {
     cameraMatrices.ClearBuffer();

@@ -135,7 +135,7 @@ int main() {
       Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
 
   unsigned int materialID = Renderer::p_materialManager->CreatePBRMaterial(
-      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture, "pissy");
+      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture, "piy");
 
   auto mat = rend.p_materialManager->SubmitMaterials();
 

@@ -158,8 +158,6 @@ private:
   //  Every time a buffer is added update the following functions:
   //  Initialize(), InsertNew*Data() , ClearBuffer() and BitFlags
 
-  // NOTE: ALSO FUCKING BIND THE SHIT IN THE DRAW CALL GOD DAMN.
-
   // CHANGE THESE EVERYTIME YOU ADD A BUFFER!!!!!!!!!
   unsigned int numOfDynamicBuffers = 10;
   unsigned int numofStaticBuffers = 2;

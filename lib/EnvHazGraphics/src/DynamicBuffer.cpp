@@ -191,7 +191,7 @@ void CDynamicBuffer::UpdateRange(SBufferRange *p_brRange, const void *p_pData,
 }
 
 void CDynamicBuffer::ResizeBuffer(size_t p_szMinimumSize) {
-  // fuck if i know why it now accepts std::max ????
+  // *&%$$ if i know why it now accepts std::max ????
   // #ifdef PLATFORM_WINDOWS
   //		size_t l_newSize = std::max(2 * m_szBufferSize,
   // p_szMinimumSize); #elif defined(PLATFORM_LINUX)

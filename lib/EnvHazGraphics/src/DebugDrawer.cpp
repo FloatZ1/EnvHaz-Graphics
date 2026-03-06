@@ -250,7 +250,7 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
 
   previousSize = allInstances.size();
   bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
-
+  bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
   bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DEBUG_DRAW_CALL_DATA);
   // Lines
   /*if (lineCommand.instanceCount > 0) {
@@ -264,7 +264,8 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
 
   // Cubes
   if (cubeCommand.instanceCount > 0) {
-
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     shaderManager->UseProgramme(meshShader);
 
     glEnable(GL_BLEND);
@@ -284,6 +285,8 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   // Spheres
   if (sphereCommand.instanceCount > 0) {
 
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     shaderManager->UseProgramme(meshShader);
     GLintptr offset = 2 * sizeof(DrawElementsIndirectCommand);
 
@@ -304,8 +307,8 @@ void DebugDrawer::DrawDebug(glm::vec3 cameraPos) {
   sphereInstances.clear();
   // bufferManager->ClearBuffer(TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA);
 
-  //  glDepthMask(GL_TRUE);
-  //  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
 
   // glEnable(GL_CULL_FACE);
 }

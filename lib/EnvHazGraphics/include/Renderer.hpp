@@ -20,6 +20,8 @@
 
 #include "DataStructs.hpp"
 #include "FrameBuffers/FrameBuffer.hpp"
+#include "FrameBuffers/HDR_Buffer.hpp"
+#include "FrameBuffers/geometry_buffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
 #include "RenderQueue.hpp"
@@ -88,6 +90,17 @@ public:
   void UpdateDynamicData(SBufferRange &location, const void *data,
                          const size_t size);
 
+  void BindGeometryBuffer() { m_gbGeometryBuffer->BindBuffer(); }
+
+  void BindGeometryBufferTextures(uint32_t p_uiDepthSlot = 0) {
+    m_gbGeometryBuffer->BindTextures();
+    m_gbGeometryBuffer->BindDepth(p_uiDepthSlot);
+  }
+
+  void BindHDRBuffer() { m_bHDRBuffer->Bind(); }
+
+  void BindHDRColor(uint32_t p_uiSlot = 0) { m_bHDRBuffer->BindColor(0); }
+
   void PollInputEvents();
 
   void ClearRenderCommandBuffer();
@@ -97,6 +110,10 @@ public:
   void SwapBuffers() { SDL_GL_SwapWindow(p_window->GetWindowPtr()); }
 
   void DrawDebug() { p_debugDrawer->DrawDebug(cameraPosition); }
+
+  void RenderLightingPass();
+
+  void RenderHDRToScreen();
 
   void EndFrame() {
     if (m_frameFence)
@@ -143,6 +160,12 @@ public:
   void Destroy();
 
 private:
+  ShaderComboID m_scidHDRshader;
+  ShaderComboID m_scidToneShader;
+
+  CGeometryBuffer *m_gbGeometryBuffer;
+  CHDRBuffer *m_bHDRBuffer;
+
   SBufferRange m_brCameraData;
   GLsync m_frameFence = nullptr;
   int vp_width, vp_height;

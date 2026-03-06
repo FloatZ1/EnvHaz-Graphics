@@ -309,11 +309,6 @@ struct PBRMaterial {
 
   GLuint64 albedo;
 
-  // GLuint64 specular;
-  // GLuint64 smoothness;
-  // GLuint64 Metalic;
-  // GLuint64 AmbientOcclusion;
-
   GLuint64 prm; // Packed R=Spec, G=Smoothness, B=Metallic, A=AO
 
   GLuint64 NormalMap;

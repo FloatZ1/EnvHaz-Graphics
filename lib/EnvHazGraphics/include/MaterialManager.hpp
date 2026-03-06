@@ -4,6 +4,7 @@
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Utils/HashedStrings.hpp"
+#include "glad/glad.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -43,8 +44,7 @@ public:
   std::pair<const std::vector<PBRMaterial> &, TypeFlags>
   SubmitMaterials(); // prepares the data to be sent to
                      // BufferManager; then just overwrites the
-                     // whole buffer each frame? or we could
-                     // optimize dunno.
+                     // whole buffer each frame.
   std::optional<PBRMaterial> GetMaterial(const std::string &materialName);
 
   uint32_t GetTextureID(std::string p_strPath);
@@ -58,6 +58,12 @@ public:
   void ReloadTexture(uint32_t p_TextureID);
 
   void ReloadMaterial(uint32_t p_MatID, bool p_bReloadTextures = true);
+
+  GLuint GetTextureGLID(uint32_t p_uiTexture) {
+    if (p_uiTexture > LoadedTextures.size() || p_uiTexture <= 0)
+      return 0;
+    return LoadedTextures[p_uiTexture]->GetTexture();
+  }
 
   void DeleteMaterial(
       unsigned int MaterialID); // probably shouldnt have this here since

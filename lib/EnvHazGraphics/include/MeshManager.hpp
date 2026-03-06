@@ -42,7 +42,7 @@ public:
     //     bufferManager->RemoveRange(l_meshTransform);
     // }
 
-    bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+    bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
 
     meshTransforms.clear();
     meshTransformRanges.clear();
