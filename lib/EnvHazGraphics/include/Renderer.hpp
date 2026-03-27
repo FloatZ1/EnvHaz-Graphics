@@ -150,6 +150,10 @@ public:
     }
   }
 
+  void SetHDRShader(ShaderComboID shader) { m_scidHDRshader = shader; }
+
+  void SetToneShader(ShaderComboID shader) { m_scidToneShader = shader; }
+
   void UpdateRenderer(float deltaTime);
 
   // future

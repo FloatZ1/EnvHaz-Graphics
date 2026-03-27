@@ -15,6 +15,7 @@
 #include <assimp/mesh.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -511,6 +512,34 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
     vector.z = mesh->mNormals[i].z;
     vertex.Normal = vector;
 
+    if (mesh->HasTangentsAndBitangents()) {
+
+      // 1. Extract raw vec3 data from Assimp
+      glm::vec3 n = vertex.Normal;
+      glm::vec3 t =
+          eHazGraphics_Utils::convertAssimpVec3ToGLM(mesh->mTangents[i]);
+      glm::vec3 b =
+          eHazGraphics_Utils::convertAssimpVec3ToGLM(mesh->mBitangents[i]);
+
+      // 2. Calculate Handedness (the 'w' component)
+      // We check if the bitangent from Assimp matches the direction of (Normal
+      // x Tangent). If they point in opposite directions (dot < 0), w is -1.0.
+      float handedness = (glm::dot(glm::cross(n, t), b) < 0.0f) ? -1.0f : 1.0f;
+
+      // 3. Optional: Orthonormalize the Tangent
+      // This fixes minor inaccuracies in the model's exported data.
+      t = glm::normalize(t - n * glm::dot(t, n));
+
+      // 4. Store as vec4
+      // Tangent.w holds the handedness for bitangent reconstruction in the
+      // shader. Bitangent.w is typically set to 1.0f for alignment/padding.
+      vertex.Tangent = glm::vec4(t, handedness);
+      vertex.Bitangent = b;
+    } else {
+      vertex.Tangent = glm::vec4(0.0f);
+      vertex.Bitangent = glm::vec4(0.0f);
+    }
+
     if (mesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
     {
       glm::vec2 vec;
@@ -519,6 +548,16 @@ Mesh AnimatedModelManager::processMesh(aiMesh *mesh) {
       vertex.UV = vec;
     } else
       vertex.UV = glm::vec2(0.0f, 0.0f);
+
+    if (mesh->mTextureCoords[1]) // does the mesh contain texture coordinates?
+    {
+      glm::vec2 vec;
+
+      vec.x = mesh->mTextureCoords[1][i].x;
+      vec.y = mesh->mTextureCoords[1][i].y;
+      vertex.UV2 = vec;
+    } else
+      vertex.UV2 = glm::vec2(0.0f, 0.0f);
 
     VertexBoneData boneData = GetVertexBoneData(i, mesh);
     float sum = boneData.boneWeights[0] + boneData.boneWeights[1] +

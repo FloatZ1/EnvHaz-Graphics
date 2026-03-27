@@ -48,8 +48,11 @@ public:
     else
       rawData;
   }
+  GLenum GetType() { return type; }
 
   std::string GetSource() { return shaderSource; }
+
+  bool IsRaw() { return isRaw; }
 
   // add a function later which reads shader metadata from a file and adds the
   // necessary flags
@@ -125,7 +128,7 @@ private:
   GLenum type;
   BitFlag<ShaderManagerFlags> shaderFlags;
   GLuint shaderID = 0;
-  std::string shaderSource;
+  std::string shaderSource = "";
 };
 
 class StandartShaderProgramme {
@@ -145,12 +148,31 @@ public:
 
   void Recompile();
 
+  void SetGLVertexShaderID(GLuint shader) { vertexShader = shader; }
+
+  void SetGLFragmentShaderID(GLuint shader) { fragmentShader = shader; }
+
+  bool HasGeometryShader() {
+    if (geometryShader != 0)
+      return true;
+    else
+      return false;
+  }
+
+  void SetGLComputeShaderID(GLuint shader) { computeShader = shader; }
+  void SetGLGeometryShaderID(GLuint shader) { geometryShader = shader; }
   ~StandartShaderProgramme() {
 
     SDL_Log("SHADER PROGRAMME DESTRUCTOR CALLED");
 
     glDeleteProgram(progID);
   }
+
+  ShaderID GetVertexHash() { return m_sidVertex; }
+
+  ShaderID GetFragmentHash() { return m_sidFragment; }
+  ShaderID GetGeometryHash() { return m_sidGeometry; }
+  ShaderID GetComputeHash() { return m_sidCompute; }
 
 private:
   void FlipFlags(BitFlag<ShaderManagerFlags> flags);
@@ -162,6 +184,11 @@ private:
   GLuint vertexShader = 0;
   GLuint geometryShader = 0;
   GLuint fragmentShader = 0;
+
+  ShaderID m_sidVertex = 0;
+  ShaderID m_sidFragment = 0;
+  ShaderID m_sidGeometry = 0;
+  ShaderID m_sidCompute = 0;
 };
 
 class ShaderManager {
@@ -248,7 +275,11 @@ public:
 
   bool isValidProgrameme(ShaderComboID p_ID);
 
+  void ReloadShader(std::string p_strPath);
+
 private:
+  friend class StandartShaderProgramme;
+
   // Sets the OpenGL flags needed for the shader to work correctly, like for
   // example enable/disable blending etc.  TODO:
   void SetOpenGLFlags(

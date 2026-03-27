@@ -1,8 +1,6 @@
 #ifndef ENVHAZGRAPHICS_SDL_HELPERS_HPP
 #define ENVHAZGRAPHICS_SDL_HELPERS_HPP
 
-
-
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
@@ -11,62 +9,39 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
-struct SDLDeleter
-{
+struct SDLDeleter {
 
-    void operator()(void *p)
-    {
-        SDL_free(p);
-    }
+  void operator()(void *p) { SDL_free(p); }
 };
 
+class SDLFileReadBuffer {
 
+public:
+  SDLFileReadBuffer() = default;
 
-class SDLFileReadBuffer
-{
-
-  public:
-    SDLFileReadBuffer() = default;
-
-    SDLFileReadBuffer(std::string &filepath)
-    {
-        void *p_data = SDL_LoadFile(filepath.c_str(), &fileSize);
-        if (p_data == nullptr)
-        {
-            printf("SDL_LOAD_ERROR: %s", SDL_GetError());
-            throw std::runtime_error("SDLFileReadBuffer had a nullptr reference.\n");
-        }
-        data.reset(p_data);
-        source = std::string((char *)data.get(), fileSize);
-        std::cout << "=======================SHADER========================:\n" << source << "\n";
+  SDLFileReadBuffer(std::string &filepath) {
+    void *p_data = SDL_LoadFile(filepath.c_str(), &fileSize);
+    if (p_data == nullptr) {
+      printf("SDL_LOAD_ERROR: %s", SDL_GetError());
+      throw std::runtime_error(
+          ("SDLFileReadBuffer had a nullptr reference. path: " + filepath +
+           "\n"));
     }
+    data.reset(p_data);
+    source = std::string((char *)data.get(), fileSize);
+    std::cout << "=======================SHADER========================:\n"
+              << source << "\n";
+  }
 
+  std::string getString() const { return source; }
 
-    std::string getString() const
-    {
-        return source;
-    }
+  void *getData() const { return data.get(); }
+  size_t getSize() const { return fileSize; }
 
-    void *getData() const
-    {
-        return data.get();
-    }
-    size_t getSize() const
-    {
-        return fileSize;
-    }
-
-
-
-  private:
-    std::unique_ptr<void, SDLDeleter> data;
-    size_t fileSize = 0;
-    std::string source;
+private:
+  std::unique_ptr<void, SDLDeleter> data;
+  size_t fileSize = 0;
+  std::string source;
 };
-
-
-
-
-
 
 #endif

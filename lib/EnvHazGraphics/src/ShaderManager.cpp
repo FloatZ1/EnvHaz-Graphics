@@ -9,6 +9,72 @@
 namespace eHazGraphics {
 
 std::unique_ptr<ShaderManager> ShaderManager::s_Instance = nullptr;
+
+void ShaderManager::ReloadShader(std::string p_strPath) {
+
+  ShaderID l_sIDShader = eHazGraphics_Utils::computeHash(p_strPath);
+
+  if (!LoadedShaders.contains(l_sIDShader)) {
+    SDL_Log("Shader Not Loaded: %s", p_strPath.c_str());
+
+    return;
+  }
+
+  LoadedShaders[l_sIDShader] = std::make_shared<Shader>(p_strPath);
+
+  switch (LoadedShaders[l_sIDShader]->GetType()) {
+
+  case GL_VERTEX_SHADER: {
+
+    for (auto [key, value] : LoadedProgrammes) {
+
+      if (key.vertex == l_sIDShader) {
+        value->SetGLVertexShaderID(LoadedShaders[l_sIDShader]->GetGLShaderID());
+        value->Recompile();
+      }
+    }
+
+  } break;
+  case GL_FRAGMENT_SHADER: {
+
+    for (auto [key, value] : LoadedProgrammes) {
+
+      if (key.fragment == l_sIDShader) {
+        value->SetGLFragmentShaderID(
+            LoadedShaders[l_sIDShader]->GetGLShaderID());
+        value->Recompile();
+      }
+    }
+
+  } break;
+  case GL_COMPUTE_SHADER: {
+
+    for (auto [key, value] : LoadedProgrammes) {
+
+      if (key.fragment == l_sIDShader && key.vertex == l_sIDShader) {
+        value->SetGLComputeShaderID(
+            LoadedShaders[l_sIDShader]->GetGLShaderID());
+        value->Recompile();
+      }
+    }
+
+  } break;
+  case GL_GEOMETRY_SHADER: {
+
+    for (auto [key, value] : LoadedProgrammes) {
+
+      if (value->HasGeometryShader()) {
+        if (value->GetGeometryHash() != l_sIDShader)
+          continue;
+        value->SetGLGeometryShaderID(
+            LoadedShaders[l_sIDShader]->GetGLShaderID());
+        value->Recompile();
+      }
+    }
+
+  } break;
+  }
+}
 void ShaderManager::SetShaderProgrammeFlags(
     ShaderComboID p_Programme, BitFlag<ShaderManagerFlags> p_replacement) {
 
@@ -53,11 +119,17 @@ void StandartShaderProgramme::Recompile() {
         if (!successPR) {
           glGetProgramInfoLog(progID, 512, NULL, infoLogPR);
 
+          std::string error_shader =
+              ShaderManager::s_Instance->LoadedShaders[m_sidVertex]
+                  ->GetSource();
+
           std::string error(
-              "ERROR::SHADER::PROGRAMME::RE-COMPILATION_FAILED\n");
+              error_shader +
+              " ERROR::SHADER::PROGRAMME::RE-COMPILATION_FAILED\n");
           error += infoLogPR;
           SDL_Log("%s", error.c_str());
         }
+        return;
       }
     } else {
 
@@ -116,6 +188,7 @@ void StandartShaderProgramme::Recompile() {
 
 StandartShaderProgramme::StandartShaderProgramme(Shader &p_ComputeShader) {
 
+  m_sidCompute = eHazGraphics_Utils::computeHash(p_ComputeShader.GetSource());
   computeShader = p_ComputeShader.GetGLShaderID();
 
   int successPR;
@@ -141,6 +214,10 @@ StandartShaderProgramme::StandartShaderProgramme(Shader &p_ComputeShader) {
 StandartShaderProgramme::StandartShaderProgramme(Shader &p_VertexShader,
                                                  Shader &p_GeometryShader,
                                                  Shader &p_FragmentShader) {
+
+  m_sidVertex = eHazGraphics_Utils::computeHash(p_VertexShader.GetSource());
+  m_sidFragment = eHazGraphics_Utils::computeHash(p_FragmentShader.GetSource());
+  m_sidGeometry = eHazGraphics_Utils::computeHash(p_GeometryShader.GetSource());
 
   vertexShader = p_VertexShader.GetGLShaderID();
   fragmentShader = p_FragmentShader.GetGLShaderID();
@@ -174,6 +251,9 @@ StandartShaderProgramme::StandartShaderProgramme(Shader &p_VertexShader,
 
 StandartShaderProgramme::StandartShaderProgramme(Shader &shader1,
                                                  Shader &shader2) {
+
+  m_sidVertex = eHazGraphics_Utils::computeHash(shader1.GetSource());
+  m_sidFragment = eHazGraphics_Utils::computeHash(shader2.GetSource());
 
   vertexShader = shader1.GetGLShaderID();
   fragmentShader = shader2.GetGLShaderID();

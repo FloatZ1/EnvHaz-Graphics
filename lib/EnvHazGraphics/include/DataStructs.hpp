@@ -161,6 +161,7 @@ private:
 struct Vertex {
   glm::vec3 Position;
   glm::vec2 UV;
+  glm::vec2 UV2;
   glm::vec3 Normal;
 
   glm::vec4 Tangent;
