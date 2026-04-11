@@ -172,7 +172,7 @@ void BufferManager::Initialize() {
   // TODO: ADD the other static allocator
 
   // StaticMatrices = StaticBuffer(MBsize(s_size), MBsize(s_size), 7);
-  cameraMatrices = CDynamicBuffer(2 * sizeof(glm::mat4), 8);
+  cameraMatrices = CDynamicBuffer(MBsize(1), 8);
   LightsBuffer = CDynamicBuffer(MBsize(d_size), 9);
   StaticMatrices =
       CDynamicBuffer(MBsize(d_size), 10, GL_SHADER_STORAGE_BUFFER, false);

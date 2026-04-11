@@ -111,7 +111,7 @@ template <typename Enum> constexpr auto to_underlying(Enum e) {
   return std::underlying_type_t<Enum>(e);
 }
 
-template <typename Enum> constexpr Enum operator|(Enum rhs, Enum lhs) {
+/*template <typename Enum> constexpr Enum operator|(Enum rhs, Enum lhs) {
   return static_cast<Enum>(to_underlying(rhs) | to_underlying(lhs));
 }
 
@@ -121,7 +121,7 @@ template <typename Enum> constexpr Enum operator&(Enum rhs, Enum lhs) {
 
 template <typename Enum> constexpr Enum operator~(Enum rhs) {
   return static_cast<Enum>(to_underlying(rhs));
-}
+}  */
 
 // from  https://dietertack.medium.com/using-bit-flags-in-c-d39ec6e30f08
 template <typename Enum> struct BitFlag {

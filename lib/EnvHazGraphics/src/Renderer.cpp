@@ -13,7 +13,11 @@
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
 #include "Utils/Drawing/DebugDrawer.hpp"
+#include "Utils/SingleDrawBuffer.hpp"
 #include "Window.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/matrix.hpp"
+#include "glm/simd/platform.h"
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
@@ -108,6 +112,8 @@ namespace eHazGraphics {
 struct SCameraData {
   glm::mat4 view = glm::mat4(1.0f);
   glm::mat4 projection = glm::mat4(1.0f);
+  glm::mat4 inverseViewProjectionNoTranslation = glm::mat4(1.0f);
+  glm::mat4 inverseViewProjection = glm::mat4(1.0f);
 };
 
 std::unique_ptr<Window> Renderer::p_window = nullptr;
@@ -139,6 +145,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
       SDL_Log("GLAD INITIALIZED SUCESSFULLY!");
       glViewport(0, 0, p_window->GetWidth(), p_window->GetHeight());
       glClearColor(0.1f, 0.5f, 0.7f, 1.0f);
+
     } else {
       SDL_Log("Failed to initialize GLAD");
     }
@@ -232,6 +239,18 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
 
   p_debugDrawer = std::make_unique<DebugDrawer>(p_shaderManager.get(),
                                                 p_bufferManager.get());
+
+  /*  m_sdbSkyModelSide1_Buffer =
+        std::make_unique<eHazGraphics_Utils::SingleDrawBuffer>();
+    m_sdbSkyModelSide2_Buffer =
+        std::make_unique<eHazGraphics_Utils::SingleDrawBuffer>();
+    m_sdbSkyModelTop_Buffer =
+        std::make_unique<eHazGraphics_Utils::SingleDrawBuffer>();
+     */
+
+  m_sdbSkyModelSide1_Buffer.Initialize();
+  m_sdbSkyModelSide2_Buffer.Initialize();
+  m_sdbSkyModelTop_Buffer.Initialize();
 
   SCameraData cameraData{ViewMatrix, ProjectionMatrix};
 
@@ -478,6 +497,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
 
   if (!p_shaderManager || !p_window) {
     SDL_Log("RenderFrame called with uninitialized managers!");
@@ -513,7 +533,15 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
 
 void Renderer::UpdateRenderer(float deltatime) {
 
-  SCameraData l_cdCameraMatrices{ViewMatrix, ProjectionMatrix};
+  glm::mat4 viewNoTranslation = glm::mat4(glm::mat3(ViewMatrix));
+  glm::mat4 inverseViewProjectionNoTranslation =
+      glm::inverse(ProjectionMatrix * viewNoTranslation);
+
+  glm::mat4 inverseViewProjection = glm::inverse(ProjectionMatrix * ViewMatrix);
+
+  SCameraData l_cdCameraMatrices{ViewMatrix, ProjectionMatrix,
+                                 inverseViewProjectionNoTranslation,
+                                 inverseViewProjection};
   Renderer::r_instance->UpdateDynamicData(m_brCameraData, &l_cdCameraMatrices,
                                           sizeof(l_cdCameraMatrices));
 
@@ -557,36 +585,185 @@ void Renderer::SetViewport(int width, int height) {
 void Renderer::SetFrameBuffer(const FrameBuffer &fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo.GetFBO());
   SetViewport(fbo.GetWidth(), fbo.GetHeight());
+  fb_width = fbo.GetWidth();
+  fb_height = fbo.GetHeight();
 }
 
 void Renderer::DefaultFrameBuffer() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   SetViewport(p_window->GetWidth(), p_window->GetHeight());
+  fb_width = p_window->GetWidth();
+  fb_width = p_window->GetHeight();
 }
 
 void Renderer::RenderLightingPass() {
-  glDisable(GL_DEPTH_TEST);
+  // glDepthMask(GL_FALSE);
   BindHDRBuffer();
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   BindGeometryBufferTextures(4);
   p_shaderManager->UseProgramme(m_scidHDRshader);
-
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-
-  glEnable(GL_DEPTH_TEST);
-}
-void Renderer::RenderHDRToScreen() {
+  p_shaderManager->setInt(m_scidHDRshader, "numLights", m_uiNumLights);
 
   glDisable(GL_DEPTH_TEST);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  p_shaderManager->UseProgramme(m_scidToneShader);
+  glDepthMask(GL_FALSE);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+}
 
-  m_bHDRBuffer->BindColor(0); // bind HDR color to slot 0
+void Renderer::RenderSkyPass() {
+  BindHDRBuffer();
+  // glClear(GL_COLOR_BUFFER_BIT);
+
+  // =========================
+  // 🌌 ATMOSPHERE (fullscreen)
+  // =========================
+
+  m_gbGeometryBuffer->BindDepth(4);
+  m_bHDRBuffer->BindColor();
+
+  p_shaderManager->UseProgramme(m_scidSkyboxShader);
+
+  glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
+
+  p_shaderManager->setVec2(m_scidSkyboxShader, "resolution",
+                           {(float)fb_width, (float)fb_height});
+
+  p_shaderManager->setVec3(m_scidSkyboxShader, "BETA_RAYLEIGH",
+                           m_v3BetaRayleigh * 1e-6f);
+  p_shaderManager->setVec3(m_scidSkyboxShader, "BETA_MIE", m_v3BetaMie * 1e-6f);
+  p_shaderManager->setVec3(m_scidSkyboxShader, "BETA_OZONE",
+                           m_v3BetaOzone * 1e-6f);
+  p_shaderManager->setVec3(m_scidSkyboxShader, "dirToSun", m_v3SunDirection);
+
+  p_shaderManager->setFloat(m_scidSkyboxShader, "RAYLEIGH_MULTIPLIER",
+                            m_fRayLeighScale);
+  p_shaderManager->setFloat(m_scidSkyboxShader, "MIE_MULTIPLIER", m_fMieScale);
+  p_shaderManager->setFloat(m_scidSkyboxShader, "light_exposure",
+                            m_fLightExposure);
+  p_shaderManager->setFloat(m_scidSkyboxShader, "solar_brightness",
+                            m_fSolarBrightness);
+
+  p_shaderManager->setFloat(m_scidSkyboxShader, "sunSize", m_fSunSize);
+  p_shaderManager->setVec3(m_scidSkyboxShader, "sunColor", m_v3SunColor);
 
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
+  // =========================
+  // ☁️ SKYDOME (always visible, blended)
+  // =========================
+  // 🔥 do NOT write depth
+
+  glm::mat4 skydomeMat = glm::mat4(1.0f);
+  skydomeMat = glm::translate(skydomeMat, cameraPosition);
+  skydomeMat = glm::scale(skydomeMat, glm::vec3(m_fSkyModelScale));
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, m_gbGeometryBuffer->GetFBO().GetFBO());
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_bHDRBuffer->GetFBO().GetFBO());
+
+  glBlitFramebuffer(0, 0, fb_width, fb_height, 0, 0, fb_width, fb_height,
+                    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+  p_shaderManager->UseProgramme(m_scidSkyModelShader);
+  // 🔥 Re-apply state AFTER UseProgramme
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
   glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL); // important for "always render behind"
+  glDepthMask(GL_FALSE);
+  // glEnable(GL_DEPTH_TEST);
+
+  /* glDisable(GL_DEPTH_TEST);
+   glDepthFunc(GL_LEQUAL);
+   glDepthMask(GL_FALSE);  */
+
+  // --- Draw all parts ---
+  auto drawPart = [&](eHazGraphics_Utils::CSingleDrawBuffer &buffer,
+                      int matID) {
+    p_shaderManager->setMat4(m_scidSkyModelShader, "localMat",
+                             buffer.GetRelativeMatrix());
+    p_shaderManager->setMat4(m_scidSkyModelShader, "modelMat", skydomeMat);
+    p_shaderManager->setInt(m_scidSkyModelShader, "matID", matID);
+    buffer.Draw();
+  };
+
+  drawPart(m_sdbSkyModelSide2_Buffer, m_matSkyModelSide2);
+  drawPart(m_sdbSkyModelTop_Buffer, m_matSkyModelTop);
+  drawPart(m_sdbSkyModelSide1_Buffer, m_matSkyModelSide1);
+
+  // =========================
+  // 🎬 TONEMAP
+  // =========================
+  glDisable(GL_BLEND);
+  glDepthMask(GL_TRUE); // restore default
+  glDepthFunc(GL_LESS);
+}
+
+void Renderer::RenderHDRToScreen() {
+
+  p_shaderManager->UseProgramme(m_scidToneShader);
+  glDisable(GL_DEPTH_TEST);
+  m_bHDRBuffer->BindColor(0);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  // =========================
+  // 🔄 RESTORE DEFAULTS
+  // =========================
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LESS);
+
+  glClear(GL_DEPTH_BUFFER_BIT);
+}
+
+void Renderer::RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder) {
+
+  p_bufferManager->EndWritting();
+
+  // glDisable(GL_CULL_FACE);
+  // Bind the static mesh buffer
+  p_bufferManager->BindStaticBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+
+  // Bind the dynamic draw command buffer
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
+
+  if (!p_shaderManager || !p_window) {
+    SDL_Log("RenderFrame called with uninitialized managers!");
+    return;
+  }
+
+  for (const auto &range : DrawOrder) {
+    p_shaderManager->UseProgramme(range.shader);
+    GLintptr offset = range.startIndex * sizeof(DrawElementsIndirectCommand);
+
+    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
+                                range.count, 0);
+  }
+
+  // p_bufferManager->WaitForBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+  // p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+
+  //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
+
+  p_bufferManager->BeginWritting();
+
+  ClearRenderCommandBuffer();
+  p_renderQueue->ClearDynamicCommands();
+  p_renderQueue->ClearStaticCommnads();
+  p_meshManager->ClearSubmittedModelInstances();
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+
+  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+  p_AnimatedModelManager->ClearSubmittedModelInstances();
 }
 
 } // namespace eHazGraphics

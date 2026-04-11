@@ -260,6 +260,9 @@ public:
   void setMat4(ShaderComboID shader, const std::string &name,
                const glm::mat4 &mat);
 
+  void setTextureHandle(ShaderComboID shader, const std::string &name,
+                        GLuint64 handle);
+
   void SetShaderProgrammeFlags(ShaderComboID p_Programme,
                                BitFlag<ShaderManagerFlags> p_replacement);
 

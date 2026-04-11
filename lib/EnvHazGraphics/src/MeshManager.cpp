@@ -59,6 +59,9 @@ AABB MeshManager::GetModelAABB(const aiScene *scene) {
 
     AABB currentBox = ConvertAssimpAABB(mesh->mAABB);
 
+    currentBox =
+        currentBox.Transform(meshTransforms[computeHash(mesh->mName.data)]);
+
     if (first) {
       finalBox = currentBox;
       first = false;
@@ -122,7 +125,7 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
 
     HashedString t_hsID = computeHash(mesh->mName.data);
 
-    meshes.try_emplace(t_hsID, processMesh(mesh, scene));
+    meshes.emplace(t_hsID, processMesh(mesh, scene));
 
     // TODO: DECIDE HOW TO DO THIS, currently meshTransforms is only used in
     // Renderer.cpp at the InsertStaticMesh part

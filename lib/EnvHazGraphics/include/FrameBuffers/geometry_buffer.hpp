@@ -60,12 +60,14 @@ public:
     // glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbGBuffer.GetFBO());
     glViewport(0, 0, m_uiWidth, m_uiHeight);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   }
   void BindDepth(GLuint slot) {
     glBindTextureUnit(slot, m_fbGBuffer.GetDepthTexture().GetTextureID());
   }
-
+  GLuint GetDepthTextureID() {
+    return m_fbGBuffer.GetDepthTexture().GetTextureID();
+  }
   void Resize(uint32_t p_uiNewWidth, uint32_t p_uiNewHeight) {
 
     m_fbGBuffer.Resize(p_uiNewWidth, p_uiNewHeight);
@@ -87,6 +89,11 @@ public:
     m_rt2DPRM.height = m_uiHeight;
     m_rt2DPRM.width = m_uiWidth;
   }
+
+  FrameBuffer &GetFBO() { return m_fbGBuffer; }
+
+  uint32_t GetWidth() { return m_uiWidth; }
+  uint32_t GetHeight() { return m_uiHeight; }
 
 private:
   uint32_t m_uiWidth, m_uiHeight;

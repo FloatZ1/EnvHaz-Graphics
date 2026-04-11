@@ -13,7 +13,13 @@ public:
 
   const AABB &GetAABB() { return boundingBox; }
 
-  const std::vector<MeshID> &GetMeshIDs() const { return meshes; }
+  const std::vector<MeshID> &GetMeshIDs() const {
+    if (meshes.size() == 0) {
+      return {0};
+    }
+
+    return meshes;
+  }
 
   const unsigned int GetMaterialID() const { return materialID; }
 

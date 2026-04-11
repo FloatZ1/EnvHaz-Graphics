@@ -10,6 +10,7 @@
 #include "ShaderManager.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "glad/glad.h"
+#include <SDL3/SDL_log.h>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -146,7 +147,15 @@ public:
 
   void Update() { /*UpdateSubmittedMeshes();*/ }
 
-  const Mesh &GetMesh(MeshID id) { return meshes[id]; }
+  const Mesh &GetMesh(MeshID id) {
+
+    if (meshes.contains(id))
+      return meshes[id];
+
+    SDL_Log("ERROR: Unknown mesh id %zu", id);
+
+    return Mesh();
+  }
   std::string GetModelPath(ModelID p_ModelID) {
 
     if (modelPaths.contains(p_ModelID)) {

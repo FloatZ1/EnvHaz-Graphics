@@ -232,6 +232,7 @@ int main() {
   int frameNum = 0;
   // rend.p_AnimatedModelManager->ExportAHazModel(RESOURCES_PATH "TEST.ahzm",
   //                                            model->GetID());
+
   while (rend.shouldQuit == false) {
     // rend.DefaultFrameBuffer();
     processInput(rend.p_window.get(), rend.shouldQuit, camera);

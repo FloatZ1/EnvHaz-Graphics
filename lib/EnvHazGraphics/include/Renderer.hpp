@@ -26,6 +26,7 @@
 #include "MeshManager.hpp"
 #include "RenderQueue.hpp"
 #include "ShaderManager.hpp"
+#include "Utils/SingleDrawBuffer.hpp"
 #include "Window.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 namespace eHazGraphics {
@@ -90,14 +91,23 @@ public:
   void UpdateDynamicData(SBufferRange &location, const void *data,
                          const size_t size);
 
-  void BindGeometryBuffer() { m_gbGeometryBuffer->BindBuffer(); }
+  void BindGeometryBuffer() {
+    m_gbGeometryBuffer->BindBuffer();
+
+    fb_width = m_gbGeometryBuffer->GetWidth();
+    fb_height = m_gbGeometryBuffer->GetHeight();
+  }
 
   void BindGeometryBufferTextures(uint32_t p_uiDepthSlot = 0) {
     m_gbGeometryBuffer->BindTextures();
     m_gbGeometryBuffer->BindDepth(p_uiDepthSlot);
   }
 
-  void BindHDRBuffer() { m_bHDRBuffer->Bind(); }
+  void BindHDRBuffer() {
+    m_bHDRBuffer->Bind();
+    fb_width = m_bHDRBuffer->GetWidth();
+    fb_height = m_bHDRBuffer->GetHeight();
+  }
 
   void BindHDRColor(uint32_t p_uiSlot = 0) { m_bHDRBuffer->BindColor(0); }
 
@@ -112,6 +122,8 @@ public:
   void DrawDebug() { p_debugDrawer->DrawDebug(cameraPosition); }
 
   void RenderLightingPass();
+
+  void RenderSkyPass();
 
   void RenderHDRToScreen();
 
@@ -150,9 +162,19 @@ public:
     }
   }
 
+  void SetSkyModelScale(float scale) { m_fSkyModelScale = scale; }
+
   void SetHDRShader(ShaderComboID shader) { m_scidHDRshader = shader; }
 
   void SetToneShader(ShaderComboID shader) { m_scidToneShader = shader; }
+
+  void SetSkyboxShader(ShaderComboID shader) { m_scidSkyboxShader = shader; }
+
+  void SetVisisbleLightCount(uint32_t p_uiLightCount) {
+    m_uiNumLights = p_uiLightCount;
+  };
+
+  uint32_t GetVisibleLightCount() { return m_uiNumLights; }
 
   void UpdateRenderer(float deltaTime);
 
@@ -161,20 +183,162 @@ public:
   const int &GetViewportWidth() const { return vp_width; }
   const int &GetViewportHeight() const { return vp_height; }
 
+  // Rayleigh Beta coefficients
+  const glm::vec3 &GetBetaRayleigh() const { return m_v3BetaRayleigh; }
+  // Mie Beta coefficients
+  const glm::vec3 &GetBetaMie() const { return m_v3BetaMie; }
+  // Ozone Beta coefficients
+  const glm::vec3 &GetBetaOzone() const { return m_v3BetaOzone; }
+
+  // Light exposure value
+  float GetLightExposure() const { return m_fLightExposure; }
+  // Solar brightness intensity
+  float GetSolarBrightness() const { return m_fSolarBrightness; }
+
+  // Normalized sun direction vector
+  const glm::vec3 &GetSunDirection() const { return m_v3SunDirection; }
+
+  // Rayleigh scale height/factor
+  float GetRayLeighScale() const { return m_fRayLeighScale; }
+  // Mie scale height/factor
+  float GetMieScale() const { return m_fMieScale; }
+
+  // --- Setters ---
+
+  void SetBetaRayleigh(const glm::vec3 &v3BetaRayleigh) {
+    m_v3BetaRayleigh = v3BetaRayleigh;
+  }
+  void SetBetaMie(const glm::vec3 &v3BetaMie) { m_v3BetaMie = v3BetaMie; }
+  void SetBetaOzone(const glm::vec3 &v3BetaOzone) {
+    m_v3BetaOzone = v3BetaOzone;
+  }
+
+  void SetLightExposure(float fLightExposure) {
+    m_fLightExposure = fLightExposure;
+  }
+  void SetSolarBrightness(float fSolarBrightness) {
+    m_fSolarBrightness = fSolarBrightness;
+  }
+
+  // Note: Usually a good idea to ensure direction remains normalized
+  void SetSunDirection(const glm::vec3 &v3SunDirection) {
+    m_v3SunDirection = glm::normalize(v3SunDirection);
+  }
+
+  void SetRayLeighScale(float fRayLeighScale) {
+    m_fRayLeighScale = fRayLeighScale;
+  }
+  void SetMieScale(float fMieScale) { m_fMieScale = fMieScale; }
+
+  void SetSkyModelShader(ShaderComboID shader) {
+    m_scidSkyModelShader = shader;
+  }
+
+  void SetSkyModelMaterial(MaterialID top, MaterialID side1, MaterialID side2) {
+    m_matSkyModelTop = top;
+    m_matSkyModelSide1 = side1;
+    m_matSkyModelSide2 = side2;
+  }
+
+  void SetSkyModelTop_Material(MaterialID top) { m_matSkyModelTop = top; }
+
+  void SetSkyModelSide1_Material(MaterialID side1) {
+    m_matSkyModelSide1 = side1;
+  }
+  void SetSkyModelSide2_Material(MaterialID side2) {
+    m_matSkyModelSide2 = side2;
+  }
+  void SetSunColor(glm::vec3 sunColor) { m_v3SunColor = sunColor; }
+
+  void SetSunSize(float size) { m_fSunSize = size; }
+
+  void SetSkyModel(ModelID side1, ModelID side2, ModelID top) {
+    m_midSkyModelTop = top;
+    m_midSkyModelSide1 = side1;
+    m_midSkyModelSide2 = side2;
+
+    MeshID l_uiMeshTop_ID =
+        p_meshManager->GetModel(m_midSkyModelTop)->GetMeshIDs()[0];
+    MeshID l_uiMeshSide1_ID =
+        p_meshManager->GetModel(m_midSkyModelSide1)->GetMeshIDs()[0];
+    MeshID l_uiMeshSide2_ID =
+        p_meshManager->GetModel(m_midSkyModelSide2)->GetMeshIDs()[0];
+
+    auto topModel = p_meshManager->GetModel(l_uiMeshTop_ID);
+
+    auto side1Model = p_meshManager->GetModel(l_uiMeshSide1_ID);
+
+    auto side2Model = p_meshManager->GetModel(l_uiMeshSide2_ID);
+
+    const Mesh &topMesh = p_meshManager->GetMesh(l_uiMeshTop_ID);
+
+    const Mesh &side1Mesh = p_meshManager->GetMesh(l_uiMeshSide1_ID);
+    const Mesh &side2Mesh = p_meshManager->GetMesh(l_uiMeshSide2_ID);
+
+    glm::mat4 topMat =
+        p_meshManager->GetMesh(l_uiMeshTop_ID).GetRelativeMatrix();
+    glm::mat4 sideMat1 =
+        p_meshManager->GetMesh(l_uiMeshSide1_ID).GetRelativeMatrix();
+    glm::mat4 sideMat2 =
+        p_meshManager->GetMesh(l_uiMeshSide2_ID).GetRelativeMatrix();
+
+    m_sdbSkyModelTop_Buffer.SetBufferData(
+        p_meshManager->GetMesh(l_uiMeshTop_ID).GetMeshData(), topMat);
+    m_sdbSkyModelSide1_Buffer.SetBufferData(
+        p_meshManager->GetMesh(l_uiMeshSide1_ID).GetMeshData(), sideMat1);
+    m_sdbSkyModelSide2_Buffer.SetBufferData(
+        p_meshManager->GetMesh(l_uiMeshSide2_ID).GetMeshData(), sideMat2);
+  }
+
   void Destroy();
 
 private:
+  void RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder);
+
+  uint32_t m_uiNumLights = 0; // current frame's number of visible lights for
+                              // iteration in the light ssbo.
+
   ShaderComboID m_scidHDRshader;
   ShaderComboID m_scidToneShader;
+  ShaderComboID m_scidSkyboxShader;
+  ShaderComboID m_scidSkyModelShader;
 
   CGeometryBuffer *m_gbGeometryBuffer;
   CHDRBuffer *m_bHDRBuffer;
 
   SBufferRange m_brCameraData;
   GLsync m_frameFence = nullptr;
-  int vp_width, vp_height;
+  int vp_width, vp_height, fb_width, fb_height;
   FrameBuffer mainFBO;
   SDL_Event events;
+
+  ModelID m_midSkyModelSide1;
+  ModelID m_midSkyModelSide2;
+  ModelID m_midSkyModelTop;
+
+  eHazGraphics_Utils::CSingleDrawBuffer m_sdbSkyModelTop_Buffer;
+  eHazGraphics_Utils::CSingleDrawBuffer m_sdbSkyModelSide1_Buffer;
+  eHazGraphics_Utils::CSingleDrawBuffer m_sdbSkyModelSide2_Buffer;
+
+  float m_fSkyModelScale = 1.0f;
+  MaterialID m_matSkyModelTop = 0;
+  MaterialID m_matSkyModelSide1 = 0;
+  MaterialID m_matSkyModelSide2 = 0;
+
+  glm::vec3 m_v3BetaRayleigh = glm::vec3(5.802f, 13.558f, 33.100f);
+  glm::vec3 m_v3BetaMie = glm::vec3(3.996f);
+  glm::vec3 m_v3BetaOzone = glm::vec3(0.650f, 1.881f, 0.085f);
+
+  float m_fLightExposure = 10.0f;
+  float m_fSolarBrightness = 10.0f;
+
+  glm::vec3 m_v3SunDirection = glm::normalize(glm::vec3(0.0f, 0.1f, -1.0f));
+
+  float m_fRayLeighScale = 0.08f;
+  float m_fMieScale = 0.012f;
+  float m_fSunSize = 0.01f;
+  glm::vec3 m_v3SunColor = glm::vec3(1.0f);
+
   /* Window window;
 
    ShaderManager shaderManager;

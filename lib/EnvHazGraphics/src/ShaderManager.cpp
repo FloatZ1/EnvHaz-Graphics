@@ -674,4 +674,10 @@ bool ShaderManager::isValidProgrameme(ShaderComboID p_ID) {
 
   return false;
 }
+void ShaderManager::setTextureHandle(ShaderComboID shader,
+                                     const std::string &name, GLuint64 handle) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniformHandleui64ARB(glGetUniformLocation(ID, name.c_str()), handle);
+}
 } // namespace eHazGraphics

@@ -6,6 +6,7 @@
 #include "stbi_image.h"
 #include <SDL3/SDL_log.h>
 #include <boost/serialization/access.hpp>
+#include <filesystem>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
@@ -57,15 +58,26 @@ struct AABB {
     result.extents = (max - min) * 0.5f;
     return result;
   }
+  AABB Transform(const glm::mat4 &transform) const {
+    // New center is simply the old center transformed
+    glm::vec3 newCenter = glm::vec3(transform * glm::vec4(center, 1.0f));
 
+    // New extents: we need to account for rotation/scaling
+    // We take the absolute values of the matrix basis vectors
+    glm::mat3 absMatrix = glm::mat3(glm::abs(glm::vec3(transform[0])),
+                                    glm::abs(glm::vec3(transform[1])),
+                                    glm::abs(glm::vec3(transform[2])));
+
+    glm::vec3 newExtents = absMatrix * extents;
+
+    AABB result;
+    result.center = newCenter;
+    result.extents = newExtents;
+    return result;
+  }
   bool Contains(const AABB &other) {
-    glm::vec3 minA = center - extents;
-    glm::vec3 maxA = center + extents;
-    glm::vec3 minB = other.center - other.extents;
-    glm::vec3 maxB = other.center + other.extents;
-
-    return (minB.x >= minA.x && maxB.x <= maxA.x && minB.y >= minA.y &&
-            maxB.y <= maxA.y && minB.z >= minA.z && maxB.z <= maxA.z);
+    glm::vec3 diff = glm::abs(center - other.center);
+    return glm::all(glm::lessThanEqual(diff + other.extents, extents));
   }
 
   bool operator==(const AABB &other) const {
@@ -226,66 +238,162 @@ public:
  *
  */
 
+class SkyBoxTextureHDR {
+
+  GLuint64 TextureHandle;
+  GLuint texture;
+  int width, height, nrChannel;
+  float *data;
+
+  std::string m_path;
+
+public:
+  SkyBoxTextureHDR(std::string path) : m_path(path) {
+
+    data = stbi_loadf(path.c_str(), &width, &height, &nrChannel, 0);
+
+    if (!data) {
+      std::cerr << "stbi_loadf failed for " << path << "\n";
+      std::cerr << "Reason: " << stbi_failure_reason() << "\n";
+      perror("fopen");
+    } else {
+      std::cout << "Loaded skybox texture: " << width << "x" << height
+                << " channels: " << nrChannel << std::endl;
+    }
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+
+    glTextureStorage2D(texture, 1, GL_RGB16F, width, height);
+    glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGB, GL_FLOAT,
+                        (const void *)&data[0]);
+
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+
+    TextureHandle = glGetTextureHandleARB(texture);
+    if (TextureHandle == 0) {
+      SDL_Log("Could not load the texturePath: ");
+    }
+  }
+
+  void MakeResident() const { glMakeTextureHandleResidentARB(TextureHandle); }
+
+  void RemoveResidency() const { glMakeTextureHandleNonResidentARB(texture); }
+
+  int GetWidth() const { return width; }
+
+  int GetHeight() const { return height; }
+
+  int GetNrChannels() const { return nrChannel; }
+
+  int GetTexture() const { return texture; }
+
+  int GetTextureHandle() const { return TextureHandle; }
+
+  ~SkyBoxTextureHDR() {
+
+    RemoveResidency();
+    glDeleteTextures(1, &texture);
+  }
+};
+
 class Texture2D {
 public:
   GLuint64 TextureHandle;
   GLuint texture;
   int width, height, nrChannel;
   unsigned char *data;
+  float *hdrData;
 
   Texture2D(std::string texturePath, GLenum storageFormat = 0,
             GLenum imageFormat = 0) {
 
-    data = stbi_load(texturePath.c_str(), &width, &height, &nrChannel, 0);
+    if (!(std::filesystem::path(texturePath).extension() == ".hdr")) {
 
-    if (!data) {
-      std::cerr << "stbi_load failed for " << texturePath << "\n";
-      std::cerr << "Reason: " << stbi_failure_reason() << "\n";
-      perror("fopen");
-    } else {
-      std::cout << "Loaded texture: " << width << "x" << height
-                << " channels: " << nrChannel << std::endl;
-    }
+      data = stbi_load(texturePath.c_str(), &width, &height, &nrChannel, 0);
 
-    if (storageFormat == 0 && imageFormat == 0) {
-      switch (nrChannel) {
-      case 1:
-        imageFormat = GL_RED;
-        storageFormat = GL_R8; // 8 bits for single channel
-        break;
-      case 3:
-        imageFormat = GL_RGB;
-        storageFormat = GL_RGB8; // 8 bits per channel
-        break;
-      case 4:
-        imageFormat = GL_RGBA;
-        storageFormat = GL_RGBA8; // 8 bits per channel
-        break;
+      if (!data) {
+        std::cerr << "stbi_load failed for " << texturePath << "\n";
+        std::cerr << "Reason: " << stbi_failure_reason() << "\n";
+        perror("fopen");
+      } else {
+        std::cout << "Loaded texture: " << width << "x" << height
+                  << " channels: " << nrChannel << std::endl;
       }
+
+      if (storageFormat == 0 && imageFormat == 0) {
+        switch (nrChannel) {
+        case 1:
+          imageFormat = GL_RED;
+          storageFormat = GL_R8; // 8 bits for single channel
+          break;
+        case 3:
+          imageFormat = GL_RGB;
+          storageFormat = GL_RGB8; // 8 bits per channel
+          break;
+        case 4:
+          imageFormat = GL_RGBA;
+          storageFormat = GL_RGBA8; // 8 bits per channel
+          break;
+        }
+      }
+
+      glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+
+      glTextureStorage2D(texture, 1, storageFormat, width, height);
+      glTextureSubImage2D(texture, 0, 0, 0, width, height, imageFormat,
+                          GL_UNSIGNED_BYTE, (const void *)&data[0]);
+      glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER,
+                          GL_LINEAR_MIPMAP_LINEAR);
+      glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glGenerateTextureMipmap(texture);
+      TextureHandle = glGetTextureHandleARB(texture);
+      if (TextureHandle == 0) {
+        SDL_Log("Could not load the texturePath: ");
+      }
+      stbi_image_free(data);
+    } else {
+      storageFormat = GL_RGBA16F;
+      imageFormat = GL_RGBA;
+      hdrData = stbi_loadf(texturePath.c_str(), &width, &height, &nrChannel, 4);
+
+      glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+
+      glTextureStorage2D(texture, 4, storageFormat, width, height);
+      glTextureSubImage2D(texture, 0, 0, 0, width, height, imageFormat,
+                          GL_FLOAT, (const void *)&hdrData[0]);
+
+      glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+      glGenerateTextureMipmap(texture);
+      TextureHandle = glGetTextureHandleARB(texture);
+      if (TextureHandle == 0) {
+        SDL_Log("Could not load the texturePath: ");
+      }
+      stbi_image_free(hdrData);
     }
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-
-    glTextureStorage2D(texture, 1, storageFormat, width, height);
-    glTextureSubImage2D(texture, 0, 0, 0, width, height, imageFormat,
-                        GL_UNSIGNED_BYTE, (const void *)&data[0]);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER,
-                        GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(texture);
-
-    TextureHandle = glGetTextureHandleARB(texture);
-    if (TextureHandle == 0) {
-      SDL_Log("Could not load the texturePath: ");
-    }
-    stbi_image_free(data);
   }
 
-  void MakeResident() const { glMakeTextureHandleResidentARB(TextureHandle); }
+  void MakeResident() const {
 
-  void RemoveResidency() const { glMakeTextureHandleNonResidentARB(texture); }
+    if (!glIsTextureHandleResidentARB(TextureHandle))
+      glMakeTextureHandleResidentARB(TextureHandle);
+  }
+
+  void RemoveResidency() const {
+
+    if (glIsTextureHandleResidentARB(TextureHandle))
+      glMakeTextureHandleNonResidentARB(TextureHandle);
+  }
 
   int GetWidth() const { return width; }
 

@@ -28,7 +28,7 @@ public:
   void Bind() {
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer.GetFBO());
     glViewport(0, 0, m_width, m_height);
-    glClear(GL_COLOR_BUFFER_BIT);
+    // glClear(GL_COLOR_BUFFER_BIT);
   }
 
   void BindColor(GLuint slot = 0) {
@@ -43,6 +43,11 @@ public:
     m_height = height;
     m_framebuffer.Resize(width, height);
   }
+
+  FrameBuffer &GetFBO() { return m_framebuffer; }
+
+  uint32_t GetWidth() { return m_width; }
+  uint32_t GetHeight() { return m_height; }
 
 private:
   uint32_t m_width, m_height;
