@@ -27,7 +27,7 @@ private:
 
     m_colorTextures.clear();
     for (auto &spec : m_colorSpecs) {
-      m_colorTextures.emplace_back(spec);
+      m_colorTextures.push_back(std::move(RenderTexture2D(spec)));
 
       spec.type = m_colorTextures[m_colorTextures.size() - 1].GetSpec().type;
       spec.format =
@@ -51,6 +51,12 @@ private:
 
       glNamedFramebufferTexture(frameBufferID, GL_COLOR_ATTACHMENT0 + i,
                                 m_colorTextures[i].GetTextureID(), 0);
+
+      GLint type = 0;
+      glGetTextureLevelParameteriv(m_colorTextures[i].GetTextureID(), 0,
+                                   GL_TEXTURE_INTERNAL_FORMAT, &type);
+
+      SDL_Log("Texture %d internal format: %d", i, type);
     }
 
     if (!m_colorTextures.empty()) {
@@ -63,6 +69,7 @@ private:
                                     drawBuffers.data());
     } else {
       glNamedFramebufferDrawBuffer(frameBufferID, GL_NONE);
+      glNamedFramebufferReadBuffer(frameBufferID, GL_NONE); // Add this
     }
 
     glNamedFramebufferTexture(frameBufferID, GL_DEPTH_ATTACHMENT,
@@ -101,8 +108,13 @@ public:
     m_colorSpecs = colorSpecs;
     m_depthSpec = depthSpec;
 
-    m_width = colorSpecs[0].width;
-    m_height = colorSpecs[0].height;
+    if (!colorSpecs.empty()) {
+      m_width = colorSpecs[0].width;
+      m_height = colorSpecs[0].height;
+    } else {
+      m_width = depthSpec.width;
+      m_height = depthSpec.height;
+    }
 
     CreateTexture();
     CreateFrameBuffer();
@@ -122,16 +134,6 @@ public:
     }
 
     m_depthTexture.Resize(m_width, m_height);
-
-    // for (auto &spec : m_colorSpecs) {
-    //   spec.width = newWidth;
-    //   spec.height = newHeight;
-    // }
-    // m_depthSpec.width = newWidth;
-    // m_depthSpec.height = newHeight;
-
-    // recreate everything
-    // CreateTexture();
 
     CreateFrameBuffer();
   }

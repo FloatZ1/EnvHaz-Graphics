@@ -52,6 +52,10 @@ public:
 
   glm::mat4 ViewMatrix, ProjectionMatrix;
 
+  float aspect, fov;
+
+  glm::vec2 GetCurrentFramebufferWH() { return {fb_width, fb_height}; }
+
   void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }
 
   glm::mat4 GetViewMatrix() { return ViewMatrix; }
@@ -62,6 +66,13 @@ public:
     ViewMatrix = view;
     ProjectionMatrix = projection;
   }
+
+  void SetCameraPlanes(float near, float far) {
+    m_fCamNearPlane = near;
+    m_fCamFarPlane = far;
+  }
+
+  glm::vec2 GetNearFarPlanes() { return {m_fCamNearPlane, m_fCamFarPlane}; }
 
   const SDL_Event &GetEvent() const { return events; }
 
@@ -290,6 +301,17 @@ public:
         p_meshManager->GetMesh(l_uiMeshSide2_ID).GetMeshData(), sideMat2);
   }
 
+  void SetCSM_shader(ShaderComboID p_scidCSMshader) {
+    m_scidCSMshader = p_scidCSMshader;
+  }
+
+  ShaderComboID GetCSM_shader() { return m_scidCSMshader; }
+
+  void RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
+                               const glm::mat4 shadowMatrices[4]);
+
+  FrameBuffer &GetShadowFB() { return m_fbShadowCascadeBuffer; }
+
   void Destroy();
 
 private:
@@ -298,6 +320,8 @@ private:
   uint32_t m_uiNumLights = 0; // current frame's number of visible lights for
                               // iteration in the light ssbo.
 
+  float m_fCamNearPlane = 0.1f, m_fCamFarPlane = 100.0f;
+
   ShaderComboID m_scidHDRshader;
   ShaderComboID m_scidToneShader;
   ShaderComboID m_scidSkyboxShader;
@@ -305,6 +329,11 @@ private:
 
   CGeometryBuffer *m_gbGeometryBuffer;
   CHDRBuffer *m_bHDRBuffer;
+
+  FrameBuffer m_fbShadowCascadeBuffer;
+  uint32_t m_uiShadowTexWidth = 2048;
+  uint32_t m_uiShadowTexHeight = 2048;
+  ShaderComboID m_scidCSMshader;
 
   SBufferRange m_brCameraData;
   GLsync m_frameFence = nullptr;
@@ -338,6 +367,8 @@ private:
   float m_fMieScale = 0.012f;
   float m_fSunSize = 0.01f;
   glm::vec3 m_v3SunColor = glm::vec3(1.0f);
+
+  GLuint m_uiCascadeUBO = 0;
 
   /* Window window;
 

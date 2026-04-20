@@ -4,6 +4,7 @@
 #include "Utils/HashedStrings.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL_log.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <memory>
 
 namespace eHazGraphics {
@@ -665,6 +666,14 @@ void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
   glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
                      &mat[0][0]);
+}
+
+void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
+                            const glm::mat4 &mat, uint32_t count) {
+
+  GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
+  glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), count, GL_FALSE,
+                     glm::value_ptr(mat));
 }
 
 bool ShaderManager::isValidProgrameme(ShaderComboID p_ID) {

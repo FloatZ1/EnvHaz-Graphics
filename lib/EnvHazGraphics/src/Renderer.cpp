@@ -6,6 +6,7 @@
 #include "FrameBuffers/FrameBuffer.hpp"
 #include "FrameBuffers/HDR_Buffer.hpp"
 #include "FrameBuffers/HDR_shader_source.hpp"
+#include "FrameBuffers/RenderTexture.hpp"
 #include "FrameBuffers/geometry_buffer.hpp"
 #include "MaterialManager.hpp"
 #include "MeshManager.hpp"
@@ -292,7 +293,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   mainFBO.SetDisplayShader(dis);
 
   std::vector<RenderTexture2D_Spec> colors = {
-      {p_window->GetWidth(), p_window->GetHeight(),
+      {p_window->GetWidth(), p_window->GetHeight(), 1,
        GL_RGBA16F} // HDR color buffer
   };
 
@@ -301,14 +302,26 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   m_bHDRBuffer = new CHDRBuffer(p_window->GetWidth(), p_window->GetHeight());
 
   RenderTexture2D_Spec depth;
+  depth.layers = 1;
   depth.width = colors[0].width;
   depth.height = colors[0].height;
   depth.internalFormat = GL_DEPTH_COMPONENT24;
   depth.format = GL_DEPTH_COMPONENT; // important
-  depth.type = GL_FLOAT;
+  depth.type = GL_UNSIGNED_INT;
   mainFBO.Create(colors, depth);
 
+  RenderTexture2D_Spec shadowDepths;
+  shadowDepths.layers = 4;
+  shadowDepths.internalFormat = GL_DEPTH_COMPONENT32F;
+  shadowDepths.width = m_uiShadowTexWidth;
+  shadowDepths.height = m_uiShadowTexHeight;
+  shadowDepths.format = GL_DEPTH_COMPONENT;
+  shadowDepths.type = GL_FLOAT;
+
+  m_fbShadowCascadeBuffer.Create({}, shadowDepths);
+
   DefaultFrameBuffer();
+
   // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   assert(p_shaderManager && "ShaderManager is not initialized");
@@ -718,16 +731,35 @@ void Renderer::RenderHDRToScreen() {
 
   glClear(GL_DEPTH_BUFFER_BIT);
 }
+void printMat4(const glm::mat4 &m) {
+  std::cout << "------------------------------------------" << std::endl;
+  for (int i = 0; i < 4; ++i) {
+    std::cout << "| ";
+    for (int j = 0; j < 4; ++j) {
+      // Accessing [column][row] to print row-by-row
+      std::cout << std::setw(10) << std::fixed << std::setprecision(4)
+                << m[j][i] << " ";
+    }
+    std::cout << " |" << std::endl;
+  }
+  std::cout << "------------------------------------------" << std::endl;
+}
+void Renderer::RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
+                                       const glm::mat4 shadowMatrices[4]) {
 
-void Renderer::RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder) {
+  SetFrameBuffer(m_fbShadowCascadeBuffer);
+  glClear(GL_DEPTH_BUFFER_BIT);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-  p_bufferManager->EndWritting();
+  printMat4(shadowMatrices[0]);
 
-  // glDisable(GL_CULL_FACE);
-  // Bind the static mesh buffer
+  printMat4(shadowMatrices[1]);
+
+  printMat4(shadowMatrices[2]);
+
+  printMat4(shadowMatrices[3]);
+
   p_bufferManager->BindStaticBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
-
-  // Bind the dynamic draw command buffer
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
@@ -736,34 +768,83 @@ void Renderer::RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder) {
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
 
-  if (!p_shaderManager || !p_window) {
-    SDL_Log("RenderFrame called with uninitialized managers!");
-    return;
-  }
+  p_shaderManager->UseProgramme(m_scidCSMshader);
+
+  p_shaderManager->setMat4(m_scidCSMshader, "u_LightMatrices[0]",
+                           shadowMatrices[0]);
+
+  p_shaderManager->setMat4(m_scidCSMshader, "u_LightMatrices[1]",
+                           shadowMatrices[1]);
+  p_shaderManager->setMat4(m_scidCSMshader, "u_LightMatrices[2]",
+                           shadowMatrices[2]);
+  p_shaderManager->setMat4(m_scidCSMshader, "u_LightMatrices[3]",
+                           shadowMatrices[3]);
 
   for (const auto &range : DrawOrder) {
-    p_shaderManager->UseProgramme(range.shader);
+
     GLintptr offset = range.startIndex * sizeof(DrawElementsIndirectCommand);
 
     glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
                                 range.count, 0);
   }
 
-  // p_bufferManager->WaitForBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
-  // p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
-
-  //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
-
-  p_bufferManager->BeginWritting();
-
   ClearRenderCommandBuffer();
   p_renderQueue->ClearDynamicCommands();
   p_renderQueue->ClearStaticCommnads();
   p_meshManager->ClearSubmittedModelInstances();
-  p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
 
   p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
   p_AnimatedModelManager->ClearSubmittedModelInstances();
+
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  DefaultFrameBuffer();
+}
+
+void Renderer::RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder) {
+
+  /*  p_bufferManager->EndWritting();
+
+    // glDisable(GL_CULL_FACE);
+    // Bind the static mesh buffer
+    p_bufferManager->BindStaticBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
+
+    // Bind the dynamic draw command buffer
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_CAMERA_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_INSTANCE_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_TEXTURE_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+    p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
+
+    if (!p_shaderManager || !p_window) {
+      SDL_Log("RenderFrame called with uninitialized managers!");
+      return;
+    }
+
+    for (const auto &range : DrawOrder) {
+      p_shaderManager->UseProgramme(range.shader);
+      GLintptr offset = range.startIndex * sizeof(DrawElementsIndirectCommand);
+
+      glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
+                                  range.count, 0);
+    }
+
+    // p_bufferManager->WaitForBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+    // p_bufferManager->ClearBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
+
+    //  SDL_GL_SwapWindow(p_window->GetWindowPtr());
+
+    p_bufferManager->BeginWritting();
+
+    ClearRenderCommandBuffer();
+    p_renderQueue->ClearDynamicCommands();
+    p_renderQueue->ClearStaticCommnads();
+    p_meshManager->ClearSubmittedModelInstances();
+    p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
+
+    p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
+    p_AnimatedModelManager->ClearSubmittedModelInstances(); */
 }
 
 } // namespace eHazGraphics

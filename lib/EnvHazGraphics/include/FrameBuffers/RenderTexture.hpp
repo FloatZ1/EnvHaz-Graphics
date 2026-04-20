@@ -9,6 +9,8 @@ namespace eHazGraphics {
 struct RenderTexture2D_Spec {
   int width = -1;
   int height = -1;
+  int layers = 1;
+
   GLenum internalFormat = static_cast<unsigned int>(-1);
   GLenum format = static_cast<unsigned int>(-1);
   GLenum type = static_cast<unsigned int>(-1);
@@ -21,7 +23,7 @@ private:
 public:
   RenderTexture2D() = default;
 
-  RenderTexture2D(const RenderTexture2D_Spec &spec) : t_spec(spec) {
+  RenderTexture2D(const RenderTexture2D_Spec spec) : t_spec(spec) {
     if (t_spec.format == -1 || t_spec.type == -1) {
       switch (t_spec.internalFormat) {
       case GL_RGBA16F:
@@ -31,6 +33,10 @@ public:
       case GL_RGBA8:
         t_spec.format = GL_RGBA;
         t_spec.type = GL_UNSIGNED_BYTE;
+        break;
+      case GL_DEPTH_COMPONENT32F:
+        t_spec.format = GL_DEPTH_COMPONENT;
+        t_spec.type = GL_FLOAT;
         break;
       case GL_DEPTH_COMPONENT24:
         t_spec.format = GL_DEPTH_COMPONENT;
@@ -46,16 +52,40 @@ public:
         break;
       }
     }
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    GLenum target = (t_spec.layers > 1) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D;
+
+    glCreateTextures(target, 1, &texture);
     if (!glIsTexture(texture))
       SDL_Log("Error: Couldnt create Render Texture");
-    glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
-                       t_spec.height);
+    if (t_spec.layers > 1) {
+      // Arrays use 3D storage (Width, Height, Layers)
+      glTextureStorage3D(texture, 1, t_spec.internalFormat, t_spec.width,
+                         t_spec.height, t_spec.layers);
+    } else {
+      glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
+                         t_spec.height);
+    }
 
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // Parameters (S and T are same, but Arrays sometimes use GL_TEXTURE_WRAP_R
+    // for the layer)
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+    // For Shadows, we usually want Border Color to be White (1.0)
+    // so objects outside the frustum aren't in shadow
+    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTextureParameterfv(texture, GL_TEXTURE_BORDER_COLOR, borderColor);
+
     glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // SPECIAL FOR SHADOWS: Enable hardware PCF (Percentage Closer Filtering)
+    if (t_spec.format == GL_DEPTH_COMPONENT ||
+        t_spec.format == GL_DEPTH_STENCIL) {
+      glTextureParameteri(texture, GL_TEXTURE_COMPARE_MODE,
+                          GL_COMPARE_REF_TO_TEXTURE);
+      glTextureParameteri(texture, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    }
   }
   GLuint GetTextureID() const { return texture; }
   const RenderTexture2D_Spec &GetSpec() const { return t_spec; }
@@ -63,22 +93,46 @@ public:
     t_spec.width = newW;
     t_spec.height = newH;
 
+    GLenum target = (t_spec.layers > 1) ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D;
     // Unbind texture and framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(target, 0);
 
     if (texture)
       glDeleteTextures(1, &texture);
 
-    glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+    glCreateTextures(target, 1, &texture);
+    if (!glIsTexture(texture))
+      SDL_Log("Error: Couldnt create Render Texture");
+    if (t_spec.layers > 1) {
+      // Arrays use 3D storage (Width, Height, Layers)
+      glTextureStorage3D(texture, 1, t_spec.internalFormat, t_spec.width,
+                         t_spec.height, t_spec.layers);
+    } else {
+      glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
+                         t_spec.height);
+    }
 
-    glTextureStorage2D(texture, 1, t_spec.internalFormat, t_spec.width,
-                       t_spec.height);
+    // Parameters (S and T are same, but Arrays sometimes use GL_TEXTURE_WRAP_R
+    // for the layer)
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // For Shadows, we usually want Border Color to be White (1.0)
+    // so objects outside the frustum aren't in shadow
+    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTextureParameterfv(texture, GL_TEXTURE_BORDER_COLOR, borderColor);
+
     glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // SPECIAL FOR SHADOWS: Enable hardware PCF (Percentage Closer Filtering)
+    if (t_spec.format == GL_DEPTH_COMPONENT ||
+        t_spec.format == GL_DEPTH_STENCIL) {
+      glTextureParameteri(texture, GL_TEXTURE_COMPARE_MODE,
+                          GL_COMPARE_REF_TO_TEXTURE);
+      glTextureParameteri(texture, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    }
   }
 
   RenderTexture2D(RenderTexture2D &&other) noexcept
