@@ -54,6 +54,11 @@ public:
 
   float aspect, fov;
 
+  glm::mat4 m_arrShadowMatrices[4];
+  float u_CascadeEnds[4];
+
+  uint32_t m_uiNumGI_probes = 0;
+
   glm::vec2 GetCurrentFramebufferWH() { return {fb_width, fb_height}; }
 
   void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }
@@ -301,16 +306,55 @@ public:
         p_meshManager->GetMesh(l_uiMeshSide2_ID).GetMeshData(), sideMat2);
   }
 
+  glm::vec3 GetAmbientSkyColor() const {
+    float sunHeight =
+        glm::dot(glm::normalize(m_v3SunDirection), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    float dayFactor = glm::clamp((sunHeight + 0.15f) / 1.15f, 0.0f, 1.0f);
+
+    glm::vec3 rayleigh = m_v3BetaRayleigh;
+    glm::vec3 mie = m_v3BetaMie;
+    glm::vec3 ozone = m_v3BetaOzone;
+
+    // normalize spectral contribution
+    glm::vec3 scatterColor =
+        glm::normalize(rayleigh * 0.7f + mie * 0.2f + ozone * 0.1f);
+
+    // daytime sky tint
+    glm::vec3 daySky = scatterColor;
+
+    // sunset tint
+    glm::vec3 sunsetSky =
+        glm::mix(glm::vec3(1.0f, 0.45f, 0.20f), scatterColor, dayFactor);
+
+    // night tint
+    glm::vec3 nightSky = glm::vec3(0.02f, 0.03f, 0.08f);
+
+    glm::vec3 skyColor =
+        glm::mix(nightSky, glm::mix(sunsetSky, daySky, dayFactor), dayFactor);
+
+    float intensity = (m_fLightExposure * 0.03f) + (m_fSolarBrightness * 0.02f);
+
+    return skyColor * intensity;
+  }
+
   void SetCSM_shader(ShaderComboID p_scidCSMshader) {
     m_scidCSMshader = p_scidCSMshader;
   }
 
   ShaderComboID GetCSM_shader() { return m_scidCSMshader; }
 
-  void RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
-                               const glm::mat4 shadowMatrices[4]);
+  void RenderShadowMapTextures(std::vector<DrawRange> DrawOrder);
 
   FrameBuffer &GetShadowFB() { return m_fbShadowCascadeBuffer; }
+
+  glm::vec2 GetCSM_Size() {
+    return {(float)m_uiShadowTexWidth, (float)m_uiShadowTexHeight};
+  }
+
+  float GetLightDistance() { return m_fLightDistance; }
+
+  void SetLightDistance(float dist) { m_fLightDistance = dist; }
 
   void Destroy();
 
@@ -319,6 +363,8 @@ private:
 
   uint32_t m_uiNumLights = 0; // current frame's number of visible lights for
                               // iteration in the light ssbo.
+
+  GLuint m_uiCurrentBoundFBO = 0;
 
   float m_fCamNearPlane = 0.1f, m_fCamFarPlane = 100.0f;
 
@@ -333,6 +379,8 @@ private:
   FrameBuffer m_fbShadowCascadeBuffer;
   uint32_t m_uiShadowTexWidth = 2048;
   uint32_t m_uiShadowTexHeight = 2048;
+  float m_fLightDistance = 1.0f;
+
   ShaderComboID m_scidCSMshader;
 
   SBufferRange m_brCameraData;

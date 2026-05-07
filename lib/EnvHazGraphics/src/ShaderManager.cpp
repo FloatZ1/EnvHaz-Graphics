@@ -1,6 +1,7 @@
 #include "ShaderManager.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
+#include "Renderer.hpp"
 #include "Utils/HashedStrings.hpp"
 #include "glad/glad.h"
 #include <SDL3/SDL_log.h>
@@ -20,11 +21,10 @@ void ShaderManager::ReloadShader(std::string p_strPath) {
 
     return;
   }
-
-  LoadedShaders[l_sIDShader] = std::make_shared<Shader>(p_strPath);
+  LoadedShaders[l_sIDShader]->Delete();
+  LoadedShaders[l_sIDShader] = std::move(std::make_shared<Shader>(p_strPath));
 
   switch (LoadedShaders[l_sIDShader]->GetType()) {
-
   case GL_VERTEX_SHADER: {
 
     for (auto [key, value] : LoadedProgrammes) {
@@ -92,13 +92,35 @@ bool ShaderManager::isValidID(ShaderComboID p_ID) {
 }
 void ShaderManager::RemoveShaderProgramme(ShaderComboID p_ID) {
 
-  if (isValidID(p_ID))
+  if (isValidID(p_ID)) {
+
+    LoadedProgrammes[p_ID]->Destroy();
     LoadedProgrammes.erase(p_ID);
+  }
 }
 void ShaderManager::RecompileProgramme(ShaderComboID p_ID) {
   LoadedProgrammes[p_ID]->Recompile();
 }
 void StandartShaderProgramme::Recompile() {
+
+  if (m_sidCompute != 0) {
+    computeShader =
+        Renderer::p_shaderManager->LoadedShaders[m_sidCompute]->GetGLShaderID();
+  }
+
+  if (m_sidFragment != 0) {
+    fragmentShader = Renderer::p_shaderManager->LoadedShaders[m_sidFragment]
+                         ->GetGLShaderID();
+  }
+  if (m_sidVertex != 0) {
+    vertexShader =
+        Renderer::p_shaderManager->LoadedShaders[m_sidVertex]->GetGLShaderID();
+  }
+  if (m_sidGeometry != 0) {
+    geometryShader = Renderer::p_shaderManager->LoadedShaders[m_sidGeometry]
+                         ->GetGLShaderID();
+  }
+
   if (computeShader == 0) {
 
     if (geometryShader == 0) {
@@ -168,7 +190,7 @@ void StandartShaderProgramme::Recompile() {
       char infoLogPR[512];
 
       progID = glCreateProgram();
-      glAttachShader(progID, computeShader);
+
       glLinkProgram(progID);
 
       glGetProgramiv(progID, GL_LINK_STATUS, &successPR);
@@ -362,28 +384,32 @@ ShaderManager::CreateShaderProgramme(const std::string &vertexShader,
   if (isPath) {
 
     vIterator =
-        LoadedShaders.try_emplace(vs, std::make_unique<Shader>(vertexShader))
+        LoadedShaders
+            .emplace(vs, std::move(std::make_shared<Shader>(vertexShader)))
             .first;
 
     fIterator =
-        LoadedShaders.try_emplace(fs, std::make_unique<Shader>(fragmentShader))
+        LoadedShaders
+            .emplace(fs, std::move(std::make_shared<Shader>(fragmentShader)))
             .first;
   } else {
 
     ShaderSpec spec{false, ".vert"};
     vIterator =
         LoadedShaders
-            .try_emplace(vs, std::make_unique<Shader>(vertexShader, spec))
+            .emplace(vs,
+                     std::move(std::make_shared<Shader>(vertexShader, spec)))
             .first;
     ShaderSpec fragSpec{false, ".frag"};
-    fIterator =
-        LoadedShaders
-            .try_emplace(fs, std::make_unique<Shader>(fragmentShader, fragSpec))
-            .first;
+    fIterator = LoadedShaders
+                    .emplace(fs, std::move(std::make_shared<Shader>(
+                                     fragmentShader, fragSpec)))
+                    .first;
   }
   if (LoadedProgrammes.find(cmp) == LoadedProgrammes.end()) {
-    LoadedProgrammes.emplace(cmp, std::make_unique<StandartShaderProgramme>(
-                                      *vIterator->second, *fIterator->second));
+    LoadedProgrammes.emplace(
+        cmp, std::move(std::make_shared<StandartShaderProgramme>(
+                 *vIterator->second, *fIterator->second)));
     return cmp;
   }
 
@@ -481,7 +507,8 @@ ShaderID ShaderManager::LoadShader(const std::string &p_strPath) {
   if (LoadedShaders.contains(l_sIDShader))
     return l_sIDShader;
 
-  LoadedShaders.try_emplace(l_sIDShader, std::make_unique<Shader>(p_strPath));
+  LoadedShaders.emplace(l_sIDShader,
+                        std::move(std::make_shared<Shader>(p_strPath)));
 
   return l_sIDShader;
 }
@@ -499,8 +526,8 @@ ShaderManager::CreateShaderProgramme(const std::string &p_ComputeShaderPath) {
   ShaderID l_shIdComputeShader = LoadShader(p_ComputeShaderPath);
 
   LoadedProgrammes.emplace(l_scIdProgramme,
-                           std::make_unique<StandartShaderProgramme>(
-                               *LoadedShaders[l_shIdComputeShader]));
+                           std::move(std::make_shared<StandartShaderProgramme>(
+                               *LoadedShaders[l_shIdComputeShader])));
 
   return l_scIdProgramme;
 }
@@ -528,8 +555,8 @@ ShaderManager::CreateShaderProgramme(const std::string &p_VertexShaderPath,
   gs = LoadShader(p_GeometryShaderPath);
 
   LoadedProgrammes.emplace(
-      cmp, std::make_unique<StandartShaderProgramme>(
-               *LoadedShaders[vs], *LoadedShaders[gs], *LoadedShaders[fs]));
+      cmp, std::move(std::make_shared<StandartShaderProgramme>(
+               *LoadedShaders[vs], *LoadedShaders[gs], *LoadedShaders[fs])));
 
   return cmp;
 }
@@ -548,8 +575,9 @@ ShaderManager::CreateShaderProgramme(ShaderID p_VertexShaderID,
   if (LoadedProgrammes.contains(cmp))
     return cmp;
 
-  LoadedProgrammes.emplace(cmp, std::make_unique<StandartShaderProgramme>(
-                                    *LoadedShaders[vs], *LoadedShaders[fs]));
+  LoadedProgrammes.emplace(cmp,
+                           std::move(std::make_shared<StandartShaderProgramme>(
+                               *LoadedShaders[vs], *LoadedShaders[fs])));
 
   return cmp;
 }
@@ -572,8 +600,8 @@ ShaderManager::CreateShaderProgramme(ShaderID p_VertexShaderID,
     return cmp;
 
   LoadedProgrammes.emplace(
-      cmp, std::make_unique<StandartShaderProgramme>(
-               *LoadedShaders[vs], *LoadedShaders[gs], *LoadedShaders[fs]));
+      cmp, std::move(std::make_shared<StandartShaderProgramme>(
+               *LoadedShaders[vs], *LoadedShaders[gs], *LoadedShaders[fs])));
 
   return cmp;
 }
@@ -584,8 +612,9 @@ ShaderComboID ShaderManager::CreateShaderProgramme(ShaderID p_ComputeShaderID) {
   if (LoadedProgrammes.contains(l_rID))
     return l_rID;
 
-  LoadedProgrammes.emplace(l_rID, std::make_unique<StandartShaderProgramme>(
-                                      *LoadedShaders[p_ComputeShaderID]));
+  LoadedProgrammes.emplace(l_rID,
+                           std::move(std::make_shared<StandartShaderProgramme>(
+                               *LoadedShaders[p_ComputeShaderID])));
 }
 void ShaderManager::Initialize() { s_Instance.reset(this); }
 
@@ -593,87 +622,106 @@ void ShaderManager::Destroy() {}
 
 void ShaderManager::setBool(ShaderComboID shader, const std::string &name,
                             bool value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-
-  glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform1i(ID, loc, (int)value);
 }
+
 void ShaderManager::setInt(ShaderComboID shader, const std::string &name,
                            int value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform1i(ID, loc, value);
 }
+
 void ShaderManager::setFloat(ShaderComboID shader, const std::string &name,
                              float value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform1f(ID, loc, value);
 }
+
 void ShaderManager::setVec2(ShaderComboID shader, const std::string &name,
                             const glm::vec2 &value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform2fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform2fv(ID, loc, 1, &value[0]);
 }
+
 void ShaderManager::setVec2(ShaderComboID shader, const std::string &name,
                             float x, float y) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform2f(glGetUniformLocation(ID, name.c_str()), x, y);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform2f(ID, loc, x, y);
 }
+
 void ShaderManager::setVec3(ShaderComboID shader, const std::string &name,
                             const glm::vec3 &value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform3fv(ID, loc, 1, &value[0]);
 }
+
 void ShaderManager::setVec3(ShaderComboID shader, const std::string &name,
                             float x, float y, float z) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform3f(glGetUniformLocation(ID, name.c_str()), x, y, z);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform3f(ID, loc, x, y, z);
 }
+
 void ShaderManager::setVec4(ShaderComboID shader, const std::string &name,
                             const glm::vec4 &value) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform4fv(glGetUniformLocation(ID, name.c_str()), 1, &value[0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform4fv(ID, loc, 1, &value[0]);
 }
+
 void ShaderManager::setVec4(ShaderComboID shader, const std::string &name,
                             float x, float y, float z, float w) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniform4f(glGetUniformLocation(ID, name.c_str()), x, y, z, w);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniform4f(ID, loc, x, y, z, w);
 }
+
 void ShaderManager::setMat2(ShaderComboID shader, const std::string &name,
                             const glm::mat2 &mat) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniformMatrix2fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
-                     &mat[0][0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniformMatrix2fv(ID, loc, 1, GL_FALSE, &mat[0][0]);
 }
+
 void ShaderManager::setMat3(ShaderComboID shader, const std::string &name,
                             const glm::mat3 &mat) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniformMatrix3fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
-                     &mat[0][0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniformMatrix3fv(ID, loc, 1, GL_FALSE, &mat[0][0]);
 }
+
 void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
                             const glm::mat4 &mat) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE,
-                     &mat[0][0]);
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniformMatrix4fv(ID, loc, 1, GL_FALSE, &mat[0][0]);
 }
 
 void ShaderManager::setMat4(ShaderComboID shader, const std::string &name,
                             const glm::mat4 &mat, uint32_t count) {
-
   GLuint ID = LoadedProgrammes[shader]->GetGLShaderID();
-  glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), count, GL_FALSE,
-                     glm::value_ptr(mat));
+  GLint loc = glGetUniformLocation(ID, name.c_str());
+  if (loc != -1)
+    glProgramUniformMatrix4fv(ID, loc, count, GL_FALSE, glm::value_ptr(mat));
 }
 
 bool ShaderManager::isValidProgrameme(ShaderComboID p_ID) {

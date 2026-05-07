@@ -46,7 +46,7 @@ public:
     if (isRaw == false)
       return data.getString();
     else
-      rawData;
+      return rawData;
   }
   GLenum GetType() { return type; }
 
@@ -66,11 +66,14 @@ public:
     return shaderID;
   }
 
-  bool OpenGL_ShaderExists() const { return shaderID != 0; }
+  bool OpenGL_ShaderExists() const {
+    return shaderID != 0 && glIsShader(shaderID);
+  }
 
-  ~Shader() {
+  void Delete() {
     if (OpenGL_ShaderExists()) {
       glDeleteShader(shaderID);
+      shaderID = 0;
     }
   }
 
@@ -161,7 +164,7 @@ public:
 
   void SetGLComputeShaderID(GLuint shader) { computeShader = shader; }
   void SetGLGeometryShaderID(GLuint shader) { geometryShader = shader; }
-  ~StandartShaderProgramme() {
+  void Destroy() {
 
     SDL_Log("SHADER PROGRAMME DESTRUCTOR CALLED");
 

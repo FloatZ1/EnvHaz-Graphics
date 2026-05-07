@@ -15,6 +15,9 @@ private:
   GLuint instances = 1;
   glm::mat4 relativeMatrix = glm::mat4(1.0f);
   bool GPUresident = false;
+  std::string m_strMeshName;
+
+  AABB m_aabbMeshBounds;
 
 public:
   Mesh() = default;
@@ -23,6 +26,12 @@ public:
 
   Mesh(MeshData data, ShaderComboID shaderID)
       : data(data), shaderID(shaderID) {};
+
+  void SetMeshName(const std::string &name) { m_strMeshName = name; }
+  std::string GetName() { return m_strMeshName; }
+
+  void SetAABB(AABB bounds) { m_aabbMeshBounds = bounds; }
+  const AABB &GetAABB() { return m_aabbMeshBounds; }
 
   const glm::mat4 &GetRelativeMatrix() const { return relativeMatrix; }
 

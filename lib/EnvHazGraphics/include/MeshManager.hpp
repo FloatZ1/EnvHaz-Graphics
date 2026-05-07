@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -37,11 +38,6 @@ public:
     for (auto &[id, model] : loadedModels) {
       model->ClearInstances();
     }
-    // call the function from buffer manager to clear the ranges
-
-    // for (auto&[ID, l_meshTransform] : meshTransformRanges) {
-    //     bufferManager->RemoveRange(l_meshTransform);
-    // }
 
     bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
 
@@ -49,6 +45,8 @@ public:
     meshTransformRanges.clear();
     meshLocations.clear();
     meshes.clear();
+    m_umLoadedBundles.clear();
+    m_umMeshMaterialData.clear();
 
     submittedModels.clear();
     loadedModels.clear();
@@ -56,6 +54,7 @@ public:
 
   void Initialize(BufferManager *bufferManager); // TODO: IMPLEMENT
   ModelID LoadModel(std::string path);
+  std::vector<ModelID> LoadModelSeperated(std::string p_strBundlePath);
 
   std::shared_ptr<Model> GetModel(ModelID p_ModelID) {
     if (loadedModels.contains(p_ModelID)) {
@@ -188,8 +187,27 @@ public:
     return false;
   }
 
+  bool isLoadedModelBundle(std::string p_strPath) {
+    eHazGraphics_Utils::HashedString l_hsHash =
+        eHazGraphics_Utils::computeHash(p_strPath);
+
+    if (m_umLoadedBundles.contains(l_hsHash))
+      return true;
+
+    return false;
+  }
+
+  std::optional<SMaterialMetadata> GetMeshMetaData(MeshID mesh) {
+    if (m_umMeshMaterialData.contains(mesh)) {
+      return m_umMeshMaterialData[mesh];
+    }
+    return std::nullopt;
+  }
+
 private:
   AABB GetModelAABB(const aiScene *scene);
+
+  AABB GetMeshAABB(const aiMesh *mesh);
 
   static StaticModelPackage LoadSingleModel(const std::string &path);
 
@@ -215,6 +233,10 @@ private:
   std::unordered_map<MeshID, glm::mat4> meshTransforms;
   std::unordered_map<MeshID, SBufferRange> meshTransformRanges;
   std::unordered_map<MeshID, VertexIndexInfoPair> meshLocations;
+  std::unordered_map<eHazGraphics_Utils::HashedString, std::vector<ModelID>>
+      m_umLoadedBundles;
+
+  std::unordered_map<MeshID, SMaterialMetadata> m_umMeshMaterialData;
 
   std::mutex mapMutex;
 

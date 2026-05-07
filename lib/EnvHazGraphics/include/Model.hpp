@@ -11,6 +11,10 @@ public:
 
   void SetAABB(const AABB &aabb) { boundingBox = aabb; }
 
+  void SetName(const std::string &name) { m_strModelName = name; }
+
+  std::string GetName() { return m_strModelName; }
+
   const AABB &GetAABB() { return boundingBox; }
 
   const std::vector<MeshID> &GetMeshIDs() const {
@@ -67,6 +71,8 @@ public:
 
 private:
   ModelID ID;
+
+  std::string m_strModelName;
 
   std::vector<MeshID> meshes;
   std::vector<InstanceData> instanceData;

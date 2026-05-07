@@ -5,9 +5,13 @@
 #include "Utils/HashedStrings.hpp"
 #include "Utils/Math_Utils.hpp"
 #include "glad/glad.h"
+#include "glm/ext/vector_float3.hpp"
+#include <assimp/material.h>
 #include <assimp/mesh.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <filesystem>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -47,6 +51,17 @@ void MeshManager::SetModelShader(ModelID modelID, const ShaderComboID &shader) {
     }
   }
 }
+AABB MeshManager::GetMeshAABB(const aiMesh *mesh) {
+
+  if (!IsValid(mesh->mAABB))
+    return {glm::vec3(0.0f), glm::vec3(1.0f)};
+
+  AABB box = ConvertAssimpAABB(mesh->mAABB);
+
+  box = box.Transform(meshTransforms[computeHash(mesh->mName.data)]);
+
+  return box;
+}
 AABB MeshManager::GetModelAABB(const aiScene *scene) {
 
   AABB finalBox;
@@ -71,6 +86,52 @@ AABB MeshManager::GetModelAABB(const aiScene *scene) {
   }
 
   return finalBox;
+}
+
+std::vector<ModelID>
+MeshManager::LoadModelSeperated(std::string p_strBundlePath) {
+  eHazGraphics_Utils::HashedString l_hsBundleHash =
+      computeHash(p_strBundlePath);
+  if (m_umLoadedBundles.contains(l_hsBundleHash))
+    return m_umLoadedBundles[l_hsBundleHash];
+
+  const aiScene *scene = importer.ReadFile(
+      p_strBundlePath,
+      aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals |
+          /*aiProcess_PreTransformVertices |*/ aiProcess_OptimizeMeshes |
+          aiProcess_GenBoundingBoxes | aiProcess_CalcTangentSpace);
+
+  if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE ||
+      !scene->mRootNode) {
+
+    SDL_Log("ERROR LOADING THE MODEL Bundle: %s", importer.GetErrorString());
+  }
+
+  std::vector<MeshID> meshIDs;
+
+  meshIDs = processNode(scene->mRootNode, scene);
+
+  std::vector<ModelID> processedModels;
+  for (auto &meshID : meshIDs) {
+
+    std::shared_ptr<Model> l_sptrModel = std::make_shared<Model>();
+
+    l_sptrModel->AddMesh(meshID);
+    l_sptrModel->SetAABB(meshes[meshID].GetAABB());
+    l_sptrModel->SetName(meshes[meshID].GetName());
+
+    ModelID hashedID = computeHash(l_sptrModel->GetName());
+
+    loadedModels[hashedID] = l_sptrModel;
+
+    processedModels.push_back(hashedID);
+  }
+
+  importer.FreeScene();
+
+  m_umLoadedBundles[l_hsBundleHash] = processedModels;
+
+  return processedModels;
 }
 ModelID MeshManager::LoadModel(std::string path) {
   std::vector<MeshID> temps;
@@ -104,28 +165,70 @@ ModelID MeshManager::LoadModel(std::string path) {
   for (auto mesh : temps) {
     model->AddMesh(mesh);
   }
+
+  model->SetName(std::filesystem::path(path).filename().string());
+
   model->SetID(hashedPath);
 
   model->SetAABB(modelAABB);
 
   importer.FreeScene();
 
-  loadedModels.emplace(hashedPath, model);
+  loadedModels[hashedPath] = model;
 
-  modelPaths.emplace(hashedPath, path);
+  modelPaths[hashedPath] = path;
 
   return hashedPath;
 }
-
+std::string GetTexturePath(aiMaterial *mat, aiTextureType type, int index = 0) {
+  aiString path;
+  if (mat->GetTexture(type, index, &path) == AI_SUCCESS) {
+    return path.C_Str();
+  }
+  return "";
+}
 std::vector<MeshID> MeshManager::processNode(aiNode *node,
                                              const aiScene *scene) {
   std::vector<MeshID> meshIDs;
   for (unsigned int i = 0; i < node->mNumMeshes; i++) {
     aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
+    aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+    SMaterialMetadata l_mdtaMetaData;
 
     HashedString t_hsID = computeHash(mesh->mName.data);
 
-    meshes.emplace(t_hsID, processMesh(mesh, scene));
+    l_mdtaMetaData.m_midOwner = t_hsID;
+    l_mdtaMetaData.m_strAlbedo =
+        GetTexturePath(material, aiTextureType_DIFFUSE);
+    l_mdtaMetaData.m_strEmission =
+        GetTexturePath(material, aiTextureType_EMISSIVE);
+    l_mdtaMetaData.m_strNormal =
+        GetTexturePath(material, aiTextureType_NORMALS);
+
+    std::string prm = GetTexturePath(material, aiTextureType_SPECULAR);
+
+    if (prm.empty())
+      prm = GetTexturePath(material, aiTextureType_UNKNOWN);
+
+    if (prm.empty())
+      prm = GetTexturePath(material, aiTextureType_METALNESS);
+
+    // filename fallback
+    auto hasPRM = [](const std::string &s) {
+      return s.find("prm") != std::string::npos ||
+             s.find("orm") != std::string::npos;
+    };
+
+    if (prm.empty()) {
+      if (hasPRM(l_mdtaMetaData.m_strAlbedo))
+        prm = l_mdtaMetaData.m_strAlbedo;
+    }
+
+    l_mdtaMetaData.m_strPRM = prm;
+
+    m_umMeshMaterialData[t_hsID] = l_mdtaMetaData;
+
+    meshes[t_hsID] = processMesh(mesh, scene);
 
     // TODO: DECIDE HOW TO DO THIS, currently meshTransforms is only used in
     // Renderer.cpp at the InsertStaticMesh part
@@ -133,10 +236,11 @@ std::vector<MeshID> MeshManager::processNode(aiNode *node,
     glm::mat4 relativeMat =
         eHazGraphics_Utils::convertAssimpMatrixToGLM(GetNodeToRootMat4(node));
 
-    meshTransforms.emplace(t_hsID, relativeMat);
+    meshTransforms[t_hsID] = relativeMat;
     meshes[t_hsID].setRelativeMatrix(relativeMat);
     meshes[t_hsID].SetID(t_hsID);
-
+    meshes[t_hsID].SetMeshName(mesh->mName.data);
+    meshes[t_hsID].SetAABB(GetMeshAABB(mesh));
     // AddTransformRange(t_hsID, bufferManager->InsertNewDynamicData(
     //                               &relativeMat, sizeof(relativeMat),
     //                              TypeFlags::BUFFER_STATIC_MATRIX_DATA));
@@ -231,8 +335,14 @@ Mesh MeshManager::processMesh(aiMesh *mesh, const aiScene *scene) {
 
   for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
     aiFace face = mesh->mFaces[i];
-    for (unsigned int j = 0; j < face.mNumIndices; j++)
+
+    // MUST be 3 if triangulated
+    assert(face.mNumIndices == 3);
+
+    for (unsigned int j = 0; j < face.mNumIndices; j++) {
+      assert(face.mIndices[j] < vertices.size()); // <-- add this
       indices.push_back(face.mIndices[j]);
+    }
   }
 
   // material stuff here

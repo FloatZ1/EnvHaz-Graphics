@@ -412,6 +412,16 @@ public:
   }
 };
 
+struct SMaterialMetadata {
+
+  MeshID m_midOwner;
+
+  std::string m_strAlbedo;
+  std::string m_strPRM;
+  std::string m_strNormal;
+  std::string m_strEmission;
+};
+
 struct PBRMaterial {
   // Based on the Hedgehog Engine 2 PBR format
   // https://hedgedocs.com/index.php/Hedgehog_Engine_2_-_Physically_Based_Rendering_(PBR)

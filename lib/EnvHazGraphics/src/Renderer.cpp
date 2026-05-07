@@ -27,6 +27,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+
 // #define EHAZ_DEBUG
 
 #ifdef EHAZ_DEBUG
@@ -100,6 +101,7 @@ void APIENTRY GLDebugCallback(GLenum source, GLenum type, GLuint id,
     break;
   case GL_DEBUG_SEVERITY_NOTIFICATION:
     sev = "NOTIFICATION";
+    return;
     break;
   }
 
@@ -308,6 +310,7 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   depth.internalFormat = GL_DEPTH_COMPONENT24;
   depth.format = GL_DEPTH_COMPONENT; // important
   depth.type = GL_UNSIGNED_INT;
+  depth.target = GL_TEXTURE_2D;
   mainFBO.Create(colors, depth);
 
   RenderTexture2D_Spec shadowDepths;
@@ -317,8 +320,12 @@ bool Renderer::Initialize(int width, int height, std::string tittle,
   shadowDepths.height = m_uiShadowTexHeight;
   shadowDepths.format = GL_DEPTH_COMPONENT;
   shadowDepths.type = GL_FLOAT;
+  shadowDepths.target = GL_TEXTURE_2D_ARRAY;
+  shadowDepths.enableCompare = true;
 
   m_fbShadowCascadeBuffer.Create({}, shadowDepths);
+
+  m_fbShadowCascadeBuffer.SetDisplayShader(m_scidCSMshader);
 
   DefaultFrameBuffer();
 
@@ -511,6 +518,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_ANIMATION_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_GI_PROBE_DATA);
 
   if (!p_shaderManager || !p_window) {
     SDL_Log("RenderFrame called with uninitialized managers!");
@@ -600,6 +608,7 @@ void Renderer::SetFrameBuffer(const FrameBuffer &fbo) {
   SetViewport(fbo.GetWidth(), fbo.GetHeight());
   fb_width = fbo.GetWidth();
   fb_height = fbo.GetHeight();
+  m_uiCurrentBoundFBO = fbo.GetFBO();
 }
 
 void Renderer::DefaultFrameBuffer() {
@@ -607,6 +616,7 @@ void Renderer::DefaultFrameBuffer() {
   SetViewport(p_window->GetWidth(), p_window->GetHeight());
   fb_width = p_window->GetWidth();
   fb_width = p_window->GetHeight();
+  m_uiCurrentBoundFBO = 0;
 }
 
 void Renderer::RenderLightingPass() {
@@ -617,6 +627,24 @@ void Renderer::RenderLightingPass() {
   BindGeometryBufferTextures(4);
   p_shaderManager->UseProgramme(m_scidHDRshader);
   p_shaderManager->setInt(m_scidHDRshader, "numLights", m_uiNumLights);
+  p_shaderManager->setVec3(m_scidHDRshader, "u_AmbientSky",
+                           GetAmbientSkyColor());
+  p_shaderManager->setInt(m_scidHDRshader, "numProbes", m_uiNumGI_probes);
+  for (int i = 0; i < 4; i++) {
+    p_shaderManager->s_Instance->setMat4(
+        m_scidHDRshader, "u_LightMatrices[" + std::to_string(i) + "]",
+        m_arrShadowMatrices[i]);
+  }
+  for (int i = 0; i < 4; i++) {
+    p_shaderManager->s_Instance->setFloat(
+        m_scidHDRshader, "u_CascadeEnds[" + std::to_string(i) + "]",
+        u_CascadeEnds[i]);
+  }
+
+  glActiveTexture(GL_TEXTURE7);
+  glBindTexture(GL_TEXTURE_2D_ARRAY,
+                m_fbShadowCascadeBuffer.GetDepthTexture().GetTextureID());
+  p_shaderManager->setInt(m_scidHDRshader, "u_ShadowMap", 7);
 
   glDisable(GL_DEPTH_TEST);
   glDepthMask(GL_FALSE);
@@ -744,20 +772,23 @@ void printMat4(const glm::mat4 &m) {
   }
   std::cout << "------------------------------------------" << std::endl;
 }
-void Renderer::RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
-                                       const glm::mat4 shadowMatrices[4]) {
+void Renderer::RenderShadowMapTextures(std::vector<DrawRange> DrawOrder) {
 
+  int pfb_height = fb_height, pfb_width = fb_width;
+  GLuint prevBuffer = m_uiCurrentBoundFBO;
+
+  auto &shadowMatrices = m_arrShadowMatrices;
   SetFrameBuffer(m_fbShadowCascadeBuffer);
   glClear(GL_DEPTH_BUFFER_BIT);
   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-  printMat4(shadowMatrices[0]);
+  /*  printMat4(shadowMatrices[0]);
 
-  printMat4(shadowMatrices[1]);
+    printMat4(shadowMatrices[1]);
 
-  printMat4(shadowMatrices[2]);
+    printMat4(shadowMatrices[2]);
 
-  printMat4(shadowMatrices[3]);
+    printMat4(shadowMatrices[3]); */
 
   p_bufferManager->BindStaticBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_DRAW_CALL_DATA);
@@ -779,14 +810,19 @@ void Renderer::RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
                            shadowMatrices[2]);
   p_shaderManager->setMat4(m_scidCSMshader, "u_LightMatrices[3]",
                            shadowMatrices[3]);
-
+  uint32_t count = 0;
   for (const auto &range : DrawOrder) {
 
-    GLintptr offset = range.startIndex * sizeof(DrawElementsIndirectCommand);
-
-    glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)offset,
-                                range.count, 0);
+    count += range.count;
   }
+
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
+  glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void *)0, count,
+                              0);
+
+  glCullFace(GL_BACK);
+  glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
 
   ClearRenderCommandBuffer();
   p_renderQueue->ClearDynamicCommands();
@@ -797,7 +833,12 @@ void Renderer::RenderShadowMapTextures(std::vector<DrawRange> DrawOrder,
   p_AnimatedModelManager->ClearSubmittedModelInstances();
 
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  DefaultFrameBuffer();
+
+  glBindFramebuffer(GL_FRAMEBUFFER, prevBuffer);
+  SetViewport(pfb_width, pfb_height);
+  m_uiCurrentBoundFBO = prevBuffer;
+  fb_width = pfb_width;
+  fb_height = pfb_height;
 }
 
 void Renderer::RenderOnCurrentFrame(std::vector<DrawRange> DrawOrder) {

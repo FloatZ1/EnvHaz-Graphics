@@ -14,6 +14,9 @@ struct RenderTexture2D_Spec {
   GLenum internalFormat = static_cast<unsigned int>(-1);
   GLenum format = static_cast<unsigned int>(-1);
   GLenum type = static_cast<unsigned int>(-1);
+
+  GLenum target = GL_TEXTURE_2D;
+  bool enableCompare = false;
 };
 class RenderTexture2D {
 private:
@@ -80,11 +83,11 @@ public:
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // SPECIAL FOR SHADOWS: Enable hardware PCF (Percentage Closer Filtering)
-    if (t_spec.format == GL_DEPTH_COMPONENT ||
-        t_spec.format == GL_DEPTH_STENCIL) {
+    if (t_spec.enableCompare) {
       glTextureParameteri(texture, GL_TEXTURE_COMPARE_MODE,
                           GL_COMPARE_REF_TO_TEXTURE);
       glTextureParameteri(texture, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    } else {
     }
   }
   GLuint GetTextureID() const { return texture; }
@@ -127,8 +130,9 @@ public:
     glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // SPECIAL FOR SHADOWS: Enable hardware PCF (Percentage Closer Filtering)
-    if (t_spec.format == GL_DEPTH_COMPONENT ||
-        t_spec.format == GL_DEPTH_STENCIL) {
+    if ((t_spec.format == GL_DEPTH_COMPONENT ||
+         t_spec.format == GL_DEPTH_STENCIL) &&
+        t_spec.internalFormat == GL_DEPTH_COMPONENT32F) {
       glTextureParameteri(texture, GL_TEXTURE_COMPARE_MODE,
                           GL_COMPARE_REF_TO_TEXTURE);
       glTextureParameteri(texture, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);

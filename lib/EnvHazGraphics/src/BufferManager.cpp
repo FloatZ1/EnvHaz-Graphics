@@ -60,6 +60,9 @@ void BufferManager::WaitForBuffer(TypeFlags buffer) {
   case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
     DebugShapeMatrices.WaitForBuffer();
     break;
+  case TypeFlags::BUFFER_GI_PROBE_DATA:
+    GI_ProbeBuffer.WaitForBuffer();
+    break;
 
   default:
     SDL_Log("GetGLBufferID: Unknown buffer type %d\n", buffer);
@@ -101,6 +104,9 @@ std::vector<GLuint> BufferManager::GetGLBufferID(TypeFlags Buffer) {
     break;
   case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
     buffer = DebugShapeMatrices.GetGLBufferID();
+    break;
+  case TypeFlags::BUFFER_GI_PROBE_DATA:
+    buffer = GI_ProbeBuffer.GetGLBufferID();
     break;
 
   default:
@@ -146,6 +152,9 @@ void BufferManager::BindDynamicBuffer(TypeFlags type) {
   case TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA:
     buffer = &DebugShapeMatrices;
     break;
+  case TypeFlags::BUFFER_GI_PROBE_DATA:
+    buffer = &GI_ProbeBuffer;
+    break;
 
   default:
     SDL_Log("BindDynamicBuffer: Unknown buffer type %d\n", type);
@@ -185,6 +194,9 @@ void BufferManager::Initialize() {
   DebugShapeMatrices =
       CDynamicBuffer(MBsize(10), 13, GL_SHADER_STORAGE_BUFFER, true);
 
+  GI_ProbeBuffer =
+      CDynamicBuffer(MBsize(20), 14, GL_SHADER_STORAGE_BUFFER, false);
+
   StaticbufferIDs.push_back(&StaticMeshInformation);
   StaticbufferIDs.push_back(&TerrainBuffer);
 
@@ -201,6 +213,8 @@ void BufferManager::Initialize() {
   DynamicBufferIDs.push_back(&DebugShapeIndices);
   DynamicBufferIDs.push_back(&DebugShapeMatrices);
 
+  DynamicBufferIDs.push_back(&GI_ProbeBuffer);
+
   InstanceData.SetBinding(0);
   DrawCommandBuffer.SetBinding(1);
   AnimationMatrices.SetBinding(2);
@@ -214,6 +228,8 @@ void BufferManager::Initialize() {
 
   DebugShapeIndices.SetBinding(9);
   DebugShapeMatrices.SetBinding(10);
+
+  GI_ProbeBuffer.SetBinding(11);
 }
 void BufferManager::BeginWritting() {
   for (auto &buffer : DynamicBufferIDs) {
@@ -295,6 +311,9 @@ SBufferRange BufferManager::InsertNewDynamicData(const void *data, size_t size,
   if (type == TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA) {
     return DebugShapeMatrices.InsertNewData(data, size, type);
   }
+  if (type == TypeFlags::BUFFER_GI_PROBE_DATA) {
+    return GI_ProbeBuffer.InsertNewData(data, size, type);
+  }
 
   SDL_Log("DYNAMIC BUFFER INSERTION ERROR: COULD NOT FIND THE DESIRED TYPE!\n");
   return SBufferRange();
@@ -369,6 +388,9 @@ void BufferManager::ClearBuffer(TypeFlags whichBuffer) {
   }
   if (whichBuffer == TypeFlags::BUFFER_DEBUG_SHAPE_MATRIX_DATA) {
     DebugShapeMatrices.ClearBuffer();
+  }
+  if (whichBuffer == TypeFlags::BUFFER_GI_PROBE_DATA) {
+    GI_ProbeBuffer.ClearBuffer();
   }
 }
 

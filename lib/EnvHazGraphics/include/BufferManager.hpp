@@ -152,6 +152,8 @@ private:
   CDynamicBuffer DebugShapeIndices;
   CDynamicBuffer DebugShapeMatrices;
 
+  CDynamicBuffer GI_ProbeBuffer;
+
   CGLStaticStack StaticMeshInformation;
   CGLStaticStack TerrainBuffer;
   // StaticBuffer StaticMatrices;
@@ -159,7 +161,7 @@ private:
   //  Initialize(), InsertNew*Data() , ClearBuffer() and BitFlags
 
   // CHANGE THESE EVERYTIME YOU ADD A BUFFER!!!!!!!!!
-  unsigned int numOfDynamicBuffers = 10;
+  unsigned int numOfDynamicBuffers = 11;
   unsigned int numofStaticBuffers = 2;
 
   std::vector<CGLStaticStack *> StaticbufferIDs;
