@@ -23,7 +23,7 @@ struct KeyFrame {
 struct IAnimationSource {
   virtual KeyFrame GetPoseAt(float time) = 0;
 };
-class Animation : IAnimationSource {
+class Animation : public IAnimationSource {
 public:
   int owningSkeleton;
   std::vector<KeyFrame> frames;

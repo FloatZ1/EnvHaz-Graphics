@@ -117,15 +117,15 @@ public:
   KeyFrame GetPoseAt(float time) override;
 
   // Calculates the weights for the active clips based on input
-  std::map<std::shared_ptr<Animation>, float> CalculateWeights(float xIn,
-                                                               float yIn);
+  std::vector<std::pair<std::shared_ptr<Animation>, float>>
+  CalculateWeights(float xIn, float yIn);
 };
 
 // --- LAYER STRUCTURES ---
 
 struct AnimationLayer {
 
-  std::shared_ptr<Animation> activeSource = nullptr;
+  std::shared_ptr<IAnimationSource> activeSource = nullptr;
 
   float currentTime = 0.0f;
   float weight = 1.0f; // Global weight for this layer
@@ -153,8 +153,11 @@ public:
   // Assigns an Animat ion (or BlendSpace) asset to a layer
   void SetLayerSource(int layerIndex, std::shared_ptr<Animation> source);
 
+  void SetLayerSource(int layerIndex, std::shared_ptr<BlendSpace2D> source);
   // === 3. Runtime Control ===
-
+  std::shared_ptr<BlendSpace2D> GetBlendSpace(int id) {
+    return blendSpaces[id];
+  }
   void SetBlendInput(float x, float y);
 
   void Update(float deltaTime);

@@ -1,46 +1,29 @@
-
 #include "Animation/AnimatedModelManager.hpp"
+#include "Animation/Animator.hpp"
 #include "BitFlags.hpp"
 #include "DataStructs.hpp"
 #include "Renderer.hpp"
 #include "camera.hpp"
-
 #include "glm/ext/matrix_transform.hpp"
-#include "glm/fwd.hpp"
-#include "glm/trigonometric.hpp"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_events.h>
-#include <SDL3/SDL_keycode.h>
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_oldnames.h>
-
 #include <SDL3/SDL_scancode.h>
-#include <cstdint>
-
 #include <vector>
 
 using namespace eHazGraphics;
 
 float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
 Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
+float blendX = 0.0f; // speed axis:  0=idle, 0.5=jog, 1.0=run
+float blendY = 0.0f; // action axis: 1.0=jump
 
-void processInput(Window *c_window, bool &quit, Camera &camera) {
-
-  SDL_Window *window = c_window->GetWindowPtr();
-  // Delta time calculation using performance counters
+void processInput(Window *c_window, bool &quit) {
   static uint64_t lastCounter = SDL_GetPerformanceCounter();
-  uint64_t currentCounter = SDL_GetPerformanceCounter();
+  uint64_t now = SDL_GetPerformanceCounter();
+  deltaTime = double(now - lastCounter) / SDL_GetPerformanceFrequency();
+  lastCounter = now;
 
-  deltaTime =
-      double(currentCounter - lastCounter) / SDL_GetPerformanceFrequency();
-  lastCounter = currentCounter;
-
-  // Static mouse state
   static bool firstMouse = true;
-  static float lastX = 0.0f;
-  static float lastY = 0.0f;
+  static float lastX = 0.0f, lastY = 0.0f;
 
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -48,236 +31,168 @@ void processInput(Window *c_window, bool &quit, Camera &camera) {
     case SDL_EVENT_QUIT:
       quit = true;
       break;
-
     case SDL_EVENT_KEY_DOWN:
       if (event.key.which == SDLK_ESCAPE)
         quit = true;
       break;
-
-    case SDL_EVENT_KEY_UP:
-
-      break;
-
-    // --- Added mouse movement support for camera ---
     case SDL_EVENT_MOUSE_MOTION: {
-      float xpos = static_cast<float>(event.motion.x);
-      float ypos = static_cast<float>(event.motion.y);
-
+      float xpos = (float)event.motion.x, ypos = (float)event.motion.y;
       if (firstMouse) {
         lastX = xpos;
         lastY = ypos;
         firstMouse = false;
       }
-
-      float xoffset = xpos - lastX;
-      float yoffset =
-          lastY - ypos; // reversed since y-coordinates go from bottom to top
-
+      if (event.key.which == SDLK_R)
+        camera.ProcessMouseMovement(xpos - lastX, lastY - ypos);
       lastX = xpos;
       lastY = ypos;
-
-      camera.ProcessMouseMovement(xoffset, yoffset);
       break;
     }
-
-    // --- Added mouse scroll support for zoom ---
-    case SDL_EVENT_MOUSE_WHEEL: {
-      float yoffset = static_cast<float>(event.wheel.y);
-      camera.ProcessMouseScroll(yoffset);
+    case SDL_EVENT_MOUSE_WHEEL:
+      camera.ProcessMouseScroll((float)event.wheel.y);
       break;
-    }
-
-    // --- Added window resize support (framebuffer_size_callback equivalent)
-    // ---
-    case SDL_EVENT_WINDOW_RESIZED: {
-      int width = event.window.data1;
-      int height = event.window.data2;
-      c_window->SetDimensions(width, height);
-      glViewport(0, 0, width, height);
-      break;
-    }
-
     default:
       break;
     }
   }
 
-  // Continuous key input using scancodes
-  const auto *state = SDL_GetKeyboardState(nullptr);
-  if (state[SDL_SCANCODE_W])
-    camera.ProcessKeyboard(FORWARD, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_S])
-    camera.ProcessKeyboard(BACKWARD, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_A])
-    camera.ProcessKeyboard(LEFT, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_D])
-    camera.ProcessKeyboard(RIGHT, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_SPACE])
-    camera.ProcessKeyboard(UP, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_LSHIFT])
-    camera.ProcessKeyboard(DOWN, static_cast<float>(deltaTime));
-  if (state[SDL_SCANCODE_R])
-    c_window->ToggleMouseCursor();
+  const auto *keys = SDL_GetKeyboardState(nullptr);
+  if (keys[SDL_SCANCODE_W])
+    camera.ProcessKeyboard(FORWARD, (float)deltaTime);
+  if (keys[SDL_SCANCODE_S])
+    camera.ProcessKeyboard(BACKWARD, (float)deltaTime);
+  if (keys[SDL_SCANCODE_A])
+    camera.ProcessKeyboard(LEFT, (float)deltaTime);
+  if (keys[SDL_SCANCODE_D])
+    camera.ProcessKeyboard(RIGHT, (float)deltaTime);
+  if (keys[SDL_SCANCODE_SPACE])
+    camera.ProcessKeyboard(UP, (float)deltaTime);
+  if (keys[SDL_SCANCODE_LSHIFT])
+    camera.ProcessKeyboard(DOWN, (float)deltaTime);
+
+  // Arrow keys drive the blend space
+  //  Right arrow: idle → jog → run  (hold = jog, double-tap not needed, just
+  //               press right once for jog at 0.5, hold shift+right for run
+  //               at 1.0)
+  blendX = 0.0f;
+  blendY = 0.0f;
+  if (keys[SDL_SCANCODE_RIGHT] && !keys[SDL_SCANCODE_RSHIFT])
+    blendX = 0.5f; // jog
+  if (keys[SDL_SCANCODE_RIGHT] && keys[SDL_SCANCODE_RSHIFT])
+    blendX = 1.0f; // run
+  if (keys[SDL_SCANCODE_UP])
+    blendY = 1.0f; // jump
 }
-struct camData {
-  glm::mat4 view = glm::mat4(1.0f);
-  glm::mat4 projection = glm::mat4(1.0f);
-};
 
 int main() {
-
   eHazGraphics::Renderer rend;
   rend.Initialize();
-
   rend.p_bufferManager->BeginWritting();
 
-  unsigned int AlbedoTexture =
-      Renderer::p_materialManager->LoadTexture(RESOURCES_PATH "rizz.png");
+  // ---- Shader ----
+  ShaderComboID shader = rend.p_shaderManager->CreateShaderProgramme(
+      RESOURCES_PATH "animation.vert", RESOURCES_PATH "shader.frag");
 
-  unsigned int materialID = Renderer::p_materialManager->CreatePBRMaterial(
-      AlbedoTexture, AlbedoTexture, AlbedoTexture, AlbedoTexture, "piy");
-
+  // ---- Material (using body texture) ----
+  unsigned int albedo = Renderer::p_materialManager->LoadTexture(
+      RESOURCES_PATH "Sonic/textures/Body-0000-Body-0000.png");
+  unsigned int matID = Renderer::p_materialManager->CreatePBRMaterial(
+      albedo, albedo, albedo, albedo, "sonic_body");
   auto mat = rend.p_materialManager->SubmitMaterials();
-
   SBufferRange materials = rend.p_bufferManager->InsertNewDynamicData(
       mat.first.data(), mat.first.size() * sizeof(PBRMaterial),
       TypeFlags::BUFFER_TEXTURE_DATA);
 
-  ShaderComboID shader = rend.p_shaderManager->CreateShaderProgramme(
-      RESOURCES_PATH "animation.vert", RESOURCES_PATH "shader.frag");
+  // ---- Load the model from one of the gltf files (they share the same
+  // skeleton) ----
+  std::string modelPath = RESOURCES_PATH "Sonic/idle.gltf";
+  auto modelID = rend.p_AnimatedModelManager->LoadAnimatedModel(modelPath);
+  rend.p_AnimatedModelManager->SetModelShader(modelID, shader);
 
-  SDL_Log("\n\n\n" RESOURCES_PATH "\n\n\n");
-
-  std::string path = RESOURCES_PATH "animated/rigged_sonic.glb";
-  // std::string path = RESOURCES_PATH "cube.obj";
-  // Model cube = rend.p_meshManager->LoadModel(path);
-  auto model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
-
-  /*  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
-    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
-    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
-    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
-    rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
-
-  rend.p_AnimatedModelManager->RemoveModel(model);
-
-  path = RESOURCES_PATH "animated/Capoeira.glb";
-
-  model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
-
-  /*rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_ANIMATED_MESH_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MESH_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_STATIC_MATRIX_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_MATRIX_DATA);
-  rend.p_bufferManager->ClearBuffer(TypeFlags::BUFFER_INSTANCE_DATA);*/
-
-  rend.p_AnimatedModelManager->RemoveModel(model);
-  path = RESOURCES_PATH "animated/rigged_sonic.glb";
-
-  model = rend.p_AnimatedModelManager->LoadAnimatedModel(path);
-  // ModelID modelID =
-  //     rend.p_AnimatedModelManager->LoadAHazModel(RESOURCES_PATH "TEST.ahzm");
-  // auto model = rend.p_AnimatedModelManager->GetModel(modelID);
-
-  AnimationID animationID;
-  rend.p_AnimatedModelManager->LoadAnimation(
-      rend.p_AnimatedModelManager->GetModel(model)->GetSkeleton(), path,
-      animationID);
+  auto skeleton = rend.p_AnimatedModelManager->GetModel(modelID)->GetSkeleton();
   auto &anim = rend.p_AnimatedModelManager->GetAnimator(
-      rend.p_AnimatedModelManager->GetModel(model)->GetAnimatorID());
+      rend.p_AnimatedModelManager->GetModel(modelID)->GetAnimatorID());
 
-  // int skelAnimID = anim->AddAnimation(
-  //    rend.p_AnimatedModelManager->GetAnimation(animationID));
+  // ---- Load the four animation clips ----
+  AnimationID idleID, jogID, runID, jumpID;
+  std::string idlePath = RESOURCES_PATH "Sonic/idle.gltf";
+  std::string jogPath = RESOURCES_PATH "Sonic/jog.gltf";
+  std::string runPath = RESOURCES_PATH "Sonic/run.gltf";
+  std::string jumpPath = RESOURCES_PATH "Sonic/jump.gltf";
 
-  // Renderer::p_meshManager->SetModelInstanceCount(cube, 1);
-  rend.p_AnimatedModelManager->SetModelShader(model, shader);
+  rend.p_AnimatedModelManager->LoadAnimation(skeleton, idlePath, idleID);
+  rend.p_AnimatedModelManager->LoadAnimation(skeleton, jogPath, jogID);
+  rend.p_AnimatedModelManager->LoadAnimation(skeleton, runPath, runID);
+  rend.p_AnimatedModelManager->LoadAnimation(skeleton, jumpPath, jumpID);
 
+  auto clipIdle = rend.p_AnimatedModelManager->GetAnimation(idleID);
+  auto clipJog = rend.p_AnimatedModelManager->GetAnimation(jogID);
+  auto clipRun = rend.p_AnimatedModelManager->GetAnimation(runID);
+  auto clipJump = rend.p_AnimatedModelManager->GetAnimation(jumpID);
+
+  // ---- Build the blend space ----
+  //
+  //  Y axis = jump (vertical)
+  //  X axis = speed (horizontal): 0=idle, 0.5=jog, 1.0=run
+  //
+  //        (0, 1) jump
+  //           |
+  // (0,0) ---+--- (0.5, 0) --- (1.0, 0)
+  // idle              jog          run
+  //
+  // Fan triangulation pivots from index 0 (idle), so point order matters:
+  //   tri 0: idle(0) → jog(1) → run(2)
+  //   tri 1: idle(0) → run(2) → jump(3)
+  // That covers the full convex region.
+
+  std::vector<BlendPoint> points = {
+      {clipIdle, 0.0f, 0.0f}, // index 0 — fan center
+      {clipJog, 0.5f, 0.0f},  // index 1
+      {clipRun, 1.0f, 0.0f},  // index 2
+      {clipJump, 0.0f, 1.0f}, // index 3
+  };
+
+  int blendSpaceID = anim->RegisterBlendSpace2D(points);
+
+  // ---- Wire the blend space into a layer ----
+  // After the Animator.hpp/.cpp fix above, this overload exists:
+  int layerIndex = anim->CreateAnimationLayer();
+  anim->SetLayerSource(layerIndex, anim->GetBlendSpace(blendSpaceID));
+  //  ^ GetBlendSpace() is a one-liner accessor you add to Animator (see below)
+
+  // ---- Transform ----
   glm::mat4 position = glm::mat4(1.0f);
-
   position = glm::translate(position, glm::vec3(0.0f, 0.0f, -10.0f));
   position =
       glm::rotate(position, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-  position = glm::scale(position, glm::vec3(0.05f));
-
-  const auto &animationClip =
-      rend.p_AnimatedModelManager->GetAnimation(animationID);
-
-  // 1. Register the animation with the Animator (as per your current design)
-  // The returned index (localAnimationID) is for the Animator's internal list
-  // only.
-  int localAnimationID = anim->AddAnimation(animationClip);
-
-  // --- Core Animation Setup ---
-  // 2. Create the first animation layer (this usually returns 0)
-  int layerIndex = anim->CreateAnimationLayer();
-
-  // 3. Set the loaded Animation as the source for that layer
-  // The layer will now start playing this animation clip.
-  anim->SetLayerSource(layerIndex, animationClip);
-
-  //
-  glm::mat4 projection1 = glm::perspective(
-      glm::radians(camera.Zoom),
-      (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
-      0.1f, 100.0f);
+  position = glm::scale(position, glm::vec3(1.0f));
 
   rend.UpdateRenderer(deltaTime);
+  rend.SubmitAnimatedModel(modelID, position, matID, shader);
+  std::vector<DrawRange> ranges = rend.p_renderQueue->SubmitRenderCommands();
 
-  std::vector<DrawRange> ranges;
+  // ---- Loop ----
+  while (!rend.shouldQuit) {
+    processInput(rend.p_window.get(), rend.shouldQuit);
 
-  rend.SubmitAnimatedModel(model, position, materialID, shader);
-  ranges = rend.p_renderQueue->SubmitRenderCommands();
-  // rend.p_bufferManager->EndWritting();
+    // This is the only line you need each frame to drive the blend space.
+    // SetBlendInput pushes x/y into BlendSpace2D::HorizontalAxis/VerticalAxis.
+    anim->SetBlendInput(blendX, blendY);
 
-  int frameNum = 0;
-  // rend.p_AnimatedModelManager->ExportAHazModel(RESOURCES_PATH "TEST.ahzm",
-  //                                            model->GetID());
-
-  while (rend.shouldQuit == false) {
-    // rend.DefaultFrameBuffer();
-    processInput(rend.p_window.get(), rend.shouldQuit, camera);
-
+    glm::mat4 proj = glm::perspective(glm::radians(camera.Zoom),
+                                      (float)rend.p_window->GetWidth() /
+                                          (float)rend.p_window->GetHeight(),
+                                      0.1f, 100.0f);
     rend.SetCameraPosition(camera.Position);
+    rend.SetViewProjection(camera.GetViewMatrix(), proj);
 
-    glm::mat4 projection = glm::perspective(
-        glm::radians(camera.Zoom),
-        (float)rend.p_window->GetWidth() / (float)rend.p_window->GetHeight(),
-        0.1f, 100.0f);
-
-    rend.SetViewProjection(camera.GetViewMatrix(), projection);
-
-    rend.p_debugDrawer->SubmitCube({0.0f, 0.0f, -5.0f}, {1.0f, 1.0f, 1.0f},
-                                   {1, 0.5f, 1, 0.1f});
-
-    rend.p_debugDrawer->SubmitCube({0.0f, 2.0f, -3.0f}, {1.0f, 1.0f, 1.0f},
-                                   {1, 0.5f, 1, 0.1f});
-
-    rend.p_debugDrawer->SubmitLine({0, 0, 0}, {10, 10, 10}, 0.1f,
-                                   {1.0f, 0.0f, 1.0f, 1.0f});
-
-    rend.p_debugDrawer->SubmitSphere({1.0f, 1.0f, 1.0f}, 2.0f);
-
-    //  rend.UpdateDynamicData(camDt, &camcamdata, sizeof(camcamdata));
-
-    rend.SubmitAnimatedModel(model, position, 0, shader);
-
+    rend.SubmitAnimatedModel(modelID, position, 0, shader);
     ranges = Renderer::p_renderQueue->SubmitRenderCommands();
-
     rend.UpdateDynamicData(materials, mat.first.data(),
                            mat.first.size() * sizeof(PBRMaterial));
-    // rend.p_bufferManager->EndWritting();
     rend.UpdateRenderer(deltaTime);
     rend.RenderFrame(ranges);
-
-    // rend.DisplayFrameBuffer(rend.GetMainFBO());
-
     rend.SwapBuffers();
-    // Renderer::p_bufferManager->ClearBuffer(TypeFlags::BUFFER_CAMERA_DATA);
-
-    frameNum++;
-
-    // printf("END OF FRAME: %u ==============================\n", frameNum);
   }
-
   return 0;
 }

@@ -56,6 +56,12 @@ void Animator::SetLayerSource(int layerIndex,
 
   layers[layerIndex].activeSource = source;
 }
+
+void Animator::SetLayerSource(int layerIndex,
+                              std::shared_ptr<BlendSpace2D> source) {
+  layers[layerIndex].activeSource = source;
+}
+
 void Animator::SetBlendInput(float x, float y) {
 
   for (auto &bs : blendSpaces) {
@@ -108,21 +114,37 @@ void Animator::Update(float deltaTime) {
     return;
   }
 
-  // Initialize finalMatrices
   if (skeleton->finalMatrices.size() != skeleton->m_Joints.size()) {
     skeleton->finalMatrices.resize(skeleton->m_Joints.size());
   }
 
-  // Get base layer
   AnimationLayer &baseLayer = layers[0];
 
-  // Advance time in ticks
-  float tps = baseLayer.activeSource->GetTicksPerSecond();
-  float duration = baseLayer.activeSource->GetDurationTicks();
+  auto baseAsAnim =
+      std::dynamic_pointer_cast<Animation>(baseLayer.activeSource);
+  auto baseAsBS =
+      std::dynamic_pointer_cast<BlendSpace2D>(baseLayer.activeSource);
 
-  baseLayer.currentTime += deltaTime * tps;
-  if (duration > 0.0f) {
-    baseLayer.currentTime = std::fmod(baseLayer.currentTime, duration);
+  if (baseAsAnim) {
+    float tps = baseAsAnim->GetTicksPerSecond();
+    float duration = baseAsAnim->GetDurationTicks();
+    baseLayer.currentTime += deltaTime * tps;
+    if (duration > 0.0f)
+      baseLayer.currentTime = std::fmod(baseLayer.currentTime, duration);
+
+  } else if (baseAsBS && !baseAsBS->points.empty()) {
+    // Use the first clip's tps, but loop at the LONGEST clip's duration
+    // so no clip gets cut off mid-animation.
+    float tps = baseAsBS->points[0].clip->GetTicksPerSecond();
+    float maxDuration = 0.0f;
+    for (const auto &p : baseAsBS->points) {
+      float d = p.clip->GetDurationTicks();
+      if (d > maxDuration)
+        maxDuration = d;
+    }
+    baseLayer.currentTime += deltaTime * tps;
+    if (maxDuration > 0.0f)
+      baseLayer.currentTime = std::fmod(baseLayer.currentTime, maxDuration);
   }
 
   KeyFrame finalPose = baseLayer.activeSource->GetPoseAt(baseLayer.currentTime);
@@ -137,12 +159,28 @@ void Animator::Update(float deltaTime) {
       continue;
     }
 
-    float layerTps = layer.activeSource->GetTicksPerSecond();
-    float layerDuration = layer.activeSource->GetDurationTicks();
+    auto layerAsAnim = std::dynamic_pointer_cast<Animation>(layer.activeSource);
+    auto layerAsBS =
+        std::dynamic_pointer_cast<BlendSpace2D>(layer.activeSource);
 
-    layer.currentTime += deltaTime * layerTps;
-    if (layerDuration > 0.0f) {
-      layer.currentTime = std::fmod(layer.currentTime, layerDuration);
+    if (layerAsAnim) {
+      float tps = layerAsAnim->GetTicksPerSecond();
+      float duration = layerAsAnim->GetDurationTicks();
+      layer.currentTime += deltaTime * tps;
+      if (duration > 0.0f)
+        layer.currentTime = std::fmod(layer.currentTime, duration);
+
+    } else if (layerAsBS && !layerAsBS->points.empty()) {
+      float tps = layerAsBS->points[0].clip->GetTicksPerSecond();
+      float maxDuration = 0.0f;
+      for (const auto &p : layerAsBS->points) {
+        float d = p.clip->GetDurationTicks();
+        if (d > maxDuration)
+          maxDuration = d;
+      }
+      layer.currentTime += deltaTime * tps;
+      if (maxDuration > 0.0f)
+        layer.currentTime = std::fmod(layer.currentTime, maxDuration);
     }
 
     KeyFrame currentPose = layer.activeSource->GetPoseAt(layer.currentTime);
@@ -158,35 +196,9 @@ void Animator::Update(float deltaTime) {
       finalT.scale = glm::mix(finalT.scale, currentT.scale, w);
     }
   }
-  // 3. Apply Forward Kinematics (Convert the final blended pose to Shader
-  // Matrices)
-  /* int rootJointIndex = 0;
-   CalculateJointTransforms(finalPose, skeleton, rootJointIndex,
-                            skeleton->m_RootTransform); */
-
-  const glm::mat4 &rootModelTransform = skeleton->m_RootTransform;
-
-  // FIND ALL ROOT JOINTS AND START A RECURSION FOR EACH.
-  //
-  //
-  //
-  //
-
-  /*for (size_t i = 0; i < skeleton->m_Joints.size(); ++i) {
-    if (skeleton->m_Joints[i].m_ParentJoint == -1) {
-      // Found a root joint! Start a new FK chain from here.
-
-      // Pass the model's root transform as the parent transform
-      // for this chain's first joint.
-      CalculateJointTransforms(finalPose, skeleton, i,
-                               skeleton->m_Joints[0].localBindTransform);
-    }
-  }*/
 
   for (size_t i = 0; i < skeleton->m_RootJointIndecies.size(); i++) {
-
     int &rootIndex = skeleton->m_RootJointIndecies[i];
-
     CalculateJointTransforms(finalPose, skeleton, rootIndex, glm::mat4(1.0f));
   }
 }
