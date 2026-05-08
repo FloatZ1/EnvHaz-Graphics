@@ -176,10 +176,13 @@ public:
       currentPose.transforms.resize(skeleton->m_Joints.size());
     }
   }
+  void SetSpeed(float speed) { globalSpeed = speed; }
+  float GetSpeed() const { return globalSpeed; }
   std::shared_ptr<Skeleton> GetSkeleton() { return skeleton; }
   std::vector<glm::mat4> GetFinalMatrices();
 
 private:
+  float globalSpeed = 1.0f;
   // --- Data Storage ---
   std::shared_ptr<Skeleton> skeleton;
   std::vector<AnimationLayer> layers;

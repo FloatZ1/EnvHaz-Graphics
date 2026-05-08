@@ -16,7 +16,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 5.0f));
 float blendX = 0.0f; // speed axis:  0=idle, 0.5=jog, 1.0=run
 float blendY = 0.0f; // action axis: 1.0=jump
 
-void processInput(Window *c_window, bool &quit) {
+void processInput(Window *c_window, bool &quit, Animator *anim) {
   static uint64_t lastCounter = SDL_GetPerformanceCounter();
   uint64_t now = SDL_GetPerformanceCounter();
   deltaTime = double(now - lastCounter) / SDL_GetPerformanceFrequency();
@@ -69,6 +69,10 @@ void processInput(Window *c_window, bool &quit) {
     camera.ProcessKeyboard(UP, (float)deltaTime);
   if (keys[SDL_SCANCODE_LSHIFT])
     camera.ProcessKeyboard(DOWN, (float)deltaTime);
+  if (keys[SDL_SCANCODE_KP_PLUS])
+    anim->SetSpeed(anim->GetSpeed() + 0.01f);
+  if (keys[SDL_SCANCODE_KP_MINUS])
+    anim->SetSpeed(anim->GetSpeed() - 0.01f);
 
   // Arrow keys drive the blend space
   //  Right arrow: idle → jog → run  (hold = jog, double-tap not needed, just
@@ -173,7 +177,7 @@ int main() {
 
   // ---- Loop ----
   while (!rend.shouldQuit) {
-    processInput(rend.p_window.get(), rend.shouldQuit);
+    processInput(rend.p_window.get(), rend.shouldQuit, anim.get());
 
     // This is the only line you need each frame to drive the blend space.
     // SetBlendInput pushes x/y into BlendSpace2D::HorizontalAxis/VerticalAxis.

@@ -105,6 +105,7 @@ void CalculateJointTransforms(const KeyFrame &pose,
 }
 
 void Animator::Update(float deltaTime) {
+  deltaTime *= globalSpeed;
   if (!skeleton) {
     std::cerr << "Animator Error: No skeleton set." << std::endl;
     return;

@@ -112,6 +112,11 @@ public:
     loadedModels.erase(modelID);
   }
 
+  void RemoveAnimation(AnimationID animationID) {
+
+    animations.erase(animationID);
+  }
+
   void Initialize(BufferManager *bufferManager);
 
   void AddMeshLocation(const MeshID &mesh, VertexIndexInfoPair &location);
