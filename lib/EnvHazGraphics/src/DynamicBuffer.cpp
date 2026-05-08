@@ -151,7 +151,9 @@ SBufferRange CDynamicBuffer::InsertNewData(const void *p_pData, size_t p_szSize,
 
     break;
     // TODO: just check if it works just in case otherwise create a custom
+    //
     // format
+  case TypeFlags::BUFFER_GI_GRID_DATA:
   case TypeFlags::BUFFER_GI_PROBE_DATA:
   case TypeFlags::BUFFER_LIGHT_DATA:
   case TypeFlags::BUFFER_PARTICLE_DATA:

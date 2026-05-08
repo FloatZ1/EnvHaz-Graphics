@@ -520,6 +520,7 @@ void Renderer::RenderFrame(std::vector<DrawRange> DrawOrder) {
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_LIGHT_DATA);
   p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_GI_PROBE_DATA);
 
+  p_bufferManager->BindDynamicBuffer(TypeFlags::BUFFER_GI_GRID_DATA);
   if (!p_shaderManager || !p_window) {
     SDL_Log("RenderFrame called with uninitialized managers!");
     return;
@@ -630,6 +631,9 @@ void Renderer::RenderLightingPass() {
   p_shaderManager->setVec3(m_scidHDRshader, "u_AmbientSky",
                            GetAmbientSkyColor());
   p_shaderManager->setInt(m_scidHDRshader, "numProbes", m_uiNumGI_probes);
+
+  p_shaderManager->setInt(m_scidHDRshader, "numGrids", m_uiNumGI_grids);
+
   for (int i = 0; i < 4; i++) {
     p_shaderManager->s_Instance->setMat4(
         m_scidHDRshader, "u_LightMatrices[" + std::to_string(i) + "]",

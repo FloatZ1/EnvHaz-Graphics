@@ -153,6 +153,7 @@ private:
   CDynamicBuffer DebugShapeMatrices;
 
   CDynamicBuffer GI_ProbeBuffer;
+  CDynamicBuffer GI_GridBuffer;
 
   CGLStaticStack StaticMeshInformation;
   CGLStaticStack TerrainBuffer;
