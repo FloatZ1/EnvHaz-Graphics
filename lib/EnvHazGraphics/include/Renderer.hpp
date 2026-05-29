@@ -60,6 +60,7 @@ public:
   uint32_t m_uiNumGI_probes = 0;
 
   uint32_t m_uiNumGI_grids = 0;
+
   glm::vec2 GetCurrentFramebufferWH() { return {fb_width, fb_height}; }
 
   void SetCameraPosition(const glm::vec3 &pos) { cameraPosition = pos; }

@@ -138,9 +138,7 @@ public:
 
   void SetMeshResidency(MeshID mesh, bool status);
 
-  std::shared_ptr<Skeleton> &GetSkeleton(SkeletonID ID) {
-    return skeletons[ID];
-  }
+  std::shared_ptr<Skeleton> &GetSkeleton(ModelID ID) { return skeletons[ID]; }
 
   std::shared_ptr<Animator> &GetAnimator(AnimatorID ID) {
     return animators[ID];

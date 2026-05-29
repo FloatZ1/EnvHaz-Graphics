@@ -308,6 +308,7 @@ public:
   int width, height, nrChannel;
   unsigned char *data;
   float *hdrData;
+  bool m_bSuccessfullyLoaded = false;
 
   Texture2D(std::string texturePath, GLenum storageFormat = 0,
             GLenum imageFormat = 0) {
@@ -317,12 +318,19 @@ public:
       data = stbi_load(texturePath.c_str(), &width, &height, &nrChannel, 0);
 
       if (!data) {
-        std::cerr << "stbi_load failed for " << texturePath << "\n";
-        std::cerr << "Reason: " << stbi_failure_reason() << "\n";
+
+        SDL_LogError(SDL_LOG_PRIORITY_ERROR,
+                     "[ERROR] : stbi_load failed for %s", texturePath.c_str());
+
+        SDL_LogError(SDL_LOG_PRIORITY_ERROR, "Reason %s \n",
+                     stbi_failure_reason());
+        //  std::cerr << "stbi_load failed for " << texturePath << "\n";
+        // std::cerr << "Reason: " << stbi_failure_reason() << "\n";
         perror("fopen");
+        return;
       } else {
-        std::cout << "Loaded texture: " << width << "x" << height
-                  << " channels: " << nrChannel << std::endl;
+        SDL_Log("Loaded texture: %zu x %zu , channels: %zu", width, height,
+                nrChannel);
       }
 
       if (storageFormat == 0 && imageFormat == 0) {
@@ -355,7 +363,12 @@ public:
       glGenerateTextureMipmap(texture);
       TextureHandle = glGetTextureHandleARB(texture);
       if (TextureHandle == 0) {
-        SDL_Log("Could not load the texturePath: ");
+        SDL_LogError(SDL_LOG_PRIORITY_ERROR,
+                     "[ERROR] : Could not load the texturePath: %s",
+                     texturePath.c_str());
+
+        stbi_image_free(data);
+        return;
       }
       stbi_image_free(data);
     } else {
@@ -377,7 +390,12 @@ public:
       glGenerateTextureMipmap(texture);
       TextureHandle = glGetTextureHandleARB(texture);
       if (TextureHandle == 0) {
-        SDL_Log("Could not load the texturePath: ");
+        SDL_LogError(SDL_LOG_PRIORITY_ERROR,
+                     "[ERROR] : Could not load the texturePath: %s",
+                     texturePath.c_str());
+
+        stbi_image_free(data);
+        return;
       }
       stbi_image_free(hdrData);
     }

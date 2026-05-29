@@ -173,8 +173,8 @@ void BufferManager::BindDynamicBuffer(TypeFlags type) {
 }
 
 void BufferManager::Initialize() {
-  int d_size = 10;
-  int s_size = 16;
+  int d_size = 100;
+  int s_size = 300;
 
   InstanceData = CDynamicBuffer(MBsize(d_size), 0);
   DrawCommandBuffer =
@@ -183,7 +183,7 @@ void BufferManager::Initialize() {
   TextureHandleBuffer = CDynamicBuffer(MBsize(d_size), 3);
   ParticleData = CDynamicBuffer(MBsize(d_size), 4);
   StaticMeshInformation = CGLStaticStack(MBsize(s_size), MBsize(s_size), 5);
-  TerrainBuffer = CGLStaticStack(MBsize(s_size), MBsize(s_size), 6);
+  TerrainBuffer = CGLStaticStack(MBsize(1), MBsize(1), 6);
 
   // TODO: ADD the other static allocator
 

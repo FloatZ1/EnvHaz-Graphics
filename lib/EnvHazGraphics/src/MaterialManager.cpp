@@ -44,10 +44,21 @@ unsigned int MaterialManager::LoadTexture(const std::string &path) {
     LoadedTextures[id]->RemoveResidency();
 
     LoadedTextures[id] = std::make_unique<Texture2D>(path);
+    if (!LoadedTextures[id]->m_bSuccessfullyLoaded) {
+
+      LoadedTextures[id] = std::make_unique<Texture2D>(m_TexturePathStrings[0]);
+
+      // return 0;
+    }
 
   } else {
     LoadedTextures.push_back(std::make_unique<Texture2D>(path));
+
     id = LoadedTextures.size() - 1;
+    if (!LoadedTextures[id]->m_bSuccessfullyLoaded) {
+
+      LoadedTextures[id] = std::make_unique<Texture2D>(m_TexturePathStrings[0]);
+    }
   }
 
   LoadedTextures[id]->MakeResident();
